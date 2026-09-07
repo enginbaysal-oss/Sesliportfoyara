@@ -25,12 +25,16 @@ object PortfolioSearchEngine {
             .replace("arti", "+")
             .trim()
             
-        // Sayı kelimelerini rakama çevir (Örn: "uc + bir" -> "3 + 1")
         NUMBER_MAP.forEach { (word, digit) ->
             n = n.replace(Regex("\\b$word\\b"), digit)
         }
         
         return n
+    }
+
+    // Boşlukları ve özel karakterleri atarak karşılaştırma yapmak için
+    private fun collapse(str: String): String {
+        return normalize(str).filter { it.isLetterOrDigit() || it == '+' }
     }
 
     fun tokenize(str: String): List<String> {
@@ -42,49 +46,64 @@ object PortfolioSearchEngine {
 
     fun search(query: String, listings: List<Portfolio>): List<Portfolio> {
         val normalizedQuery = normalize(query)
+        val collapsedQuery = collapse(query)
+        
+        println("🔍 Arama Başlatıldı: '$query'")
+        println("🔍 Normalizasyon: '$normalizedQuery'")
+        println("🔍 Daraltılmış Sorgu: '$collapsedQuery'")
+        
         if (normalizedQuery.isEmpty()) return emptyList()
         
         val tokens = tokenize(query)
 
-        return listings.map { l ->
-            // Tüm alanları içeren genişletilmiş içerik indeksi
+        val scoredResults = listings.map { l ->
             val fields = listOf(
-                l.title to 10,
-                l.location to 8,
-                l.rooms to 12, // Oda sayısı aramada kritiktir
-                l.propertyType to 8,
-                l.type to 5, // Satılık/Kiralık
-                l.features.joinToString(" ") to 5,
-                l.consultantName to 4,
-                l.ownerName to 4,
-                l.price to 3,
-                l.area to 3,
-                l.consultantPhone to 2,
-                l.ownerPhone to 2
+                l.title to 15, // Puan artırıldı
+                l.location to 10,
+                l.rooms to 20, // Oda sayısı aramada en yüksek puanı alır
+                l.propertyType to 10,
+                l.type to 8,
+                l.features.joinToString(" ") to 8,
+                l.consultantName to 5,
+                l.ownerName to 5,
+                l.price to 4,
+                l.area to 4
             )
             
             var score = 0
             
             fields.forEach { (fieldValue, weight) ->
                 val normField = normalize(fieldValue)
+                val collField = collapse(fieldValue)
                 
-                // Tam eşleşme (Alan bazlı)
-                if (normField.contains(normalizedQuery) || normalizedQuery.contains(normField)) {
-                    score += weight * 2
+                // 1. TAM EŞLEŞME (Daraltılmış) - Boşluk farklarını tolere eder (Örn: "3 + 1" vs "3+1")
+                if (collField.contains(collapsedQuery) || collapsedQuery.contains(collField)) {
+                    score += weight * 3
                 }
                 
-                // Kelime bazlı eşleşme
+                // 2. KELİME BAZLI EŞLEŞME
                 tokens.forEach { tok ->
                     if (normField.contains(tok)) {
+                        score += weight
+                    } else if (collField.contains(collapse(tok))) {
                         score += weight
                     }
                 }
             }
             
+            if (score > 0) {
+                println("✅ Eşleşme Bulundu: '${l.title}' (Puan: $score)")
+            }
+            
             l to score
         }
-        .filter { it.second > 0 }
-        .sortedByDescending { it.second }
-        .map { it.first }
+        
+        val finalResults = scoredResults
+            .filter { it.second > 0 }
+            .sortedByDescending { it.second }
+            .map { it.first }
+            
+        println("📊 Toplam Sonuç: ${finalResults.size}")
+        return finalResults
     }
 }
