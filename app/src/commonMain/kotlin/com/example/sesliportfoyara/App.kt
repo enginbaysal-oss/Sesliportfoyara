@@ -929,10 +929,17 @@ fun MyPortfolioScreen(
 @Composable
 fun PortfolioItem(portfolio: Portfolio, onDelete: ((Portfolio) -> Unit)?, onEdit: ((Portfolio) -> Unit)?) {
     val currentConsultant = LocalConsultantInfo.current
-    val cleanMyPhone = currentConsultant.phone.filter { it.isDigit() }
-    val cleanConsultantPhone = portfolio.consultantPhone.filter { it.isDigit() }
-    val isMine = portfolio.consultantName.equals(currentConsultant.name, ignoreCase = true) && 
-                cleanConsultantPhone == cleanMyPhone && cleanMyPhone.isNotEmpty()
+    
+    // Akıllı Eşleşme Mantığı: Telefonun son 10 hanesini karşılaştır (ülke kodu/sıfır farkını önlemek için)
+    val cleanMyPhone = currentConsultant.phone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
+    val cleanConsultantPhone = portfolio.consultantPhone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
+    
+    // Portföyün bana ait olup olmadığını belirle:
+    // 1. Yerel bir portföy mü? (ID'si local_ ile mi başlıyor?)
+    // 2. Danışman ismi ve telefonu benimle uyuşuyor mu?
+    val isMine = portfolio.id.startsWith("local_") || 
+                (portfolio.consultantName.trim().equals(currentConsultant.name.trim(), ignoreCase = true) && 
+                 cleanConsultantPhone == cleanMyPhone && cleanMyPhone.isNotEmpty())
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -988,19 +995,17 @@ fun PortfolioItem(portfolio: Portfolio, onDelete: ((Portfolio) -> Unit)?, onEdit
                 Spacer(Modifier.width(6.6.dp))
                 
                 val contactName = if (isMine && portfolio.ownerName.isNotEmpty()) {
-                    portfolio.ownerName 
+                    "Mülk Sahibi: ${portfolio.ownerName}" 
                 } else if (portfolio.consultantName.isNotEmpty()) {
-                    portfolio.consultantName
+                    "Danışman: ${portfolio.consultantName}"
                 } else {
-                    portfolio.ownerName
+                    "Sahibi: ${portfolio.ownerName}"
                 }
                 
-                Text(contactName, color = Color.Gray, fontSize = 12.sp)
+                Text(contactName, color = Color.Gray, fontSize = 12.sp, fontWeight = if (isMine) FontWeight.Bold else FontWeight.Normal)
                 
                 if (isMine && portfolio.ownerName.isNotEmpty()) {
-                    Text(" (Mülk Sahibi)", color = Color(0xFFFFC107).copy(0.7f), fontSize = 10.sp, modifier = Modifier.padding(start = 4.dp))
-                } else if (!isMine && portfolio.consultantName.isNotEmpty()) {
-                    Text(" (Danışman)", color = Color.Gray.copy(0.5f), fontSize = 10.sp, modifier = Modifier.padding(start = 4.dp))
+                    Text(" (Özel Mandat)", color = Color(0xFFFFC107).copy(0.7f), fontSize = 10.sp, modifier = Modifier.padding(start = 4.dp))
                 }
             }
             
