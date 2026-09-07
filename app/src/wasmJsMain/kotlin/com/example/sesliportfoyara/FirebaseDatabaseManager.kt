@@ -17,6 +17,7 @@ class FirebaseDatabaseManager : DatabaseManager {
             json(Json { 
                 ignoreUnknownKeys = true 
                 coerceInputValues = true
+                encodeDefaults = true // Varsayılan değerleri (Daire vb.) Firebase'e zorunlu gönder
             })
         }
     }

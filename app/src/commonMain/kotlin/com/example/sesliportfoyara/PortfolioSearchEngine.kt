@@ -92,7 +92,10 @@ object PortfolioSearchEngine {
             }
             
             if (score > 0) {
-                println("✅ Eşleşme Bulundu: '${l.title}' (Puan: $score)")
+                println("✅ Eşleşme: '${l.title}'")
+                println("   └─ ID: ${l.id}")
+                println("   └─ Tip: ${l.propertyType}, Fiyat: ${l.price}")
+                println("   └─ Puan: $score")
             }
             
             l to score

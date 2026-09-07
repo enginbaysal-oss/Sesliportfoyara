@@ -526,6 +526,13 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>) {
         searchResults = PortfolioSearchEngine.search(query, portfolios)
         focusManager.clearFocus()
     }
+
+    // Portföy listesi arkada güncellenirse arama sonuçlarını da tazele
+    LaunchedEffect(portfolios) {
+        if (lastQuery.isNotBlank()) {
+            searchResults = PortfolioSearchEngine.search(lastQuery, portfolios)
+        }
+    }
     
     Column(
         modifier = Modifier
@@ -983,6 +990,23 @@ fun PortfolioItem(portfolio: Portfolio, onDelete: ((Portfolio) -> Unit)?, onEdit
                     Spacer(Modifier.width(8.dp))
                     Surface(color = Color.White.copy(0.1f), shape = RoundedCornerShape(4.dp)) {
                         Text(portfolio.propertyType, color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                    }
+                    
+                    // Kaynak Etiketi (OFİS veya YEREL)
+                    Spacer(Modifier.width(8.dp))
+                    val isLocal = portfolio.id.startsWith("local_")
+                    Surface(
+                        color = if (isLocal) Color(0xFF2196F3).copy(0.2f) else Color(0xFFFF5252).copy(0.2f),
+                        shape = RoundedCornerShape(4.dp),
+                        border = BorderStroke(0.5.dp, if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252))
+                    ) {
+                        Text(
+                            text = if (isLocal) "YEREL" else "OFİS",
+                            color = if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252),
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
                     }
                 }
                 Text(text = formatPrice(portfolio.price), color = Color(0xFFFFC107), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
