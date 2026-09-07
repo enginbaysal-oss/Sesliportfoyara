@@ -8,23 +8,53 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 
 @JsFun("(onResult, onError) => { " +
-    "try { " +
-    "  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; " +
-    "  if (!SpeechRecognition) { onError('Bu tarayıcı sesli aramayı desteklemiyor.'); return; } " +
-    "  const recognition = new SpeechRecognition(); " +
-    "  recognition.lang = 'tr-TR'; " +
-    "  recognition.onresult = (event) => { " +
-    "    const text = event.results[0][0].transcript; " +
-    "    onResult(text); " +
-    "  }; " +
-    "  recognition.onerror = (event) => { onError('Hata: ' + event.error); }; " +
-    "  recognition.start(); " +
-    "  window._currentRecognition = recognition; " +
-    "} catch (e) { onError('Başlatılamadı: ' + e.message); } " +
+    "console.log('🎤 Web Speech API initiation...'); " +
+    "if (!window.isSecureContext) { " +
+    "  onError('Sesli arama için güvenli bağlantı (HTTPS) gereklidir.'); " +
+    "  return; " +
+    "} " +
+    "const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; " +
+    "if (!SpeechRecognition) { " +
+    "  onError('Bu tarayıcı Web Speech API desteklemiyor. Lütfen Chrome veya Edge kullanın.'); " +
+    "  return; " +
+    "} " +
+    "navigator.mediaDevices.getUserMedia({ audio: true }) " +
+    "  .then((stream) => { " +
+    "    console.log('✅ Mikrofon izni alındı'); " +
+    "    stream.getTracks().forEach(track => track.stop()); " +
+    "    const recognition = new SpeechRecognition(); " +
+    "    recognition.lang = 'tr-TR'; " +
+    "    recognition.interimResults = false; " +
+    "    recognition.maxAlternatives = 1; " +
+    "    recognition.onresult = (event) => { " +
+    "      const text = event.results[0][0].transcript; " +
+    "      console.log('🎤 Algılanan ses:', text); " +
+    "      onResult(text); " +
+    "    }; " +
+    "    recognition.onerror = (event) => { " +
+    "      console.error('❌ SpeechRecognition hatası:', event.error); " +
+    "      onError('Hata: ' + event.error); " +
+    "    }; " +
+    "    recognition.onend = () => { " +
+    "      console.log('🎤 Dinleme bitti'); " +
+    "      window._currentRecognition = null; " +
+    "    }; " +
+    "    recognition.start(); " +
+    "    window._currentRecognition = recognition; " +
+    "  }) " +
+    "  .catch((err) => { " +
+    "    console.error('❌ Mikrofon erişim hatası:', err); " +
+    "    onError('Mikrofon izni verilmedi veya erişilemiyor.'); " +
+    "  }); " +
     "}")
 external fun jsStartVoiceRecognition(onResult: (JsString) -> Unit, onError: (JsString) -> Unit)
 
-@JsFun("() => { if (window._currentRecognition) { window._currentRecognition.stop(); } }")
+@JsFun("() => { " +
+    "if (window._currentRecognition) { " +
+    "  try { window._currentRecognition.stop(); } catch(e) {} " +
+    "  window._currentRecognition = null; " +
+    "} " +
+    "}")
 external fun jsStopVoiceRecognition()
 
 @JsFun("(content, fileName) => { " +
