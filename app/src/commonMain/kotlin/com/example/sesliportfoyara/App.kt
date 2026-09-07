@@ -1003,10 +1003,6 @@ fun PortfolioItem(portfolio: Portfolio, onDelete: ((Portfolio) -> Unit)?, onEdit
                 }
                 
                 Text(contactName, color = Color.Gray, fontSize = 12.sp, fontWeight = if (isMine) FontWeight.Bold else FontWeight.Normal)
-                
-                if (isMine && portfolio.ownerName.isNotEmpty()) {
-                    Text(" (Özel Mandat)", color = Color(0xFFFFC107).copy(0.7f), fontSize = 10.sp, modifier = Modifier.padding(start = 4.dp))
-                }
             }
             
             val platformUtils = LocalPlatformUtils.current
