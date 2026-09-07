@@ -213,6 +213,20 @@ fun App() {
                             isEditingLocal = true
                             currentScreen = Screen.AddPortfolio
                         },
+                        onPublishLocal = { p ->
+                            scope.launch {
+                                try {
+                                    // Firebase'e ekle (ID'yi temizle ki yeni bir Firebase ID'si alsın)
+                                    dbManager.addPortfolio(p.copy(id = "", createdAt = Clock.now()))
+                                    // Yerelden sil
+                                    localPortfolioManager.deletePortfolio(p.id)
+                                    snackbarHostState.showSnackbar("✅ Portföy ofise aktarıldı.")
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    snackbarHostState.showSnackbar("❌ Aktarma başarısız.")
+                                }
+                            }
+                        },
                         onEditProfile = {
                             currentScreen = Screen.ProfileSetup
                         },
@@ -880,6 +894,7 @@ fun MyPortfolioScreen(
     onDeleteLocal: (Portfolio) -> Unit,
     onEditOffice: (Portfolio) -> Unit,
     onEditLocal: (Portfolio) -> Unit,
+    onPublishLocal: (Portfolio) -> Unit,
     onEditProfile: () -> Unit,
     currentName: String,
     currentPhone: String,
@@ -950,7 +965,8 @@ fun MyPortfolioScreen(
                     PortfolioItem(
                         portfolio = portfolio, 
                         onDelete = if (canManage) (if (selectedTab == 0) onDeleteLocal else onDeleteOffice) else null, 
-                        onEdit = if (canManage) (if (selectedTab == 0) onEditLocal else onEditOffice) else null
+                        onEdit = if (canManage) (if (selectedTab == 0) onEditLocal else onEditOffice) else null,
+                        onPublish = if (selectedTab == 0) onPublishLocal else null
                     )
                 }
             }
@@ -960,7 +976,12 @@ fun MyPortfolioScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PortfolioItem(portfolio: Portfolio, onDelete: ((Portfolio) -> Unit)?, onEdit: ((Portfolio) -> Unit)?) {
+fun PortfolioItem(
+    portfolio: Portfolio, 
+    onDelete: ((Portfolio) -> Unit)?, 
+    onEdit: ((Portfolio) -> Unit)?,
+    onPublish: ((Portfolio) -> Unit)? = null
+) {
     val currentConsultant = LocalConsultantInfo.current
     
     // Akıllı Eşleşme Mantığı: Telefonun son 10 hanesini karşılaştır (ülke kodu/sıfır farkını önlemek için)
@@ -1094,6 +1115,13 @@ fun PortfolioItem(portfolio: Portfolio, onDelete: ((Portfolio) -> Unit)?, onEdit
                         Icon(Icons.Default.Edit, null, tint = Color.Gray, modifier = Modifier.size(18.dp))
                     }
                 }
+                
+                if (onPublish != null) {
+                    IconButton(onClick = { onPublish(portfolio) }, modifier = Modifier.size(42.dp).background(Color(0xFFFFC107).copy(0.15f), CircleShape)) {
+                        Icon(Icons.Default.CloudUpload, null, tint = Color(0xFFFFC107), modifier = Modifier.size(20.dp))
+                    }
+                }
+
                 if (onDelete != null) {
                     IconButton(onClick = { onDelete(portfolio) }, modifier = Modifier.size(42.dp).background(Color.Red.copy(0.1f), CircleShape)) {
                         Icon(Icons.Default.Delete, null, tint = Color.Red.copy(0.7f), modifier = Modifier.size(18.dp))
