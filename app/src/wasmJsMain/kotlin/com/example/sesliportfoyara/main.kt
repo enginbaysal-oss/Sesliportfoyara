@@ -5,19 +5,48 @@ import androidx.compose.ui.window.CanvasBasedWindow
 import com.russhwolf.settings.StorageSettings
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 
-@JsFun("(content, fileName) => { const blob = new Blob([content], {type: 'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fileName; a.click(); URL.revokeObjectURL(url); }")
+@JsFun("(content, fileName) => { " +
+    "const blob = new Blob([content], {type: 'application/json'}); " +
+    "const url = URL.createObjectURL(blob); " +
+    "const a = document.createElement('a'); " +
+    "a.href = url; " +
+    "a.download = fileName; " +
+    "document.body.appendChild(a); " +
+    "a.click(); " +
+    "document.body.removeChild(a); " +
+    "URL.revokeObjectURL(url); " +
+    "}")
 external fun jsDownloadFile(content: String, fileName: String)
 
-@JsFun("(callback) => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json'; input.onchange = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (re) => { callback(re.target.result); }; reader.readAsText(file); }; input.click(); }")
-external fun jsOpenFilePicker(callback: (String) -> Unit)
+@JsFun("() => { " +
+    "window.pickFile = (callback) => { " +
+    "  const input = document.createElement('input'); " +
+    "  input.type = 'file'; " +
+    "  input.accept = '.json'; " +
+    "  input.onchange = (e) => { " +
+    "    const file = e.target.files[0]; " +
+    "    if (!file) { callback(null); return; } " +
+    "    const reader = new FileReader(); " +
+    "    reader.onload = (re) => { callback(re.target.result); }; " +
+    "    reader.readAsText(file); " +
+    "  }; " +
+    "  input.click(); " +
+    "}; " +
+    "}")
+external fun initJsFilePicker()
+
+@JsFun("(callback) => window.pickFile(callback)")
+external fun jsOpenFilePicker(callback: (JsString?) -> Unit)
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
+    initJsFilePicker()
     CanvasBasedWindow(canvasElementId = "ComposeTarget") {
+        val scope = rememberCoroutineScope()
         val platformUtils = object : PlatformUtils {
             override fun openUri(uri: String) {
-                // Tarayıcıda yeni sekmede aç
                 kotlinx.browser.window.open(uri, "_blank")
             }
             override fun startVoiceRecognition(onResult: (String) -> Unit, onError: (String) -> Unit) {
@@ -34,7 +63,7 @@ fun main() {
             }
             override fun pickFile(onResult: (String?) -> Unit) {
                 jsOpenFilePicker { content ->
-                    onResult(content)
+                    onResult(content?.toString())
                 }
             }
         }

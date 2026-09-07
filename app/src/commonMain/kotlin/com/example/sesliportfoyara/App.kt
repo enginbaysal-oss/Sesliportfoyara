@@ -72,6 +72,7 @@ data class ConsultantInfo(
 )
 
 val LocalConsultantInfo = staticCompositionLocalOf { ConsultantInfo() }
+val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> { error("No SnackbarHostState") }
 
 sealed class Screen(val title: String) {
     object VoiceSearch : Screen("Sesli Ara")
@@ -89,6 +90,7 @@ fun App() {
     val settings = remember { Settings() }
     val crmManager = LocalCRMManagerProvider.current
     val localPortfolioManager = LocalPortfolioManagerProvider.current
+    val snackbarHostState = remember { SnackbarHostState() }
     
     // Uygulamanın hatırladığı danışman bilgileri (Sizin kimliğiniz)
     var myName by remember { mutableStateOf(settings.getString("my_consultant_name", "")) }
@@ -100,7 +102,10 @@ fun App() {
         mutableStateOf<Screen>(if (myName.isEmpty() || myPhone.isEmpty()) Screen.ProfileSetup else Screen.VoiceSearch) 
     }
     
-    CompositionLocalProvider(LocalConsultantInfo provides ConsultantInfo(myName, myPhone)) {
+    CompositionLocalProvider(
+        LocalConsultantInfo provides ConsultantInfo(myName, myPhone),
+        LocalSnackbarHostState provides snackbarHostState
+    ) {
         SesliportfoyaraTheme(darkTheme = true) {
         val officePortfolios = remember { mutableStateListOf<Portfolio>() }
         val localPortfolios by localPortfolioManager.portfolios.collectAsState()
@@ -137,6 +142,7 @@ fun App() {
                     }
                 }
             },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = MaterialTheme.colorScheme.background
         ) { paddingValues ->
             Box(
@@ -433,17 +439,27 @@ fun HeaderSection() {
         }
 
         // ANA SAYFAYA TAŞINAN YEDEKLEME BUTONLARI
+        val snackbarHostState = LocalSnackbarHostState.current
+        val scope = rememberCoroutineScope()
+        
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = {
                 val fullBackup = crmManager.exportFullBackup(localPortfolioManager.getAllPortfolios())
-                platformUtils.saveFile("sesliportfoy_yedek.json", fullBackup) { _ -> }
+                platformUtils.saveFile("sesliportfoy_yedek.json", fullBackup) { ok ->
+                    scope.launch {
+                        snackbarHostState.showSnackbar(if (ok) "✅ Yedekleme başarılı!" else "❌ Yedekleme başarısız.")
+                    }
+                }
             }, modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Default.Download, "Yedekle", tint = Color(0xFFc9a15a), modifier = Modifier.size(20.dp))
             }
             IconButton(onClick = {
                 platformUtils.pickFile { json ->
                     if (json != null) {
-                        crmManager.importFullBackup(json, localPortfolioManager)
+                        val ok = crmManager.importFullBackup(json, localPortfolioManager)
+                        scope.launch {
+                            snackbarHostState.showSnackbar(if (ok) "✅ Yedek başarıyla yüklendi!" else "❌ Hatalı yedek dosyası.")
+                        }
                     }
                 }
             }, modifier = Modifier.size(32.dp)) {
