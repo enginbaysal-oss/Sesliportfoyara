@@ -36,9 +36,9 @@ class FirebaseDatabaseManager : DatabaseManager {
                 emit(list)
             } catch (e: Exception) {
                 println("❌ Veri çekme hatası: ${e.message}")
-                emit(emptyList())
+                // Hata durumunda boş liste emit etmiyoruz, böylece ekran sıfırlanmıyor (mevcut veriler kalıyor)
             }
-            delay(5000) 
+            delay(10000) // Polling interval 10 saniyeye çıkarıldı (performans için)
         }
     }
 

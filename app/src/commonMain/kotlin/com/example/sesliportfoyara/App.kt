@@ -119,8 +119,10 @@ fun App() {
 
         LaunchedEffect(Unit) {
             dbManager.getPortfolios().collectLatest { list ->
-                officePortfolios.clear()
-                officePortfolios.addAll(list.sortedByDescending { it.createdAt })
+                if (list.isNotEmpty() || officePortfolios.isEmpty()) {
+                    officePortfolios.clear()
+                    officePortfolios.addAll(list.sortedByDescending { it.createdAt })
+                }
             }
         }
 
@@ -217,13 +219,12 @@ fun App() {
                             scope.launch {
                                 try {
                                     // Firebase'e ekle (ID'yi temizle ki yeni bir Firebase ID'si alsın)
+                                    // Sadece kopyalıyoruz, yerelden silmiyoruz.
                                     dbManager.addPortfolio(p.copy(id = "", createdAt = Clock.now()))
-                                    // Yerelden sil
-                                    localPortfolioManager.deletePortfolio(p.id)
-                                    snackbarHostState.showSnackbar("✅ Portföy ofise aktarıldı.")
+                                    snackbarHostState.showSnackbar("✅ Portföy ofise kopyalandı.")
                                 } catch (e: Exception) {
                                     e.printStackTrace()
-                                    snackbarHostState.showSnackbar("❌ Aktarma başarısız.")
+                                    snackbarHostState.showSnackbar("❌ Kopyalama başarısız.")
                                 }
                             }
                         },
@@ -901,6 +902,36 @@ fun MyPortfolioScreen(
     isAdmin: Boolean
 ) {
     var selectedTab by remember { mutableStateOf(0) } // 0: Benim (Lokal), 1: Ofis (Genel)
+    var portfolioToDelete by remember { mutableStateOf<Portfolio?>(null) }
+
+    if (portfolioToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { portfolioToDelete = null },
+            title = { Text("Portföyü Sil?", color = Color.White) },
+            text = { Text("${portfolioToDelete?.title} başlıklı ilan silinecek. Bu işlem geri alınamaz.", color = Color.LightGray) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        portfolioToDelete?.let {
+                            if (selectedTab == 0) onDeleteLocal(it) else onDeleteOffice(it)
+                        }
+                        portfolioToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Sil", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { portfolioToDelete = null }) {
+                    Text("İptal", color = Color.Gray)
+                }
+            },
+            containerColor = Color(0xFF1E2126),
+            titleContentColor = Color.White,
+            textContentColor = Color.LightGray
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -964,7 +995,7 @@ fun MyPortfolioScreen(
                     
                     PortfolioItem(
                         portfolio = portfolio, 
-                        onDelete = if (canManage) (if (selectedTab == 0) onDeleteLocal else onDeleteOffice) else null, 
+                        onDelete = if (canManage) { { portfolioToDelete = it } } else null, 
                         onEdit = if (canManage) (if (selectedTab == 0) onEditLocal else onEditOffice) else null,
                         onPublish = if (selectedTab == 0) onPublishLocal else null
                     )
