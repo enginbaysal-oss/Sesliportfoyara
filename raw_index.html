@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portföy Sesli Asistan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14161a;
+    --surface:#1e2126;
+    --surface-2:#262a31;
+    --brass:#c9a15a;
+    --brass-soft:rgba(201,161,90,0.16);
+    --text:#ededea;
+    --text-muted:#8b9099;
+    --success:#6fae8c;
+    --danger:#c9705a;
+    --border:#33373e;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);}
+  body{
+    font-family:'Inter',sans-serif;
+    color:var(--text);
+    display:flex;
+    justify-content:center;
+    min-height:100vh;
+  }
+  #app{
+    width:100%;
+    max-width:480px;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    background:
+      radial-gradient(circle at 20% -10%, rgba(201,161,90,0.08), transparent 45%),
+      var(--bg);
+  }
+  header{
+    padding:22px 20px 14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border-bottom:1px solid var(--border);
+  }
+  .logo{
+    width:34px;height:34px;flex:none;
+    border-radius:8px;
+    background:var(--brass-soft);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .logo svg{width:18px;height:18px;}
+  header h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:17px;
+    font-weight:600;
+    letter-spacing:-0.01em;
+    margin:0;
+  }
+  header p{
+    margin:1px 0 0;
+    font-size:11.5px;
+    color:var(--text-muted);
+  }
+
+  nav.tabs{
+    display:flex;
+    gap:6px;
+    padding:12px 16px;
+    border-bottom:1px solid var(--border);
+  }
+  nav.tabs button{
+    flex:1;
+    padding:9px 8px;
+    border-radius:8px;
+    border:1px solid transparent;
+    background:transparent;
+    color:var(--text-muted);
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background .15s,color .15s;
+  }
+  nav.tabs button.active{
+    background:var(--surface-2);
+    color:var(--brass);
+    border-color:var(--border);
+  }
+  nav.tabs button:focus-visible{outline:2px solid var(--brass);outline-offset:1px;}
+
+  main{flex:1;padding:20px 18px 40px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* --- Sesli arama --- */
+  .mic-zone{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:18px 0 10px;
+  }
+  .mic-wrap{position:relative;width:120px;height:120px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;}
+  .ring{
+    position:absolute;border-radius:50%;
+    border:1px solid var(--brass);
+    opacity:0;
+  }
+  .mic-wrap.listening .ring{animation:sonar 2.2s ease-out infinite;}
+  .mic-wrap.listening .ring:nth-child(2){animation-delay:.6s;}
+  .mic-wrap.listening .ring:nth-child(3){animation-delay:1.2s;}
+  @keyframes sonar{
+    0%{width:64px;height:64px;opacity:.6;}
+    100%{width:130px;height:130px;opacity:0;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .mic-wrap.listening .ring{animation:none;opacity:.25;width:100px;height:100px;}
+  }
+  #micBtn{
+    width:64px;height:64px;border-radius:50%;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--brass);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    z-index:1;
+    transition:background .15s, transform .1s;
+  }
+  #micBtn:hover{background:#2c313a;}
+  #micBtn:active{transform:scale(.96);}
+  #micBtn.listening{background:var(--brass);color:var(--bg);}
+  #micBtn svg{width:26px;height:26px;}
+
+  .transcript{
+    min-height:20px;
+    text-align:center;
+    font-size:14px;
+    color:var(--text-muted);
+    padding:0 10px;
+    margin-bottom:6px;
+  }
+  .transcript.has-text{color:var(--text);}
+  .hint{
+    text-align:center;
+    font-size:11.5px;
+    color:var(--text-muted);
+    margin-bottom:18px;
+  }
+
+  .search-fallback{
+    display:flex;
+    gap:8px;
+    margin-bottom:22px;
+  }
+  .search-fallback input{
+    flex:1;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:9px;
+    padding:10px 12px;
+    color:var(--text);
+    font-size:13.5px;
+    font-family:'Inter',sans-serif;
+  }
+  .search-fallback input:focus{outline:2px solid var(--brass);outline-offset:0;}
+  .search-fallback button{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--brass);
+    border-radius:9px;
+    padding:0 16px;
+    font-weight:600;
+    font-size:13px;
+    cursor:pointer;
+  }
+
+  .results-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--text-muted);
+    margin:4px 2px 10px;
+  }
+
+  /* --- Key-tag style listing card --- */
+  .tag-card{
+    position:relative;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-left:2px dashed var(--border);
+    border-radius:10px;
+    padding:16px 16px 14px 22px;
+    margin-bottom:14px;
+  }
+  .tag-hole{
+    position:absolute;
+    left:-1px; top:18px;
+    width:14px;height:14px;
+    border-radius:50%;
+    background:var(--bg);
+    border:1px solid var(--border);
+  }
+  .tag-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:10px;
+    margin-bottom:8px;
+  }
+  .tag-title{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:15px;
+    font-weight:600;
+    line-height:1.3;
+  }
+  .tag-price{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:14px;
+    font-weight:600;
+    color:var(--brass);
+    white-space:nowrap;
+  }
+  .tag-location{
+    font-size:12.5px;
+    color:var(--text-muted);
+    margin-bottom:10px;
+    display:flex;
+    align-items:center;
+    gap:5px;
+  }
+  .tag-location svg{width:12px;height:12px;flex:none;opacity:.8;}
+  .tag-meta{
+    display:flex;
+    gap:14px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    color:var(--text-muted);
+    margin-bottom:10px;
+  }
+  .tag-features{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:12px;
+  }
+  .chip{
+    background:var(--brass-soft);
+    color:var(--brass);
+    border-radius:20px;
+    padding:3px 10px;
+    font-size:11px;
+    font-weight:500;
+  }
+  .tag-actions{display:flex;gap:8px;}
+  .tag-actions a, .tag-actions button{
+    flex:1;
+    text-align:center;
+    padding:8px 10px;
+    border-radius:8px;
+    font-size:12px;
+    font-weight:600;
+    text-decoration:none;
+    cursor:pointer;
+    border:1px solid var(--border);
+  }
+  .btn-link{background:var(--brass);color:var(--bg);border-color:var(--brass);}
+  .btn-edit{background:transparent;color:var(--text-muted);}
+  .btn-delete{background:transparent;color:var(--danger);}
+
+  .empty{
+    text-align:center;
+    color:var(--text-muted);
+    font-size:13px;
+    padding:30px 10px;
+  }
+
+  /* --- Form --- */
+  form label{
+    display:block;
+    font-size:11.5px;
+    color:var(--text-muted);
+    margin:0 0 5px 2px;
+  }
+  form .field{margin-bottom:14px;}
+  form input, form textarea{
+    width:100%;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:9px;
+    padding:10px 12px;
+    color:var(--text);
+    font-size:13.5px;
+    font-family:'Inter',sans-serif;
+    resize:none;
+  }
+  form input:focus, form textarea:focus{outline:2px solid var(--brass);outline-offset:0;}
+  .row2{display:flex;gap:10px;}
+  .row2 .field{flex:1;}
+  .submit-btn{
+    width:100%;
+    background:var(--brass);
+    color:var(--bg);
+    border:none;
+    border-radius:9px;
+    padding:12px;
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+    margin-top:4px;
+  }
+  .cancel-edit{
+    width:100%;
+    background:transparent;
+    color:var(--text-muted);
+    border:1px solid var(--border);
+    border-radius:9px;
+    padding:10px;
+    font-size:12.5px;
+    cursor:pointer;
+    margin-top:8px;
+  }
+  .toast{
+    position:fixed;
+    bottom:18px;left:50%;transform:translateX(-50%);
+    background:var(--surface-2);
+    border:1px solid var(--brass);
+    color:var(--text);
+    padding:10px 18px;
+    border-radius:20px;
+    font-size:12.5px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .25s;
+    max-width:90%;
+    text-align:center;
+  }
+  .toast.show{opacity:1;}
+  .warn-box{
+    background:rgba(201,112,90,0.1);
+    border:1px solid rgba(201,112,90,0.4);
+    color:#e0a596;
+    font-size:11.5px;
+    padding:9px 12px;
+    border-radius:8px;
+    margin-bottom:16px;
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#c9a15a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    </div>
+    <div>
+      <h1>Portföy Sesli Asistan</h1>
+      <p>Sesle söyle, portföyünü bul</p>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-view="search">Sesli Ara</button>
+    <button class="tab-btn" data-view="add">Portföy Ekle</button>
+    <button class="tab-btn" data-view="list">Portföyüm</button>
+  </nav>
+
+  <main>
+
+    <!-- SESLİ ARAMA -->
+    <section class="view active" id="view-search">
+      <div id="voiceWarn" class="warn-box" style="display:none;"></div>
+
+      <div class="mic-zone">
+        <div class="mic-wrap" id="micWrap">
+          <div class="ring"></div>
+          <div class="ring"></div>
+          <div class="ring"></div>
+          <button id="micBtn" aria-label="Sesli aramayı başlat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+        </div>
+        <div class="transcript" id="transcript">Mikrofona dokunup portföyü tarif edin</div>
+        <div class="hint">Örn: "Bahçelievler 3+1 asansörlü daire"</div>
+      </div>
+
+      <div class="search-fallback">
+        <input type="text" id="textSearch" placeholder="ya da yazarak arayın...">
+        <button id="textSearchBtn">Ara</button>
+      </div>
+
+      <div id="resultsLabel" class="results-label" style="display:none;"></div>
+      <div id="results"></div>
+    </section>
+
+    <!-- PORTFÖY EKLE -->
+    <section class="view" id="view-add">
+      <form id="listingForm">
+        <div class="field">
+          <label for="f-title">İlan başlığı</label>
+          <input id="f-title" placeholder="Örn: Bahçelievler'de Satılık 3+1 Daire">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="f-price">Fiyat (TL)</label>
+            <input id="f-price" type="number" min="0" placeholder="2500000">
+          </div>
+          <div class="field">
+            <label for="f-rooms">Oda sayısı</label>
+            <input id="f-rooms" placeholder="3+1">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="f-area">Metrekare</label>
+            <input id="f-area" type="number" min="0" placeholder="120">
+          </div>
+          <div class="field">
+            <label for="f-location">Konum / Mahalle</label>
+            <input id="f-location" placeholder="Bahçelievler, İstanbul">
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-features">Özellikler <span style="opacity:.6;">(virgülle ayırın)</span></label>
+          <input id="f-features" placeholder="Asansör, Otopark, Balkon, Eşyalı">
+        </div>
+        <div class="field">
+          <label for="f-link">İlan linki</label>
+          <input id="f-link" type="url" placeholder="https://...">
+        </div>
+        <button type="submit" class="submit-btn" id="submitBtn">Portföye Ekle</button>
+        <button type="button" class="cancel-edit" id="cancelEdit" style="display:none;">Düzenlemeyi iptal et</button>
+      </form>
+    </section>
+
+    <!-- PORTFÖYÜM -->
+    <section class="view" id="view-list">
+      <div id="resultsLabelAll" class="results-label"></div>
+      <div id="allListings"></div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database-compat.js"></script>
+<script>
+(function(){
+  const STORAGE_KEY = 'portfolio-listings';
+  let listings = [];
+  let editingId = null;
+
+  // ---------- BULUT SENKRONU (Firebase) ----------
+  // Kendi ücretsiz Firebase projenizin bilgilerini buraya yapıştırın
+  // (Firebase Console > Project settings > SDK setup and configuration).
+  // Boş/varsayılan bırakılırsa uygulama sadece bu tarayıcıda çalışır, senkron olmaz.
+  const firebaseConfig = {
+    apiKey: "AIzaSyBbLAjj7BkVKpVWtap90ZLszMvpBQsD39Y",
+    authDomain: "sesliaraportfoy.firebaseapp.com",
+    databaseURL: "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "sesliaraportfoy",
+    storageBucket: "sesliaraportfoy.firebasestorage.app",
+    messagingSenderId: "756529793201",
+    appId: "1:756529793201:web:cd77ae8b393bf211893a90"
+  };
+
+  let db = null;
+  let useCloud = false;
+  try{
+    if(window.firebase && firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf('BURAYA')===-1){
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+      useCloud = true;
+    }
+  }catch(e){ console.warn('Bulut bağlantısı kurulamadı, yerel depoya geçildi:', e); }
+
+  // ---------- Yerel depolama (window.storage -> localStorage -> hafıza) ----------
+  let memoryStore = {};
+
+  async function storageSet(key, value){
+    try{
+      if(window.storage && typeof window.storage.set === 'function'){
+        const res = await window.storage.set(key, value);
+        if(res){ return true; }
+      }
+    }catch(e){ console.warn('window.storage.set başarısız, yedek yönteme geçiliyor:', e); }
+    try{
+      localStorage.setItem(key, value);
+      return true;
+    }catch(e){ console.warn('localStorage başarısız, hafızada tutulacak:', e); }
+    memoryStore[key] = value;
+    return true;
+  }
+
+  async function storageGet(key){
+    try{
+      if(window.storage && typeof window.storage.get === 'function'){
+        const res = await window.storage.get(key);
+        if(res && res.value !== undefined && res.value !== null){ return res.value; }
+      }
+    }catch(e){ /* anahtar yok ya da API kullanılamıyor, sıradaki yönteme geç */ }
+    try{
+      const v = localStorage.getItem(key);
+      if(v !== null){ return v; }
+    }catch(e){ /* localStorage kullanılamıyor */ }
+    return memoryStore[key] !== undefined ? memoryStore[key] : null;
+  }
+
+  async function loadLocalListings(){
+    try{
+      const raw = await storageGet(STORAGE_KEY);
+      listings = raw ? JSON.parse(raw) : [];
+    }catch(e){
+      console.error('Yükleme hatası:', e);
+      listings = [];
+    }
+    renderAll();
+    refreshActiveSearch();
+  }
+  async function saveLocalListings(){
+    try{
+      const ok = await storageSet(STORAGE_KEY, JSON.stringify(listings));
+      if(!ok){ showToast('Kayıt bu oturumda geçici olarak tutuluyor.'); }
+    }catch(e){
+      console.error('Kaydetme hatası:', e);
+      showToast('Kayıt bu oturumda geçici olarak tutuluyor.');
+    }
+  }
+
+  function loadListings(){
+    if(useCloud){
+      db.ref('listings').on('value',
+        snap=>{
+          const val = snap.val() || {};
+          listings = Object.keys(val).map(id=>({id, ...val[id]}))
+            .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+          renderAll();
+          refreshActiveSearch();
+        },
+        err=>{
+          console.error('Bulut dinleme hatası:', err);
+          showToast('Buluta bağlanılamadı, yerel veriler kullanılıyor.');
+          loadLocalListings();
+        }
+      );
+    }else{
+      loadLocalListings();
+    }
+  }
+
+  async function persistListing(data, isEdit){
+    if(useCloud){
+      try{
+        const id = data.id;
+        const payload = {...data};
+        delete payload.id;
+        if(isEdit){
+          await db.ref('listings/'+id).update(payload);
+        }else{
+          payload.createdAt = Date.now();
+          await db.ref('listings').push(payload);
+        }
+        return; // 'value' dinleyicisi listeyi otomatik güncelleyecek
+      }catch(e){
+        console.error('Bulut kayıt hatası:', e);
+        showToast('Bulut kaydı başarısız, yerelde tutuluyor.');
+      }
+    }
+    if(isEdit){
+      const idx = listings.findIndex(l=>l.id===data.id);
+      if(idx>-1) listings[idx]=data;
+    }else{
+      listings.push(data);
+    }
+    await saveLocalListings();
+    renderAll();
+  }
+
+  async function removeListing(id){
+    if(useCloud){
+      try{
+        await db.ref('listings/'+id).remove();
+        return;
+      }catch(e){
+        console.error('Bulut silme hatası:', e);
+        showToast('Bulut silme başarısız.');
+      }
+    }
+    listings = listings.filter(x=>x.id!==id);
+    await saveLocalListings();
+    renderAll();
+  }
+
+  // ---------- Yardımcılar ----------
+  function normalize(str){
+    return (str||'').toLocaleLowerCase('tr-TR')
+      .replace(/ı/g,'i').replace(/İ/g,'i')
+      .replace(/ş/g,'s').replace(/ğ/g,'g')
+      .replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c')
+      .trim();
+  }
+  const STOPWORDS = new Set(['bana','olan','var','mi','mı','mu','mü','bul','goster','göster','gösterir','ne','nedir','portfoyde','portföyde','portfoydeki','hangi','icin','için','ver','soyle','söyle','bir','tane','misin','musun','lütfen','lutfen','ara','arasana','listele','de','da']);
+  function tokenize(str){
+    return normalize(str).split(/[^a-z0-9+]+/).filter(t=>t.length>1 && !STOPWORDS.has(t));
+  }
+  function formatPrice(p){
+    if(p===undefined || p===null || p==='') return 'Fiyat belirtilmedi';
+    const n = Number(p);
+    if(isNaN(n)) return p;
+    return n.toLocaleString('tr-TR') + ' TL';
+  }
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'), 2200);
+  }
+
+  // ---------- Arama ----------
+  function searchListings(query){
+    const tokens = tokenize(query);
+    if(tokens.length===0) return [];
+    const scored = listings.map(l=>{
+      const hay = normalize([l.title,l.location,l.rooms,l.area+' m2',formatPrice(l.price),(l.features||[]).join(' ')].join(' '));
+      let score = 0;
+      tokens.forEach(tok=>{ if(hay.includes(tok)) score++; });
+      return {listing:l, score};
+    }).filter(x=>x.score>0);
+    scored.sort((a,b)=>b.score-a.score);
+    return scored.slice(0,15).map(x=>x.listing);
+  }
+
+  function tagCardHTML(l, withActions){
+    const features = (l.features||[]).map(f=>`<span class="chip">${escapeHtml(f)}</span>`).join('');
+    const linkBtn = l.link ? `<a class="btn-link" href="${escapeAttr(l.link)}" target="_blank" rel="noopener">İlanı Aç</a>` : '';
+    const actions = withActions ? `
+      <div class="tag-actions">
+        ${linkBtn}
+        <button class="btn-edit" data-edit="${l.id}">Düzenle</button>
+        <button class="btn-delete" data-delete="${l.id}">Sil</button>
+      </div>` : (linkBtn ? `<div class="tag-actions">${linkBtn}</div>` : '');
+    return `
+    <div class="tag-card">
+      <div class="tag-hole"></div>
+      <div class="tag-top">
+        <div class="tag-title">${escapeHtml(l.title || 'İsimsiz İlan')}</div>
+        <div class="tag-price">${formatPrice(l.price)}</div>
+      </div>
+      <div class="tag-location">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        ${escapeHtml(l.location || 'Konum belirtilmedi')}
+      </div>
+      <div class="tag-meta">
+        <span>${escapeHtml(l.rooms||'-')}</span>
+        <span>${l.area ? l.area+' m²' : ''}</span>
+      </div>
+      <div class="tag-features">${features}</div>
+      ${actions}
+    </div>`;
+  }
+  function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+  function escapeAttr(s){ return (s||'').replace(/"/g,'&quot;'); }
+
+  let lastSearchQuery = '';
+  function refreshActiveSearch(){
+    if(lastSearchQuery){
+      renderResults(searchListings(lastSearchQuery), lastSearchQuery);
+    }
+  }
+
+  function renderResults(items, query){
+    lastSearchQuery = query || '';
+    const label = document.getElementById('resultsLabel');
+    const box = document.getElementById('results');
+    if(!query){
+      label.style.display='none'; box.innerHTML=''; return;
+    }
+    label.style.display='block';
+    label.textContent = items.length ? `${items.length} eşleşme bulundu` : 'Eşleşme bulunamadı';
+    box.innerHTML = items.length ? items.map(l=>tagCardHTML(l,false)).join('') :
+      `<div class="empty">"${escapeHtml(query)}" için portföyünde eşleşme yok.<br>Farklı bir ifadeyle tekrar deneyin.</div>`;
+  }
+
+  function renderAll(){
+    const box = document.getElementById('allListings');
+    const label = document.getElementById('resultsLabelAll');
+    label.textContent = listings.length ? `${listings.length} kayıtlı portföy` : '';
+    box.innerHTML = listings.length ?
+      listings.slice().reverse().map(l=>tagCardHTML(l,true)).join('') :
+      `<div class="empty">Henüz portföy eklenmedi.<br>"Portföy Ekle" sekmesinden başlayabilirsiniz.</div>`;
+  }
+
+  // ---------- Sekmeler ----------
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('view-'+btn.dataset.view).classList.add('active');
+    });
+  });
+
+  // ---------- Form ----------
+  const form = document.getElementById('listingForm');
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const data = {
+      id: editingId || Date.now().toString(36),
+      title: document.getElementById('f-title').value.trim(),
+      price: document.getElementById('f-price').value,
+      rooms: document.getElementById('f-rooms').value.trim(),
+      area: document.getElementById('f-area').value,
+      location: document.getElementById('f-location').value.trim(),
+      features: document.getElementById('f-features').value.split(',').map(s=>s.trim()).filter(Boolean),
+      link: document.getElementById('f-link').value.trim()
+    };
+    const hasAnyValue = data.title || data.price || data.rooms || data.area || data.location || data.features.length || data.link;
+    if(!hasAnyValue){
+      showToast('En az bir bilgi girin');
+      return;
+    }
+    const isEdit = !!editingId;
+    await persistListing(data, isEdit);
+    showToast(isEdit ? 'Portföy güncellendi' : 'Portföye eklendi');
+    resetForm();
+  });
+
+  document.getElementById('cancelEdit').addEventListener('click', resetForm);
+
+  function resetForm(){
+    form.reset();
+    editingId = null;
+    document.getElementById('submitBtn').textContent = 'Portföye Ekle';
+    document.getElementById('cancelEdit').style.display = 'none';
+  }
+
+  document.getElementById('allListings').addEventListener('click', async (e)=>{
+    const editId = e.target.dataset.edit;
+    const delId = e.target.dataset.delete;
+    if(editId){
+      const l = listings.find(x=>x.id===editId);
+      if(!l) return;
+      document.getElementById('f-title').value = l.title||'';
+      document.getElementById('f-price').value = l.price||'';
+      document.getElementById('f-rooms').value = l.rooms||'';
+      document.getElementById('f-area').value = l.area||'';
+      document.getElementById('f-location').value = l.location||'';
+      document.getElementById('f-features').value = (l.features||[]).join(', ');
+      document.getElementById('f-link').value = l.link||'';
+      editingId = editId;
+      document.getElementById('submitBtn').textContent = 'Değişiklikleri Kaydet';
+      document.getElementById('cancelEdit').style.display = 'block';
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+      document.querySelector('.tab-btn[data-view="add"]').classList.add('active');
+      document.getElementById('view-add').classList.add('active');
+    }
+    if(delId){
+      await removeListing(delId);
+      showToast('Portföy silindi');
+    }
+  });
+
+  // ---------- Metinle arama ----------
+  document.getElementById('textSearchBtn').addEventListener('click', ()=>{
+    const q = document.getElementById('textSearch').value.trim();
+    if(!q) return;
+    renderResults(searchListings(q), q);
+  });
+  document.getElementById('textSearch').addEventListener('keydown', (e)=>{
+    if(e.key==='Enter'){ document.getElementById('textSearchBtn').click(); }
+  });
+
+  // ---------- Sesli arama ----------
+  const micBtn = document.getElementById('micWrap');
+  const micButton = document.getElementById('micBtn');
+  const transcriptEl = document.getElementById('transcript');
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognizing = false;
+  let recognition = null;
+
+  if(!SpeechRecognition){
+    const warn = document.getElementById('voiceWarn');
+    warn.style.display = 'block';
+    warn.textContent = 'Bu tarayıcı sesli aramayı desteklemiyor. Aşağıdaki kutuya yazarak arayabilirsiniz (Chrome tarayıcısını deneyin).';
+    micButton.disabled = true;
+    micButton.style.opacity = '0.4';
+    micButton.style.cursor = 'not-allowed';
+  }else{
+    recognition = new SpeechRecognition();
+    recognition.lang = 'tr-TR';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognition.onstart = ()=>{
+      recognizing = true;
+      micBtn.classList.add('listening');
+      micButton.classList.add('listening');
+      transcriptEl.textContent = 'Dinliyorum...';
+      transcriptEl.classList.remove('has-text');
+    };
+    recognition.onresult = (e)=>{
+      let text = '';
+      for(let i=0;i<e.results.length;i++){ text += e.results[i][0].transcript; }
+      transcriptEl.textContent = text;
+      transcriptEl.classList.add('has-text');
+      if(e.results[e.results.length-1].isFinal){
+        renderResults(searchListings(text), text);
+      }
+    };
+    recognition.onerror = (e)=>{
+      const warn = document.getElementById('voiceWarn');
+      warn.style.display = 'block';
+      if(e.error === 'not-allowed' || e.error === 'permission-denied'){
+        warn.textContent = 'Mikrofon izni verilmedi. Tarayıcı ayarlarından izin verip tekrar deneyin, ya da yazarak arayın.';
+      }else{
+        warn.textContent = 'Sesli arama bir sorunla karşılaştı. Yazarak aramayı deneyebilirsiniz.';
+      }
+    };
+    recognition.onend = ()=>{
+      recognizing = false;
+      micBtn.classList.remove('listening');
+      micButton.classList.remove('listening');
+      if(transcriptEl.textContent === 'Dinliyorum...'){
+        transcriptEl.textContent = 'Mikrofona dokunup portföyü tarif edin';
+        transcriptEl.classList.remove('has-text');
+      }
+    };
+
+    micButton.addEventListener('click', ()=>{
+      if(recognizing){ recognition.stop(); return; }
+      document.getElementById('voiceWarn').style.display = 'none';
+      try{ recognition.start(); }
+      catch(err){ /* zaten çalışıyor olabilir */ }
+    });
+  }
+
+  loadListings();
+})();
+</script>
+</body>
+</html>

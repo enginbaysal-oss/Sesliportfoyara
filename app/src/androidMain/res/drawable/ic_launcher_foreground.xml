@@ -1,0 +1,44 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Premium Shield (Gold) - Thicker lines -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#c9a15a"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M20,30 L50,22 L80,30 L80,60 Q80,85 50,92 Q20,85 20,60 Z" />
+
+    <!-- Wave Line - Bold -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#c9a15a"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M40,38 L45,38 L48,32 L52,44 L55,38 L60,38" />
+
+    <!-- CRM Chart Bars - Larger -->
+    <path
+        android:fillColor="#c9a15a"
+        android:pathData="M42,78 h5 v-10 h-5 z M50,78 h5 v-15 h-5 z M58,78 h5 v-20 h-5 z" />
+
+    <!-- Growth Arrow - Sharp -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#c9a15a"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M38,82 L65,65 M58,65 L65,65 L65,72" />
+
+    <!-- SP Monogram (Bold Stylized) -->
+    <path
+        android:fillColor="#c9a15a"
+        android:pathData="M32,48 v3 q0,4 4,4 h4 v3 q0,4 -4,4 h-4 M56,48 v15 M56,48 h5 q4,0 4,4 v0 q0,4 -4,4 h-5" />
+
+</vector>
