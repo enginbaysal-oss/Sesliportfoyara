@@ -39,9 +39,10 @@ object PortfolioSearchEngine {
 
     fun tokenize(str: String): List<String> {
         val normalized = normalize(str)
+        // Boşlukları ve virgülleri temizle ama '+' karakterini koru (oda sayısı için)
         return normalized.split(Regex("[\\s,.]+"))
             .map { it.trim() }
-            .filter { it.length > 0 && it !in STOPWORDS }
+            .filter { it.isNotEmpty() && it !in STOPWORDS }
     }
 
     fun search(query: String, listings: List<Portfolio>): List<Portfolio> {
@@ -49,8 +50,6 @@ object PortfolioSearchEngine {
         val collapsedQuery = collapse(query)
         
         println("🔍 Arama Başlatıldı: '$query'")
-        println("🔍 Normalizasyon: '$normalizedQuery'")
-        println("🔍 Daraltılmış Sorgu: '$collapsedQuery'")
         
         if (normalizedQuery.isEmpty()) return emptyList()
         
@@ -58,9 +57,9 @@ object PortfolioSearchEngine {
 
         val scoredResults = listings.map { l ->
             val fields = listOf(
-                l.title to 15, // Puan artırıldı
+                l.title to 15,
                 l.location to 10,
-                l.rooms to 20, // Oda sayısı aramada en yüksek puanı alır
+                l.rooms to 25, // Oda sayısı en kritik alan
                 l.propertyType to 10,
                 l.type to 8,
                 l.features.joinToString(" ") to 8,
@@ -76,37 +75,56 @@ object PortfolioSearchEngine {
                 val normField = normalize(fieldValue)
                 val collField = collapse(fieldValue)
                 
-                // 1. TAM EŞLEŞME (Daraltılmış) - Boşluk farklarını tolere eder (Örn: "3 + 1" vs "3+1")
-                if (collField.contains(collapsedQuery) || collapsedQuery.contains(collField)) {
-                    score += weight * 3
+                // 1. TAM EŞLEŞME (Daraltılmış)
+                if (collField.isNotBlank() && (collField.contains(collapsedQuery) || collapsedQuery.contains(collField))) {
+                    score += weight * 4
                 }
                 
                 // 2. KELİME BAZLI EŞLEŞME
                 tokens.forEach { tok ->
-                    if (normField.contains(tok)) {
-                        score += weight
-                    } else if (collField.contains(collapse(tok))) {
-                        score += weight
+                    if (tok.isEmpty()) return@forEach
+                    
+                    // Çok kısa kelimeler (örn: "1", "6") sadece oda sayısı veya başlıkta tam eşleşirse puan alsın
+                    // Telefon numarası veya fiyatın içindeki "1"i yakalayıp gürültü yapmasın
+                    val isShortToken = tok.length == 1
+                    
+                    if (isShortToken) {
+                        // Kısa tokenlar sadece tam eşleşme veya kritik alanlarda puan alır
+                        if (normField == tok || (weight >= 15 && normField.contains(tok))) {
+                            score += weight
+                        }
+                    } else {
+                        if (normField.contains(tok)) {
+                            score += weight
+                        } else if (collField.contains(collapse(tok))) {
+                            score += weight
+                        }
                     }
                 }
-            }
-            
-            if (score > 0) {
-                println("✅ Eşleşme: '${l.title}'")
-                println("   └─ ID: ${l.id}")
-                println("   └─ Tip: ${l.propertyType}, Fiyat: ${l.price}")
-                println("   └─ Puan: $score")
             }
             
             l to score
         }
         
+        val maxScore = scoredResults.maxOfOrNull { it.second } ?: 0
+        
+        // EŞİK DEĞERİ (THRESHOLD): 
+        // 1. En yüksek puanın %30'undan az olanları ele.
+        // 2. Mutlak olarak 20 puanın altında kalan zayıf eşleşmeleri ele.
+        val threshold = (maxScore * 0.3).coerceAtLeast(20.0)
+        
         val finalResults = scoredResults
-            .filter { it.second > 0 }
+            .filter { it.second >= threshold }
             .sortedByDescending { it.second }
             .map { it.first }
             
-        println("📊 Toplam Sonuç: ${finalResults.size}")
+        println("📊 Max Skor: $maxScore, Eşik: $threshold, Sonuç: ${finalResults.size}")
+        
+        // Debug için en iyi sonuçları konsola yazdır
+        finalResults.take(3).forEach { l ->
+            println("✅ Eşleşme: '${l.title}' - ${l.rooms} - ${l.price}")
+        }
+        
         return finalResults
     }
 }
