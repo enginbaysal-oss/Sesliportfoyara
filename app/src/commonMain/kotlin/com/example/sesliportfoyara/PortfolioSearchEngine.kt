@@ -54,13 +54,14 @@ object PortfolioSearchEngine {
         if (normalizedQuery.isEmpty()) return emptyList()
         
         val tokens = tokenize(query)
+        val uniqueTokens = tokens.toSet()
 
         val scoredResults = listings.map { l ->
             val fields = listOf(
                 l.title to 15,
-                l.location to 10,
-                l.rooms to 25, // Oda sayısı en kritik alan
-                l.propertyType to 10,
+                l.location to 12, // Konum ağırlığı artırıldı
+                l.rooms to 25,
+                l.propertyType to 12, // Emlak tipi ağırlığı artırıldı
                 l.type to 8,
                 l.features.joinToString(" ") to 8,
                 l.consultantName to 5,
@@ -69,49 +70,58 @@ object PortfolioSearchEngine {
                 l.area to 4
             )
             
-            var score = 0
+            var baseScore = 0
+            val matchedTokens = mutableSetOf<String>()
             
             fields.forEach { (fieldValue, weight) ->
                 val normField = normalize(fieldValue)
                 val collField = collapse(fieldValue)
                 
-                // 1. TAM EŞLEŞME (Daraltılmış)
+                // 1. TAM EŞLEŞME (Tüm sorgu bir alanda geçiyorsa büyük bonus)
                 if (collField.isNotBlank() && (collField.contains(collapsedQuery) || collapsedQuery.contains(collField))) {
-                    score += weight * 4
+                    baseScore += weight * 5
+                    matchedTokens.addAll(uniqueTokens) // Tüm kelimeler eşleşmiş sayılır
                 }
                 
-                // 2. KELİME BAZLI EŞLEŞME
-                tokens.forEach { tok ->
-                    if (tok.isEmpty()) return@forEach
+                // 2. KELİME (TOKEN) BAZLI EŞLEŞME
+                uniqueTokens.forEach { tok ->
+                    val isShortToken = tok.length <= 2
                     
-                    // Çok kısa kelimeler (örn: "1", "6") sadece oda sayısı veya başlıkta tam eşleşirse puan alsın
-                    // Telefon numarası veya fiyatın içindeki "1"i yakalayıp gürültü yapmasın
-                    val isShortToken = tok.length == 1
-                    
-                    if (isShortToken) {
-                        // Kısa tokenlar sadece tam eşleşme veya kritik alanlarda puan alır
-                        if (normField == tok || (weight >= 15 && normField.contains(tok))) {
-                            score += weight
-                        }
+                    val matches = if (isShortToken) {
+                        normField == tok || (weight >= 20 && normField.contains(tok))
                     } else {
-                        if (normField.contains(tok)) {
-                            score += weight
-                        } else if (collField.contains(collapse(tok))) {
-                            score += weight
-                        }
+                        normField.contains(tok) || collField.contains(collapse(tok))
+                    }
+
+                    if (matches) {
+                        baseScore += weight
+                        matchedTokens.add(tok)
                     }
                 }
             }
             
-            l to score
+            // TOKEN BOOSTING: 
+            // Kaç farklı kelimenin eşleştiği çok kritiktir. 
+            // "Güzelyurt daire" aramasında her iki kelimeyi de içeren ilanları katlayarak öne çıkar.
+            val matchRatio = if (uniqueTokens.isNotEmpty()) matchedTokens.size.toFloat() / uniqueTokens.size else 0f
+            
+            // Eğer sorguda birden fazla kelime varsa ve sadece biri eşleşiyorsa puanı düşür (Gürültü engelleme)
+            val finalScore = if (uniqueTokens.size > 1 && matchedTokens.size < 2) {
+                (baseScore * 0.5f).toInt() // Cezalandırma
+            } else {
+                // Eşleşen token sayısı arttıkça puanı katla (Üssel artış)
+                (baseScore * (1f + matchRatio * matchRatio * 2f)).toInt()
+            }
+            
+            l to finalScore
         }
         
         val maxScore = scoredResults.maxOfOrNull { it.second } ?: 0
         
-        // EŞİK DEĞERİ (THRESHOLD): 
-        // 1. En yüksek puanın %30'undan az olanları ele.
-        // 2. Mutlak olarak 20 puanın altında kalan zayıf eşleşmeleri ele.
-        val threshold = (maxScore * 0.3).coerceAtLeast(20.0)
+        // EŞİK DEĞERİ (Daha katı):
+        // En yüksek puanın %40'ından az olanları ele (Eskiden %30 idi)
+        // Mutlak olarak 25 puanın altını ele (Eskiden 20 idi)
+        val threshold = (maxScore * 0.4).coerceAtLeast(25.0)
         
         val finalResults = scoredResults
             .filter { it.second >= threshold }
@@ -120,9 +130,8 @@ object PortfolioSearchEngine {
             
         println("📊 Max Skor: $maxScore, Eşik: $threshold, Sonuç: ${finalResults.size}")
         
-        // Debug için en iyi sonuçları konsola yazdır
-        finalResults.take(3).forEach { l ->
-            println("✅ Eşleşme: '${l.title}' - ${l.rooms} - ${l.price}")
+        finalResults.take(5).forEach { l ->
+            println("✅ Sonuç: '${l.title}' - ${l.location} - ${l.propertyType}")
         }
         
         return finalResults
