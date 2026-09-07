@@ -423,7 +423,7 @@ fun HeaderSection() {
         
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Sesli Portföy CRM v1.2.0",
+                text = "Sesli Portföy CRM v1.2.1",
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.ExtraBold,
