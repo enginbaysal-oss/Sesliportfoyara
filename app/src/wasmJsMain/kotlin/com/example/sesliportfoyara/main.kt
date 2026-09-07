@@ -8,43 +8,63 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 
 @JsFun("(content, fileName) => { " +
-    "const blob = new Blob([content], {type: 'application/json'}); " +
-    "const url = URL.createObjectURL(blob); " +
-    "const a = document.createElement('a'); " +
-    "a.href = url; " +
-    "a.download = fileName; " +
-    "document.body.appendChild(a); " +
-    "a.click(); " +
-    "document.body.removeChild(a); " +
-    "URL.revokeObjectURL(url); " +
+    "try { " +
+    "  const blob = new Blob([content], {type: 'application/json;charset=utf-8'}); " +
+    "  const url = window.URL.createObjectURL(blob); " +
+    "  const a = document.createElement('a'); " +
+    "  a.href = url; " +
+    "  a.download = fileName; " +
+    "  document.body.appendChild(a); " +
+    "  a.click(); " +
+    "  setTimeout(() => { " +
+    "    document.body.removeChild(a); " +
+    "    window.URL.revokeObjectURL(url); " +
+    "  }, 2000); " +
+    "  console.log('✅ WEB: Download triggered for ' + fileName); " +
+    "} catch (e) { " +
+    "  console.error('❌ WEB: Download failed', e); " +
+    "  alert('Yedekleme hatası: ' + e.message); " +
+    "} " +
     "}")
-external fun jsDownloadFile(content: String, fileName: String)
+external fun jsDownloadFile(content: JsString, fileName: JsString)
 
-@JsFun("() => { " +
-    "window.pickFile = (callback) => { " +
+@JsFun("(callback) => { " +
+    "try { " +
     "  const input = document.createElement('input'); " +
     "  input.type = 'file'; " +
     "  input.accept = '.json'; " +
+    "  input.style.display = 'none'; " +
     "  input.onchange = (e) => { " +
     "    const file = e.target.files[0]; " +
-    "    if (!file) { callback(null); return; } " +
+    "    if (!file) { " +
+    "      console.log('⚠️ WEB: No file selected'); " +
+    "      callback(null); " +
+    "      return; " +
+    "    } " +
     "    const reader = new FileReader(); " +
-    "    reader.onload = (re) => { callback(re.target.result); }; " +
+    "    reader.onload = (re) => { " +
+    "      console.log('✅ WEB: File read successfully'); " +
+    "      callback(re.target.result); " +
+    "      document.body.removeChild(input); " +
+    "    }; " +
+    "    reader.onerror = (err) => { " +
+    "      console.error('❌ WEB: FileReader error', err); " +
+    "      alert('Dosya okuma hatası!'); " +
+    "    }; " +
     "    reader.readAsText(file); " +
     "  }; " +
+    "  document.body.appendChild(input); " +
     "  input.click(); " +
-    "}; " +
+    "} catch (e) { " +
+    "  console.error('❌ WEB: Picker error', e); " +
+    "  alert('Dosya seçici hatası: ' + e.message); " +
+    "} " +
     "}")
-external fun initJsFilePicker()
-
-@JsFun("(callback) => window.pickFile(callback)")
 external fun jsOpenFilePicker(callback: (JsString?) -> Unit)
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    initJsFilePicker()
     CanvasBasedWindow(canvasElementId = "ComposeTarget") {
-        val scope = rememberCoroutineScope()
         val platformUtils = object : PlatformUtils {
             override fun openUri(uri: String) {
                 kotlinx.browser.window.open(uri, "_blank")
@@ -55,7 +75,7 @@ fun main() {
             override fun stopVoiceRecognition() {}
             override fun saveFile(fileName: String, content: String, onResult: (Boolean) -> Unit) {
                 try {
-                    jsDownloadFile(content, fileName)
+                    jsDownloadFile(content.toJsString(), fileName.toJsString())
                     onResult(true)
                 } catch (e: Exception) {
                     onResult(false)
