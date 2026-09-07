@@ -511,6 +511,8 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>) {
     var searchResults by remember { mutableStateOf<List<Portfolio>>(emptyList()) }
     var lastQuery by remember { mutableStateOf("") }
     val platformUtils = LocalPlatformUtils.current
+    val snackbarHostState = LocalSnackbarHostState.current
+    val scope = rememberCoroutineScope()
     var isListening by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
@@ -551,8 +553,11 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>) {
                                     isListening = false
                                     performSearch(result)
                                 },
-                                onError = { _ ->
+                                onError = { error ->
                                     isListening = false
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(error)
+                                    }
                                 }
                             )
                             isListening = true

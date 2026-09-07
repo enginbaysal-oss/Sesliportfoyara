@@ -7,6 +7,26 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 
+@JsFun("(onResult, onError) => { " +
+    "try { " +
+    "  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; " +
+    "  if (!SpeechRecognition) { onError('Bu tarayıcı sesli aramayı desteklemiyor.'); return; } " +
+    "  const recognition = new SpeechRecognition(); " +
+    "  recognition.lang = 'tr-TR'; " +
+    "  recognition.onresult = (event) => { " +
+    "    const text = event.results[0][0].transcript; " +
+    "    onResult(text); " +
+    "  }; " +
+    "  recognition.onerror = (event) => { onError('Hata: ' + event.error); }; " +
+    "  recognition.start(); " +
+    "  window._currentRecognition = recognition; " +
+    "} catch (e) { onError('Başlatılamadı: ' + e.message); } " +
+    "}")
+external fun jsStartVoiceRecognition(onResult: (JsString) -> Unit, onError: (JsString) -> Unit)
+
+@JsFun("() => { if (window._currentRecognition) { window._currentRecognition.stop(); } }")
+external fun jsStopVoiceRecognition()
+
 @JsFun("(content, fileName) => { " +
     "try { " +
     "  const blob = new Blob([content], {type: 'application/json;charset=utf-8'}); " +
@@ -70,9 +90,14 @@ fun main() {
                 kotlinx.browser.window.open(uri, "_blank")
             }
             override fun startVoiceRecognition(onResult: (String) -> Unit, onError: (String) -> Unit) {
-                onError("Web sürümünde sesli arama yakında eklenecek")
+                jsStartVoiceRecognition(
+                    { result -> onResult(result.toString()) },
+                    { error -> onError(error.toString()) }
+                )
             }
-            override fun stopVoiceRecognition() {}
+            override fun stopVoiceRecognition() {
+                jsStopVoiceRecognition()
+            }
             override fun saveFile(fileName: String, content: String, onResult: (Boolean) -> Unit) {
                 try {
                     jsDownloadFile(content.toJsString(), fileName.toJsString())
