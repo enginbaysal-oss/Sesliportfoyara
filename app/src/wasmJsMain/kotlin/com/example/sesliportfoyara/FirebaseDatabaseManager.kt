@@ -26,12 +26,15 @@ class FirebaseDatabaseManager : DatabaseManager {
     override fun getPortfolios(): Flow<List<Portfolio>> = flow {
         while (true) {
             try {
-                val response: Map<String, Portfolio>? = client.get("$baseUrl.json").body()
+                // Cache-busting: 't' parametresi ile tarayıcının eski veriyi getirmesini engelliyoruz
+                val timestamp = getCurrentTimeMillis()
+                val response: Map<String, Portfolio>? = client.get("$baseUrl.json?t=$timestamp").body()
                 val list = response?.map { (key, portfolio) ->
                     portfolio.copy(id = key)
                 } ?: emptyList()
                 emit(list)
             } catch (e: Exception) {
+                println("❌ Veri çekme hatası: ${e.message}")
                 emit(emptyList())
             }
             delay(5000) 
@@ -40,25 +43,47 @@ class FirebaseDatabaseManager : DatabaseManager {
 
     override suspend fun addPortfolio(portfolio: Portfolio) {
         try {
-            client.post("$baseUrl.json") {
+            println("📤 Yeni portföy gönderiliyor: ${portfolio.title}")
+            val response = client.post("$baseUrl.json") {
                 contentType(ContentType.Application.Json)
                 setBody(portfolio)
             }
-        } catch (e: Exception) {}
+            if (response.status.isSuccess()) {
+                println("✅ Portföy başarıyla eklendi.")
+            } else {
+                println("⚠️ Portföy ekleme başarısız: ${response.status}")
+            }
+        } catch (e: Exception) {
+            println("❌ Ekleme hatası: ${e.message}")
+        }
     }
 
     override suspend fun updatePortfolio(portfolio: Portfolio) {
         try {
-            client.put("$baseUrl/${portfolio.id}.json") {
+            println("🔄 Portföy güncelleniyor: ${portfolio.id} - ${portfolio.title} (${portfolio.propertyType})")
+            val response = client.put("$baseUrl/${portfolio.id}.json") {
                 contentType(ContentType.Application.Json)
                 setBody(portfolio)
             }
-        } catch (e: Exception) {}
+            if (response.status.isSuccess()) {
+                println("✅ Portföy başarıyla güncellendi (Tip: ${portfolio.propertyType}, Fiyat: ${portfolio.price})")
+            } else {
+                println("⚠️ Güncelleme başarısız: ${response.status}")
+            }
+        } catch (e: Exception) {
+            println("❌ Güncelleme hatası: ${e.message}")
+        }
     }
 
     override suspend fun deletePortfolio(id: String) {
         try {
-            client.delete("$baseUrl/$id.json")
-        } catch (e: Exception) {}
+            println("🗑️ Portföy siliniyor: $id")
+            val response = client.delete("$baseUrl/$id.json")
+            if (response.status.isSuccess()) {
+                println("✅ Silme başarılı.")
+            }
+        } catch (e: Exception) {
+            println("❌ Silme hatası: ${e.message}")
+        }
     }
 }

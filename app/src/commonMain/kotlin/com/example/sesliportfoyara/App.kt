@@ -174,19 +174,24 @@ fun App() {
                                 if (wasEditing) {
                                     if (wasEditingLocal) {
                                         localPortfolioManager.updatePortfolio(p)
+                                        snackbarHostState.showSnackbar("✅ Yerel portföy güncellendi.")
                                     } else {
                                         dbManager.updatePortfolio(p)
+                                        snackbarHostState.showSnackbar("✅ Ofis portföyü güncellendi.")
                                     }
                                 } else {
                                     val newP = p.copy(createdAt = Clock.now())
                                     if (saveLocally) {
                                         localPortfolioManager.addPortfolio(newP)
+                                        snackbarHostState.showSnackbar("✅ Yerel portföy eklendi.")
                                     } else {
                                         dbManager.addPortfolio(newP)
+                                        snackbarHostState.showSnackbar("✅ Ofis portföyü eklendi.")
                                     }
                                 }
                             } catch (e: Exception) {
                                 e.printStackTrace()
+                                snackbarHostState.showSnackbar("❌ Bir hata oluştu.")
                             }
                         }
                         editingPortfolio = null
