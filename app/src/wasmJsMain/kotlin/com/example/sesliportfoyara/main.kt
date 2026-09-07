@@ -6,6 +6,12 @@ import com.russhwolf.settings.StorageSettings
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 
+@JsFun("(content, fileName) => { const blob = new Blob([content], {type: 'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fileName; a.click(); URL.revokeObjectURL(url); }")
+external fun jsDownloadFile(content: String, fileName: String)
+
+@JsFun("(callback) => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json'; input.onchange = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (re) => { callback(re.target.result); }; reader.readAsText(file); }; input.click(); }")
+external fun jsOpenFilePicker(callback: (String) -> Unit)
+
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     CanvasBasedWindow(canvasElementId = "ComposeTarget") {
@@ -19,10 +25,17 @@ fun main() {
             }
             override fun stopVoiceRecognition() {}
             override fun saveFile(fileName: String, content: String, onResult: (Boolean) -> Unit) {
-                onResult(false) // Web'de doğrudan dosya kaydetme farklıdır
+                try {
+                    jsDownloadFile(content, fileName)
+                    onResult(true)
+                } catch (e: Exception) {
+                    onResult(false)
+                }
             }
             override fun pickFile(onResult: (String?) -> Unit) {
-                onResult(null)
+                jsOpenFilePicker { content ->
+                    onResult(content)
+                }
             }
         }
 
