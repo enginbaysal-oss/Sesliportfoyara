@@ -88,8 +88,8 @@ android {
         applicationId = "com.example.sesliportfoyara"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.9"
+        versionCode = 3
+        versionName = "1.2.0"
     }
     packaging {
         resources {
@@ -114,7 +114,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Exe, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "SesliPortfoyCRM"
-            packageVersion = "1.1.9"
+            packageVersion = "1.2.0"
 
             windows {
                 iconFile.set(project.file("src/desktopMain/package/windows/Sesliportfoyara.ico"))
