@@ -17,13 +17,13 @@ class FirebaseDatabaseManager : DatabaseManager {
         }
     }
 
-    override suspend fun addPortfolio(portfolio: Portfolio): Boolean {
+    override suspend fun addPortfolio(portfolio: Portfolio): String? {
         return try {
             val newRef = db.push()
-            val key = newRef.key ?: return false
+            val key = newRef.key ?: return null
             db.child(key).setValue(portfolio.copy(id = key))
-            true
-        } catch (e: Exception) { false }
+            key
+        } catch (e: Exception) { null }
     }
 
     override suspend fun updatePortfolio(portfolio: Portfolio): Boolean {

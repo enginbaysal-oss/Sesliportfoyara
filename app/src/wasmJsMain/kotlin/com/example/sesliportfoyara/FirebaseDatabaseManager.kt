@@ -36,13 +36,14 @@ class FirebaseDatabaseManager : DatabaseManager {
                 emit(list)
             } catch (e: Exception) {
                 println("❌ Veri çekme hatası: ${e.message}")
-                // Hata durumunda boş liste emit etmiyoruz, böylece ekran sıfırlanmıyor (mevcut veriler kalıyor)
+                // En az bir kez boş liste göndererek UI'ın "yükleniyor" durumundan çıkmasını sağlayalım
+                emit(emptyList()) 
             }
-            delay(10000) // Polling interval 10 saniyeye çıkarıldı (performans için)
+            delay(10000) 
         }
     }
 
-    override suspend fun addPortfolio(portfolio: Portfolio): Boolean {
+    override suspend fun addPortfolio(portfolio: Portfolio): String? {
         return try {
             println("📤 Yeni portföy gönderiliyor: ${portfolio.title}")
             val response = client.post("$baseUrl.json") {
@@ -51,14 +52,15 @@ class FirebaseDatabaseManager : DatabaseManager {
             }
             if (response.status.isSuccess()) {
                 println("✅ Portföy başarıyla eklendi.")
-                true
+                val body: Map<String, String> = response.body()
+                body["name"] // Firebase REST API post sonucu oluşturulan ID'yi 'name' içinde döner
             } else {
                 println("⚠️ Portföy ekleme başarısız: ${response.status}")
-                false
+                null
             }
         } catch (e: Exception) {
             println("❌ Ekleme hatası: ${e.message}")
-            false
+            null
         }
     }
 

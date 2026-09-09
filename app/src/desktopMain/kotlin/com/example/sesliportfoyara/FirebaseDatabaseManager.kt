@@ -40,15 +40,19 @@ class FirebaseDatabaseManager : DatabaseManager {
         }
     }
 
-    override suspend fun addPortfolio(portfolio: Portfolio): Boolean {
+    override suspend fun addPortfolio(portfolio: Portfolio): String? {
         return try {
-            client.post("$baseUrl.json") {
+            val response = client.post("$baseUrl.json") {
                 contentType(ContentType.Application.Json)
                 setBody(portfolio)
-            }.status.isSuccess()
+            }
+            if (response.status.isSuccess()) {
+                val body: Map<String, String> = response.body()
+                body["name"]
+            } else null
         } catch (e: Exception) {
             e.printStackTrace()
-            false
+            null
         }
     }
 

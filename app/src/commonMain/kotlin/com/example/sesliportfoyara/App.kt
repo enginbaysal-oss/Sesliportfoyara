@@ -111,6 +111,10 @@ fun App() {
         val localPortfolios by localPortfolioManager.portfolios.collectAsState()
         val clients by crmManager.clients.collectAsState()
         
+        val allPortfolios by remember { 
+            derivedStateOf { officePortfolios + localPortfolios } 
+        }
+
         var editingPortfolio by remember { mutableStateOf<Portfolio?>(null) }
         var isEditingLocal by remember { mutableStateOf(false) }
         var selectedClient by remember { mutableStateOf<Client?>(null) }
@@ -166,7 +170,7 @@ fun App() {
                         isAdmin = adminStatus
                         currentScreen = Screen.VoiceSearch
                     }
-                    Screen.VoiceSearch -> VoiceSearchScreen(officePortfolios + localPortfolios)
+                    Screen.VoiceSearch -> VoiceSearchScreen(allPortfolios)
                     Screen.AddPortfolio -> AddPortfolioScreen(editingPortfolio, myName, myPhone) { p, saveLocally ->
                         val wasEditing = editingPortfolio != null
                         val wasEditingLocal = isEditingLocal
@@ -188,9 +192,9 @@ fun App() {
                                         localPortfolioManager.addPortfolio(newP)
                                         snackbarHostState.showSnackbar("✅ Yerel portföy eklendi.")
                                     } else {
-                                        val ok = dbManager.addPortfolio(newP)
-                                        if (ok) snackbarHostState.showSnackbar("✅ Ofis portföyü eklendi.")
-                                        else snackbarHostState.showSnackbar("❌ Ekleme başarısız (Ağ hatası).")
+                                        val newId = dbManager.addPortfolio(newP)
+                                        if (newId != null) snackbarHostState.showSnackbar("✅ Ofis portföyü eklendi.")
+                                        else snackbarHostState.showSnackbar("❌ Ofise eklenemedi (Ağ hatası).")
                                     }
                                 }
                             } catch (e: Exception) {
@@ -231,15 +235,15 @@ fun App() {
                                 try {
                                     // Firebase'e ekle (ID'yi temizle ki yeni bir Firebase ID'si alsın)
                                     // Sadece kopyalıyoruz, yerelden silmiyoruz.
-                                    val ok = dbManager.addPortfolio(p.copy(id = "", createdAt = Clock.now()))
-                                    if (ok) {
+                                    val newId = dbManager.addPortfolio(p.copy(id = "", createdAt = Clock.now()))
+                                    if (newId != null) {
                                         snackbarHostState.showSnackbar("✅ Portföy ofise kopyalandı.")
                                     } else {
-                                        snackbarHostState.showSnackbar("❌ Ofise kopyalanamadı (Hata).")
+                                        snackbarHostState.showSnackbar("❌ Ofise kopyalanamadı (Hata: Sunucu yanıt vermedi).")
                                     }
                                 } catch (e: Exception) {
                                     e.printStackTrace()
-                                    snackbarHostState.showSnackbar("❌ Kopyalama başarısız.")
+                                    snackbarHostState.showSnackbar("❌ Kopyalama hatası: ${e.message}")
                                 }
                             }
                         },
@@ -252,7 +256,7 @@ fun App() {
                     )
                     Screen.CRM -> CRMMainScreen(
                         clients = clients,
-                        allPortfolios = officePortfolios + localPortfolios,
+                        allPortfolios = allPortfolios,
                         onAddClient = {
                             selectedClient = null
                             currentScreen = Screen.AddClient
@@ -279,7 +283,7 @@ fun App() {
                     Screen.ClientDetails -> selectedClient?.let { client ->
                         ClientDetailScreen(
                             client = client,
-                            allPortfolios = officePortfolios + localPortfolios,
+                            allPortfolios = allPortfolios,
                             onEdit = {
                                 currentScreen = Screen.AddClient
                             },
