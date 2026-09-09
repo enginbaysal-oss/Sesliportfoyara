@@ -233,13 +233,11 @@ fun App() {
                         onPublishLocal = { p ->
                             scope.launch {
                                 try {
-                                    // Firebase'e ekle (ID'yi temizle ki yeni bir Firebase ID'si alsın)
-                                    // Sadece kopyalıyoruz, yerelden silmiyoruz.
                                     val newId = dbManager.addPortfolio(p.copy(id = "", createdAt = Clock.now()))
                                     if (newId != null) {
                                         snackbarHostState.showSnackbar("✅ Portföy ofise kopyalandı.")
                                     } else {
-                                        snackbarHostState.showSnackbar("❌ Ofise kopyalanamadı (Hata: Sunucu yanıt vermedi).")
+                                        snackbarHostState.showSnackbar("❌ Ofise kopyalanamadı (Yetki veya Ağ hatası).")
                                     }
                                 } catch (e: Exception) {
                                     e.printStackTrace()

@@ -27,16 +27,22 @@ class FirebaseDatabaseManager : DatabaseManager {
     override fun getPortfolios(): Flow<List<Portfolio>> = flow {
         while (true) {
             try {
-                // Cache-busting: 't' parametresi ile tarayıcının eski veriyi getirmesini engelliyoruz
                 val timestamp = getCurrentTimeMillis()
-                val response: Map<String, Portfolio>? = client.get("$baseUrl.json?t=$timestamp").body()
-                val list = response?.map { (key, portfolio) ->
-                    portfolio.copy(id = key)
-                } ?: emptyList()
-                emit(list)
+                val response = client.get("$baseUrl.json?t=$timestamp")
+                
+                if (response.status.isSuccess()) {
+                    val responseBody: Map<String, Portfolio>? = response.body()
+                    val list = responseBody?.map { (key, portfolio) ->
+                        portfolio.copy(id = key)
+                    } ?: emptyList()
+                    emit(list)
+                } else if (response.status == HttpStatusCode.Unauthorized) {
+                    println("❌ Firebase Yetki Hatası (401): Lütfen veri tabanı kurallarını kontrol edin.")
+                } else {
+                    println("❌ Sunucu Hatası (${response.status.value})")
+                }
             } catch (e: Exception) {
                 println("❌ Veri çekme hatası: ${e.message}")
-                // En az bir kez boş liste göndererek UI'ın "yükleniyor" durumundan çıkmasını sağlayalım
                 emit(emptyList()) 
             }
             delay(10000) 
