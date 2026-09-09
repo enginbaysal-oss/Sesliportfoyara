@@ -233,9 +233,17 @@ fun App() {
                         onPublishLocal = { p ->
                             scope.launch {
                                 try {
-                                    val newId = dbManager.addPortfolio(p.copy(id = "", createdAt = Clock.now()))
+                                    // Ofise kopyalarken mülk sahibi bilgilerini temizliyoruz (Gizlilik)
+                                    // Sadece danışman (yani siz) ve ilan detayları gidiyor.
+                                    val officeCopy = p.copy(
+                                        id = "", 
+                                        createdAt = Clock.now(),
+                                        ownerName = "", 
+                                        ownerPhone = ""
+                                    )
+                                    val newId = dbManager.addPortfolio(officeCopy)
                                     if (newId != null) {
-                                        snackbarHostState.showSnackbar("✅ Portföy ofise kopyalandı.")
+                                        snackbarHostState.showSnackbar("✅ Portföy ofise kopyalandı (Sahibi gizlendi).")
                                     } else {
                                         snackbarHostState.showSnackbar("❌ Ofise kopyalanamadı (Yetki veya Ağ hatası).")
                                     }
@@ -1036,13 +1044,6 @@ fun PortfolioItem(
     val cleanMyPhone = currentConsultant.phone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
     val cleanConsultantPhone = portfolio.consultantPhone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
     
-    // Portföyün bana ait olup olmadığını belirle:
-    // 1. Yerel bir portföy mü? (ID'si local_ ile mi başlıyor?)
-    // 2. Danışman ismi ve telefonu benimle uyuşuyor mu?
-    val isMine = portfolio.id.startsWith("local_") || 
-                (portfolio.consultantName.trim().equals(currentConsultant.name.trim(), ignoreCase = true) && 
-                 cleanConsultantPhone == cleanMyPhone && cleanMyPhone.isNotEmpty())
-
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2126)),
@@ -1113,15 +1114,19 @@ fun PortfolioItem(
                 Icon(Icons.Default.Person, null, tint = Color.Gray.copy(0.6f), modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(6.6.dp))
                 
-                val contactName = if (isMine && portfolio.ownerName.isNotEmpty()) {
+                // MANTIK: 
+                // 1. Eğer ilan YEREL ise: Mülk sahibini göster (özel not defteri gibi)
+                // 2. Eğer ilan OFİS ise: Sadece danışman bilgilerini göster (vitrin gibi)
+                val isLocal = portfolio.id.startsWith("local_")
+                val contactName = if (isLocal && portfolio.ownerName.isNotEmpty()) {
                     "Mülk Sahibi: ${portfolio.ownerName}" 
                 } else if (portfolio.consultantName.isNotEmpty()) {
                     "Danışman: ${portfolio.consultantName}"
                 } else {
-                    "Sahibi: ${portfolio.ownerName}"
+                    "İletişim: ${portfolio.ownerPhone.ifEmpty { "Belirtilmedi" }}"
                 }
                 
-                Text(contactName, color = Color.Gray, fontSize = 12.sp, fontWeight = if (isMine) FontWeight.Bold else FontWeight.Normal)
+                Text(contactName, color = Color.Gray, fontSize = 12.sp, fontWeight = if (isLocal) FontWeight.Bold else FontWeight.Normal)
             }
             
             val platformUtils = LocalPlatformUtils.current
@@ -1129,7 +1134,8 @@ fun PortfolioItem(
             
             // BUTONLAR (Mülk sahibi benimse ona, değilse danışmana yönlendir)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                val callPhone = if (isMine && portfolio.ownerPhone.isNotEmpty()) {
+                val isLocal = portfolio.id.startsWith("local_")
+                val callPhone = if (isLocal && portfolio.ownerPhone.isNotEmpty()) {
                     portfolio.ownerPhone
                 } else if (portfolio.consultantPhone.isNotEmpty()) {
                     portfolio.consultantPhone
