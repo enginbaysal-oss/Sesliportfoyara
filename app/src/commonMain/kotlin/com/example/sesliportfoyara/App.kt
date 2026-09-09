@@ -178,8 +178,9 @@ fun App() {
                                         localPortfolioManager.updatePortfolio(p)
                                         snackbarHostState.showSnackbar("✅ Yerel portföy güncellendi.")
                                     } else {
-                                        dbManager.updatePortfolio(p)
-                                        snackbarHostState.showSnackbar("✅ Ofis portföyü güncellendi.")
+                                        val ok = dbManager.updatePortfolio(p)
+                                        if (ok) snackbarHostState.showSnackbar("✅ Ofis portföyü güncellendi.")
+                                        else snackbarHostState.showSnackbar("❌ Güncelleme başarısız (Ağ hatası).")
                                     }
                                 } else {
                                     val newP = p.copy(createdAt = Clock.now())
@@ -187,8 +188,9 @@ fun App() {
                                         localPortfolioManager.addPortfolio(newP)
                                         snackbarHostState.showSnackbar("✅ Yerel portföy eklendi.")
                                     } else {
-                                        dbManager.addPortfolio(newP)
-                                        snackbarHostState.showSnackbar("✅ Ofis portföyü eklendi.")
+                                        val ok = dbManager.addPortfolio(newP)
+                                        if (ok) snackbarHostState.showSnackbar("✅ Ofis portföyü eklendi.")
+                                        else snackbarHostState.showSnackbar("❌ Ekleme başarısız (Ağ hatası).")
                                     }
                                 }
                             } catch (e: Exception) {
@@ -203,8 +205,17 @@ fun App() {
                     Screen.MyPortfolio -> MyPortfolioScreen(
                         officePortfolios = officePortfolios,
                         localPortfolios = localPortfolios,
-                        onDeleteOffice = { p -> scope.launch { dbManager.deletePortfolio(p.id) } },
-                        onDeleteLocal = { p -> localPortfolioManager.deletePortfolio(p.id) },
+                        onDeleteOffice = { p -> 
+                            scope.launch { 
+                                val ok = dbManager.deletePortfolio(p.id)
+                                if (ok) snackbarHostState.showSnackbar("✅ Ofis portföyü silindi.")
+                                else snackbarHostState.showSnackbar("❌ Silme başarısız (Ağ hatası).")
+                            } 
+                        },
+                        onDeleteLocal = { p -> 
+                            localPortfolioManager.deletePortfolio(p.id)
+                            scope.launch { snackbarHostState.showSnackbar("✅ Yerel portföy silindi.") }
+                        },
                         onEditOffice = {
                             editingPortfolio = it
                             isEditingLocal = false
@@ -220,8 +231,12 @@ fun App() {
                                 try {
                                     // Firebase'e ekle (ID'yi temizle ki yeni bir Firebase ID'si alsın)
                                     // Sadece kopyalıyoruz, yerelden silmiyoruz.
-                                    dbManager.addPortfolio(p.copy(id = "", createdAt = Clock.now()))
-                                    snackbarHostState.showSnackbar("✅ Portföy ofise kopyalandı.")
+                                    val ok = dbManager.addPortfolio(p.copy(id = "", createdAt = Clock.now()))
+                                    if (ok) {
+                                        snackbarHostState.showSnackbar("✅ Portföy ofise kopyalandı.")
+                                    } else {
+                                        snackbarHostState.showSnackbar("❌ Ofise kopyalanamadı (Hata).")
+                                    }
                                 } catch (e: Exception) {
                                     e.printStackTrace()
                                     snackbarHostState.showSnackbar("❌ Kopyalama başarısız.")

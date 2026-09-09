@@ -5,9 +5,9 @@ import kotlinx.coroutines.flow.Flow
 
 interface DatabaseManager {
     fun getPortfolios(): Flow<List<Portfolio>>
-    suspend fun addPortfolio(portfolio: Portfolio)
-    suspend fun updatePortfolio(portfolio: Portfolio)
-    suspend fun deletePortfolio(id: String)
+    suspend fun addPortfolio(portfolio: Portfolio): Boolean
+    suspend fun updatePortfolio(portfolio: Portfolio): Boolean
+    suspend fun deletePortfolio(id: String): Boolean
 }
 
 // Bunu App() içine dışarıdan vereceğiz

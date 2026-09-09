@@ -17,17 +17,26 @@ class FirebaseDatabaseManager : DatabaseManager {
         }
     }
 
-    override suspend fun addPortfolio(portfolio: Portfolio) {
-        val newRef = db.push()
-        val key = newRef.key ?: ""
-        db.child(key).setValue(portfolio.copy(id = key))
+    override suspend fun addPortfolio(portfolio: Portfolio): Boolean {
+        return try {
+            val newRef = db.push()
+            val key = newRef.key ?: return false
+            db.child(key).setValue(portfolio.copy(id = key))
+            true
+        } catch (e: Exception) { false }
     }
 
-    override suspend fun updatePortfolio(portfolio: Portfolio) {
-        db.child(portfolio.id).setValue(portfolio)
+    override suspend fun updatePortfolio(portfolio: Portfolio): Boolean {
+        return try {
+            db.child(portfolio.id).setValue(portfolio)
+            true
+        } catch (e: Exception) { false }
     }
 
-    override suspend fun deletePortfolio(id: String) {
-        db.child(id).removeValue()
+    override suspend fun deletePortfolio(id: String): Boolean {
+        return try {
+            db.child(id).removeValue()
+            true
+        } catch (e: Exception) { false }
     }
 }

@@ -42,8 +42,8 @@ class FirebaseDatabaseManager : DatabaseManager {
         }
     }
 
-    override suspend fun addPortfolio(portfolio: Portfolio) {
-        try {
+    override suspend fun addPortfolio(portfolio: Portfolio): Boolean {
+        return try {
             println("📤 Yeni portföy gönderiliyor: ${portfolio.title}")
             val response = client.post("$baseUrl.json") {
                 contentType(ContentType.Application.Json)
@@ -51,16 +51,19 @@ class FirebaseDatabaseManager : DatabaseManager {
             }
             if (response.status.isSuccess()) {
                 println("✅ Portföy başarıyla eklendi.")
+                true
             } else {
                 println("⚠️ Portföy ekleme başarısız: ${response.status}")
+                false
             }
         } catch (e: Exception) {
             println("❌ Ekleme hatası: ${e.message}")
+            false
         }
     }
 
-    override suspend fun updatePortfolio(portfolio: Portfolio) {
-        try {
+    override suspend fun updatePortfolio(portfolio: Portfolio): Boolean {
+        return try {
             println("🔄 Portföy güncelleniyor: ${portfolio.id} - ${portfolio.title} (${portfolio.propertyType})")
             val response = client.put("$baseUrl/${portfolio.id}.json") {
                 contentType(ContentType.Application.Json)
@@ -68,23 +71,30 @@ class FirebaseDatabaseManager : DatabaseManager {
             }
             if (response.status.isSuccess()) {
                 println("✅ Portföy başarıyla güncellendi (Tip: ${portfolio.propertyType}, Fiyat: ${portfolio.price})")
+                true
             } else {
                 println("⚠️ Güncelleme başarısız: ${response.status}")
+                false
             }
         } catch (e: Exception) {
             println("❌ Güncelleme hatası: ${e.message}")
+            false
         }
     }
 
-    override suspend fun deletePortfolio(id: String) {
-        try {
+    override suspend fun deletePortfolio(id: String): Boolean {
+        return try {
             println("🗑️ Portföy siliniyor: $id")
             val response = client.delete("$baseUrl/$id.json")
             if (response.status.isSuccess()) {
                 println("✅ Silme başarılı.")
+                true
+            } else {
+                false
             }
         } catch (e: Exception) {
             println("❌ Silme hatası: ${e.message}")
+            false
         }
     }
 }

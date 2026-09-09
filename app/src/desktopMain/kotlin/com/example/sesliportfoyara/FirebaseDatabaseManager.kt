@@ -40,33 +40,36 @@ class FirebaseDatabaseManager : DatabaseManager {
         }
     }
 
-    override suspend fun addPortfolio(portfolio: Portfolio) {
-        try {
+    override suspend fun addPortfolio(portfolio: Portfolio): Boolean {
+        return try {
             client.post("$baseUrl.json") {
                 contentType(ContentType.Application.Json)
                 setBody(portfolio)
-            }
+            }.status.isSuccess()
         } catch (e: Exception) {
             e.printStackTrace()
+            false
         }
     }
 
-    override suspend fun updatePortfolio(portfolio: Portfolio) {
-        try {
+    override suspend fun updatePortfolio(portfolio: Portfolio): Boolean {
+        return try {
             client.put("$baseUrl/${portfolio.id}.json") {
                 contentType(ContentType.Application.Json)
                 setBody(portfolio)
-            }
+            }.status.isSuccess()
         } catch (e: Exception) {
             e.printStackTrace()
+            false
         }
     }
 
-    override suspend fun deletePortfolio(id: String) {
-        try {
-            client.delete("$baseUrl/$id.json")
+    override suspend fun deletePortfolio(id: String): Boolean {
+        return try {
+            client.delete("$baseUrl/$id.json").status.isSuccess()
         } catch (e: Exception) {
             e.printStackTrace()
+            false
         }
     }
 }
