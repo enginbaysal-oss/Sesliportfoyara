@@ -233,8 +233,10 @@ fun App() {
                         onPublishLocal = { p ->
                             scope.launch {
                                 try {
-                                    // Ofise kopyalarken mülk sahibi bilgilerini temizliyoruz (Gizlilik)
-                                    // Sadece danışman (yani siz) ve ilan detayları gidiyor.
+                                    println("🛡️ Yerel liste korunuyor. Mevcut adet: ${localPortfolios.size}")
+                                    
+                                    // Sadece Firebase'e gönderiyoruz. 
+                                    // Yerel veri tabanına (localPortfolioManager) dair HİÇBİR işlem yapmıyoruz.
                                     val officeCopy = p.copy(
                                         id = "", 
                                         createdAt = Clock.now(),
@@ -242,8 +244,10 @@ fun App() {
                                         ownerPhone = ""
                                     )
                                     val newId = dbManager.addPortfolio(officeCopy)
+                                    
                                     if (newId != null) {
-                                        snackbarHostState.showSnackbar("✅ Portföy ofise kopyalandı (Sahibi gizlendi).")
+                                        snackbarHostState.showSnackbar("✅ Ofise kopyalandı. Yerel kopyanız duruyor.")
+                                        println("🛡️ Kopyalama bitti. Yerel adet: ${localPortfolios.size}")
                                     } else {
                                         snackbarHostState.showSnackbar("❌ Ofise kopyalanamadı (Yetki veya Ağ hatası).")
                                     }
@@ -468,7 +472,7 @@ fun HeaderSection() {
         
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Sesli Portföy CRM v1.2.1",
+                text = "Sesli Portföy CRM v1.2.2",
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.ExtraBold,
