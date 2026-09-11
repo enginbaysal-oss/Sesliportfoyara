@@ -20,11 +20,10 @@ async function fetchProperties() {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
     await page.goto(TARGET_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    
+    // Yüklenme beklemesi (Güncel Puppeteer uyumlu)
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
-    // Sayfanın ve ilanların tam yüklenmesi için 5 saniye bekle
-    await page.waitForTimeout(5000);
-
-    // Tüm ilanların (Lazy Loading) yüklenmesi için sayfayı aşağı kaydır
     await page.evaluate(async () => {
       await new Promise((resolve) => {
         let totalHeight = 0;
@@ -42,10 +41,8 @@ async function fetchProperties() {
       });
     });
 
-    // Sayfadaki tüm bağlantıları ve ilan yapılarını tara
     const listings = await page.evaluate(() => {
       const items = [];
-      // Genişletilmiş seçici listesi
       const cards = document.querySelectorAll('a[href*="/portfoy/"], a[href*="/ilan/"], .property-item, .listing-card, [class*="PropertyCard"], [class*="listing-item"]');
 
       cards.forEach((card, index) => {
@@ -60,7 +57,7 @@ async function fetchProperties() {
         if (href && titleText) {
           items.push({
             id: href.split('/').pop() || `item-${index}`,
-            title: titleText.split('\n')[0], // Sadece ilk satırı başlık al
+            title: titleText.split('\n')[0],
             price: priceEl ? priceEl.innerText.trim() : '',
             address: addressEl ? addressEl.innerText.trim() : '',
             url: href.startsWith('http') ? href : `https://www.remax.com.tr${href}`,
@@ -69,12 +66,8 @@ async function fetchProperties() {
         }
       });
 
-      // Tekrarlayan ilanları URL'e göre temizle
-      const uniqueItems = Array.from(new Map(items.map(item => [item.url, item])).values());
-      return uniqueItems;
+      return Array.from(new Map(items.map(item => [item.url, item])).values());
     });
-
-    console.log(`Çekilen Net İlan Sayısı: ${listings.length}`);
 
     const outputData = {
       office: OFFICE_SLUG,

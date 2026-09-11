@@ -13,17 +13,17 @@ jobs:
 
     steps:
       - name: Depoyu Klonla
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Node.js Kurulumu
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Puppeteer Bağımlılığını Yükle
         run: npm install puppeteer
 
-      - name: RE/MAX Verilerini Çek (Puppeteer)
+      - name: RE/MAX Verilerini Çek
         run: node fetch-remax.js
 
       - name: Değişiklikleri Kaydet ve Push Et
@@ -31,5 +31,5 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "auto: RE/MAX portföy verileri Puppeteer ile güncellendi [skip ci]" || exit 0
+          git commit -m "auto: RE/MAX portföy verileri güncellendi [skip ci]" || exit 0
           git push
