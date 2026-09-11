@@ -494,7 +494,7 @@ fun HeaderSection() {
         
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Sesli Portföy CRM v1.2.2",
+                text = "Sesli Portföy CRM v1.2.3",
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -542,35 +542,51 @@ fun HeaderSection() {
 
 @Composable
 fun TabNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
-    val screens = listOf(Screen.VoiceSearch, Screen.AddPortfolio, Screen.CRM, Screen.MyPortfolio)
+    val items = listOf(
+        Triple(Screen.VoiceSearch, Icons.Default.Mic, Color(0xFFFFC107)),
+        Triple(Screen.AddPortfolio, Icons.Default.AddCircle, Color(0xFF4CAF50)),
+        Triple(Screen.CRM, Icons.Default.Groups, Color(0xFF2196F3)),
+        Triple(Screen.MyPortfolio, Icons.Default.Inventory, Color(0xFFFF9800))
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 12.dp)
             .padding(bottom = 16.dp, top = 8.dp)
-            .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .background(Color(0xFF1A1A1A), RoundedCornerShape(16.dp))
+            .padding(6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        screens.forEach { screen ->
+        items.forEach { (screen, icon, color) ->
             val selected = (currentScreen == screen)
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (selected) Color(0xFF2C2C2C) else Color.Transparent)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (selected) color.copy(alpha = 0.12f) else Color.Transparent)
                     .clickable { onNavigate(screen) }
-                    .padding(vertical = 12.dp),
+                    .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = screen.title,
-                    color = if (selected) Color(0xFFFFC107) else Color.Gray,
-                    fontSize = 12.sp,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                    textAlign = TextAlign.Center
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = screen.title,
+                        tint = if (selected) color else Color.Gray.copy(alpha = 0.5f),
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = screen.title,
+                        color = if (selected) color else Color.Gray.copy(alpha = 0.5f),
+                        fontSize = 10.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
