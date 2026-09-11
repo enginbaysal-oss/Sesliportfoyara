@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -331,8 +332,8 @@ fun App() {
 
 @Composable
 fun ProfileSetupScreen(onComplete: (String, String, String) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
+    var nameValue by remember { mutableStateOf(TextFieldValue("")) }
+    var phoneValue by remember { mutableStateOf(TextFieldValue("")) }
     var adminSecret by remember { mutableStateOf("") }
     
     Column(
@@ -362,22 +363,22 @@ fun ProfileSetupScreen(onComplete: (String, String, String) -> Unit) {
         
         Spacer(modifier = Modifier.height(32.dp))
         
-        CustomInputField("Adınız Soyadınız", name) { name = it }
-        CustomInputField("Telefon Numaranız", phone) { phone = it }
+        CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
+        CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
         CustomInputField("Admin Şifresi (Opsiyonel)", adminSecret) { adminSecret = it }
         
         Spacer(modifier = Modifier.height(40.dp))
         
         Button(
             onClick = {
-                if (name.isNotBlank() && phone.isNotBlank()) {
-                    onComplete(name.trim(), phone.trim(), adminSecret.trim())
+                if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
+                    onComplete(nameValue.text.trim(), phoneValue.text.trim(), adminSecret.trim())
                 }
             },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
-            enabled = name.isNotBlank() && phone.isNotBlank()
+            enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()
         ) {
             Text("Uygulamaya Başla", color = Color.Black, fontWeight = FontWeight.Bold)
         }
@@ -918,6 +919,26 @@ fun AddPortfolioScreen(editingPortfolio: Portfolio?, defaultName: String, defaul
         }
         
         Spacer(modifier = Modifier.height(40.dp))
+    }
+}
+
+@Composable
+fun CustomTextFieldValueInput(label: String, value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit) {
+    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+        Text(label, color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(bottom = 4.dp))
+        TextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color(0xFF2C2C2C),
+                unfocusedContainerColor = Color(0xFF2C2C2C),
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White
+            )
+        )
     }
 }
 
