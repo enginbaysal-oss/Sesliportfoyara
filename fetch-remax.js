@@ -1,18 +1,28 @@
 // fetch-remax.js
 const fs = require('fs');
 
-// 1. ADIM'da belirlediğiniz office slug değerini buraya yazın:
-const OFFICE_SLUG = 'ilyada-3'; 
-const API_URL = `https://www.remax.com.tr/api/v1/property/office/${OFFICE_SLUG}`;
+// RE/MAX Web Arama API Endpoint'i
+const API_URL = 'https://www.remax.com.tr/api/v1/property/search';
 
 async function fetchProperties() {
   try {
-    console.log(`RE/MAX API'ye bağlanılıyor: ${OFFICE_SLUG}...`);
-    
+    console.log("RE/MAX Arama API'sine bağlanılıyor...");
+
+    // Arama filtreleri (Ofis adı veya anahtar kelime)
+    const payload = {
+      keyword: "ilyada", // Aratmak istediğiniz ofis veya danışman adı
+      pageSize: 100,
+      pageIndex: 1
+    };
+
     const response = await fetch(API_URL, {
+      method: 'POST',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.remax.com.tr/'
+      },
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
@@ -20,48 +30,49 @@ async function fetchProperties() {
     }
 
     const json = await response.json();
-    const rawListings = json.listings || [];
+    const rawListings = json.data?.items || json.listings || [];
 
-    // RE/MAX'tan gelen verileri kendi uygulamanızın anlayacağı formata dönüştürüyoruz
+    if (rawListings.length === 0) {
+      console.warn("⚠️ Uyarı: API'den ilan dönmedi. Filtre parametrelerini kontrol edin.");
+    }
+
+    // Gelen verileri uygulamanın formatına dönüştürme
     const cleanListings = rawListings.map(item => ({
-      id: item.code,                           // Örn: P43344368
-      title: item.title?.[0]?.text || '',      // İlan Başlığı
-      description: item.description?.[0]?.text || '', // Detaylı açıklama
-      price: item.priceInfo?.amount,           // Fiyat
-      currency: item.priceInfo?.amountTypeSymbol || '₺', // Para Birimi
-      category: item.categoryName,             // Konut, Arsa, İşyeri vb.
-      operation: item.operationName,           // Satılık / Kiralık
-      city: item.address?.split('/')[0]?.trim() || '',   // İl
-      town: item.address?.split('/')[1]?.trim() || '',   // İlçe
-      neighborhood: item.address?.split('/')[2]?.trim() || '', // Mahalle
-      address: item.address,                   // Tam Adres Metni
-      m2: item.m2Area,                         // Metrekare
-      roomOptions: item.roomOptions || '',     // Oda Sayısı (Örn: 3+1)
-      employeeName: item.employeeName,         // İlan Danışmanı
-      mainImage: item.images?.[0] || '',       // Kapak Fotoğrafı
-      images: item.images || [],               // Tüm Fotoğraflar
-      video: item.video || '',                 // Video Linki
-      url: `https://www.remax.com.tr${item.url}`, // RE/MAX Orijinal İlan Linki
-      lat: item.latitude,                      // Harita Enlem
-      lng: item.longitude,                     // Harita Boylam
+      id: item.code || item.id,
+      title: item.title?.[0]?.text || item.title || '',
+      description: item.description?.[0]?.text || item.description || '',
+      price: item.priceInfo?.amount || item.price,
+      currency: item.priceInfo?.amountTypeSymbol || item.currencySymbol || '₺',
+      category: item.categoryName || item.category,
+      operation: item.operationName || item.operation,
+      city: item.cityName || item.address?.split('/')[0]?.trim() || '',
+      town: item.townName || item.address?.split('/')[1]?.trim() || '',
+      neighborhood: item.neighborhoodName || item.address?.split('/')[2]?.trim() || '',
+      address: item.address || '',
+      m2: item.m2Area || item.m2,
+      roomOptions: item.roomOptions || item.rooms || '',
+      employeeName: item.employeeName || item.agentName || '',
+      mainImage: item.images?.[0] || item.coverImage || '',
+      images: item.images || [],
+      video: item.video || '',
+      url: item.url ? `https://www.remax.com.tr${item.url}` : '',
+      lat: item.latitude || item.lat,
+      lng: item.longitude || item.lng,
       updatedAt: new Date().toISOString()
     }));
 
-    // Oluşturulacak JSON dosyasının üst yapısı
     const outputData = {
-      office: OFFICE_SLUG,
       lastUpdated: new Date().toISOString(),
       count: cleanListings.length,
       data: cleanListings
     };
 
-    // 'data' klasörüne JSON olarak kaydet
     if (!fs.existsSync('./data')) {
       fs.mkdirSync('./data');
     }
-    fs.writeFileSync('./data/portfoylari_guncel.json', JSON.stringify(outputData, null, 2));
     
-    console.log(`✅ Başarılı! Toplam ${cleanListings.length} adet portföy 'data/portfoylari_guncel.json' dosyasına yazıldı.`);
+    fs.writeFileSync('./data/portfoylari_guncel.json', JSON.stringify(outputData, null, 2));
+    console.log(`✅ Başarılı! Toplam ${cleanListings.length} adet portföy kaydedildi.`);
 
   } catch (error) {
     console.error('❌ Veri çekilirken hata oluştu:', error);
