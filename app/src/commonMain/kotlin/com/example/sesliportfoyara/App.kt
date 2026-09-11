@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -930,6 +931,11 @@ fun CustomTextFieldValueInput(label: String, value: TextFieldValue, onValueChang
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                autoCorrectEnabled = false,
+                keyboardType = KeyboardType.Text
+            ),
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = Color(0xFF2C2C2C),
                 unfocusedContainerColor = Color(0xFF2C2C2C),
@@ -950,6 +956,11 @@ fun CustomInputField(label: String, value: String, onValueChange: (String) -> Un
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                autoCorrectEnabled = false,
+                keyboardType = KeyboardType.Text
+            ),
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = Color(0xFF2C2C2C),
                 unfocusedContainerColor = Color(0xFF2C2C2C),
