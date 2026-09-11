@@ -170,7 +170,27 @@ fun App() {
                         isAdmin = adminStatus
                         currentScreen = Screen.VoiceSearch
                     }
-                    Screen.VoiceSearch -> VoiceSearchScreen(allPortfolios)
+                    Screen.VoiceSearch -> VoiceSearchScreen(allPortfolios) { p ->
+                        scope.launch {
+                            try {
+                                val officeCopy = p.copy(
+                                    id = "", 
+                                    createdAt = Clock.now(),
+                                    ownerName = "", 
+                                    ownerPhone = ""
+                                )
+                                val newId = dbManager.addPortfolio(officeCopy)
+                                if (newId != null) {
+                                    snackbarHostState.showSnackbar("✅ Ofise kopyalandı. Yerel kopyanız duruyor.")
+                                } else {
+                                    snackbarHostState.showSnackbar("❌ Ofise kopyalanamadı (Yetki veya Ağ hatası).")
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                snackbarHostState.showSnackbar("❌ Kopyalama hatası: ${e.message}")
+                            }
+                        }
+                    }
                     Screen.AddPortfolio -> AddPortfolioScreen(editingPortfolio, myName, myPhone) { p, saveLocally ->
                         val wasEditing = editingPortfolio != null
                         val wasEditingLocal = isEditingLocal
@@ -555,7 +575,7 @@ fun TabNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
 }
 
 @Composable
-fun VoiceSearchScreen(portfolios: List<Portfolio>) {
+fun VoiceSearchScreen(portfolios: List<Portfolio>, onPublish: (Portfolio) -> Unit) {
     val scrollState = rememberScrollState()
     var searchResults by remember { mutableStateOf<List<Portfolio>>(emptyList()) }
     var lastQuery by remember { mutableStateOf("") }
@@ -698,7 +718,12 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>) {
             )
             Spacer(modifier = Modifier.height(10.dp))
             searchResults.forEach { portfolio ->
-                PortfolioItem(portfolio, onDelete = null, onEdit = null)
+                PortfolioItem(
+                    portfolio = portfolio, 
+                    onDelete = null, 
+                    onEdit = null,
+                    onPublish = if (portfolio.id.startsWith("local_")) onPublish else null
+                )
             }
         }
         
