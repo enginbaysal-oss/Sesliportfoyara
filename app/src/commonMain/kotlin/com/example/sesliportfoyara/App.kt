@@ -44,6 +44,7 @@ import com.example.sesliportfoyara.ui.AddClientScreen
 import com.example.sesliportfoyara.ui.ClientDetailScreen
 import com.example.sesliportfoyara.ui.theme.SesliportfoyaraTheme
 import com.russhwolf.settings.Settings
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -92,21 +93,34 @@ fun App() {
     val settings = remember { Settings() }
     val crmManager = LocalCRMManagerProvider.current
     val localPortfolioManager = LocalPortfolioManagerProvider.current
+    val remaxService = remember { RemaxService() }
     val snackbarHostState = remember { SnackbarHostState() }
     
     // Uygulamanın hatırladığı danışman bilgileri (Sizin kimliğiniz)
     var myName by remember { mutableStateOf(settings.getString("my_consultant_name", "")) }
     var myPhone by remember { mutableStateOf(settings.getString("my_consultant_phone", "")) }
+    var remaxUrl by remember { mutableStateOf(settings.getString("remax_office_url", "")) }
     var isAdmin by remember { mutableStateOf(settings.getBoolean("is_admin", false)) }
     
     // Eğer bilgiler boşsa, başlangıç ekranını profil kurulumu yapıyoruz
     var currentScreen by remember { 
         mutableStateOf<Screen>(if (myName.isEmpty() || myPhone.isEmpty()) Screen.ProfileSetup else Screen.VoiceSearch) 
     }
+
+    // OTOMATİK SENKRONİZASYON (Saatlik ve Açılışta)
+    LaunchedEffect(remaxUrl) {
+        if (remaxUrl.isNotBlank()) {
+            while (true) {
+                remaxService.syncWithFirebase(remaxUrl, dbManager)
+                delay(3600_000) // 1 Saat
+            }
+        }
+    }
     
     CompositionLocalProvider(
         LocalConsultantInfo provides ConsultantInfo(myName, myPhone),
-        LocalSnackbarHostState provides snackbarHostState
+        LocalSnackbarHostState provides snackbarHostState,
+        LocalRemaxServiceProvider provides remaxService
     ) {
         SesliportfoyaraTheme(darkTheme = true) {
         val officePortfolios = remember { mutableStateListOf<Portfolio>() }
@@ -159,9 +173,14 @@ fun App() {
                     .padding(paddingValues)
             ) {
                 when (currentScreen) {
-                    Screen.ProfileSetup -> ProfileSetupScreen { name, phone, adminSecret ->
+                    Screen.ProfileSetup -> ProfileSetupScreen(
+                        initialName = myName,
+                        initialPhone = myPhone,
+                        initialUrl = remaxUrl
+                    ) { name, phone, url, adminSecret ->
                         settings.putString("my_consultant_name", name)
                         settings.putString("my_consultant_phone", phone)
+                        settings.putString("remax_office_url", url)
                         
                         // Gizli şifreyi kontrol et (Şifre: enginadmin)
                         val adminStatus = adminSecret == "enginadmin"
@@ -169,6 +188,7 @@ fun App() {
                         
                         myName = name
                         myPhone = phone
+                        remaxUrl = url
                         isAdmin = adminStatus
                         currentScreen = Screen.VoiceSearch
                     }
@@ -282,6 +302,18 @@ fun App() {
                         onEditProfile = {
                             currentScreen = Screen.ProfileSetup
                         },
+                        onImportRemax = { url ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar("⌛ Portföyler çekiliyor...")
+                                val list = remaxService.fetchOfficePortfolios(url)
+                                if (list.isNotEmpty()) {
+                                    list.forEach { localPortfolioManager.addPortfolio(it) }
+                                    snackbarHostState.showSnackbar("✅ ${list.size} portföy içe aktarıldı.")
+                                } else {
+                                    snackbarHostState.showSnackbar("❌ İlan bulunamadı veya link hatalı.")
+                                }
+                            }
+                        },
                         currentName = myName,
                         currentPhone = myPhone,
                         isAdmin = isAdmin
@@ -332,14 +364,23 @@ fun App() {
 }
 
 @Composable
-fun ProfileSetupScreen(onComplete: (String, String, String) -> Unit) {
-    var nameValue by remember { mutableStateOf(TextFieldValue("")) }
-    var phoneValue by remember { mutableStateOf(TextFieldValue("")) }
+fun ProfileSetupScreen(
+    initialName: String = "",
+    initialPhone: String = "",
+    initialUrl: String = "",
+    onComplete: (String, String, String, String) -> Unit
+) {
+    var nameValue by remember { mutableStateOf(TextFieldValue(initialName)) }
+    var phoneValue by remember { mutableStateOf(TextFieldValue(initialPhone)) }
+    var remaxUrl by remember { mutableStateOf(initialUrl) }
     var adminSecret by remember { mutableStateOf("") }
+    
+    val scrollState = rememberScrollState()
     
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(scrollState)
             .padding(30.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -355,9 +396,9 @@ fun ProfileSetupScreen(onComplete: (String, String, String) -> Unit) {
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        Text("Hoş Geldiniz", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("Danışman Profili", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Devam etmek için lütfen danışman bilgilerinizi girin. Bu bilgiler ilanlarınızın size ait olduğunu belirlemek için kullanılacaktır.", 
+            "Otomatik portföy çekme için RE/MAX ofis linkinizi girebilirsiniz.", 
             color = Color.Gray, fontSize = 14.sp, textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp)
         )
@@ -366,6 +407,7 @@ fun ProfileSetupScreen(onComplete: (String, String, String) -> Unit) {
         
         CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
         CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
+        CustomInputField("RE/MAX Ofis Linki (Otomatik Çekme İçin)", remaxUrl) { remaxUrl = it }
         CustomInputField("Admin Şifresi (Opsiyonel)", adminSecret) { adminSecret = it }
         
         Spacer(modifier = Modifier.height(40.dp))
@@ -373,7 +415,7 @@ fun ProfileSetupScreen(onComplete: (String, String, String) -> Unit) {
         Button(
             onClick = {
                 if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
-                    onComplete(nameValue.text.trim(), phoneValue.text.trim(), adminSecret.trim())
+                    onComplete(nameValue.text.trim(), phoneValue.text.trim(), remaxUrl.trim(), adminSecret.trim())
                 }
             },
             modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -381,7 +423,7 @@ fun ProfileSetupScreen(onComplete: (String, String, String) -> Unit) {
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
             enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()
         ) {
-            Text("Uygulamaya Başla", color = Color.Black, fontWeight = FontWeight.Bold)
+            Text("Bilgileri Kaydet", color = Color.Black, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -479,7 +521,9 @@ fun PremiumLogo(modifier: Modifier = Modifier) {
 fun HeaderSection() {
     val crmManager = LocalCRMManagerProvider.current
     val localPortfolioManager = LocalPortfolioManagerProvider.current
+    val remaxService = LocalRemaxServiceProvider.current
     val platformUtils = LocalPlatformUtils.current
+    val isSyncing by remaxService.isSyncing.collectAsState()
 
     Row(
         modifier = Modifier
@@ -493,13 +537,23 @@ fun HeaderSection() {
         Spacer(modifier = Modifier.width(18.dp))
         
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "Sesli Portföy CRM v1.2.3",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.5.sp
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Sesli Portföy CRM v1.2.3",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.5.sp
+                )
+                if (isSyncing) {
+                    Spacer(Modifier.width(8.dp))
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(12.dp),
+                        strokeWidth = 2.dp,
+                        color = Color(0xFFFFC107)
+                    )
+                }
+            }
             Text(
                 text = "PREMIUM REAL ESTATE MANAGEMENT",
                 color = Color(0xFFc9a15a),
@@ -999,12 +1053,46 @@ fun MyPortfolioScreen(
     onEditLocal: (Portfolio) -> Unit,
     onPublishLocal: (Portfolio) -> Unit,
     onEditProfile: () -> Unit,
+    onImportRemax: (String) -> Unit,
     currentName: String,
     currentPhone: String,
     isAdmin: Boolean
 ) {
     var selectedTab by remember { mutableStateOf(0) } // 0: Benim (Lokal), 1: Ofis (Genel)
     var portfolioToDelete by remember { mutableStateOf<Portfolio?>(null) }
+    var showImportDialog by remember { mutableStateOf(false) }
+    var remaxUrl by remember { mutableStateOf("https://remax.com.tr/tr/ofis/detay/ilyada-3") }
+
+    if (showImportDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportDialog = false },
+            title = { Text("RE/MAX'tan İçe Aktar", color = Color.White) },
+            text = {
+                Column {
+                    Text("Ofis veya arama sayfası linkini girin:", color = Color.Gray, fontSize = 12.sp)
+                    Spacer(Modifier.height(8.dp))
+                    CustomInputField("URL", remaxUrl) { remaxUrl = it }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onImportRemax(remaxUrl)
+                        showImportDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107))
+                ) {
+                    Text("Aktar", color = Color.Black)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportDialog = false }) {
+                    Text("İptal", color = Color.Gray)
+                }
+            },
+            containerColor = Color(0xFF1E2126)
+        )
+    }
 
     if (portfolioToDelete != null) {
         AlertDialog(
@@ -1056,6 +1144,21 @@ fun MyPortfolioScreen(
             }
         }
         
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // RE/MAX İçe Aktar Butonu
+        Button(
+            onClick = { showImportDialog = true },
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2126)),
+            border = BorderStroke(1.dp, Color(0xFFFFC107).copy(0.5f)),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Icon(Icons.Default.Download, null, tint = Color(0xFFFFC107), modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("RE/MAX'tan İçe Aktar", color = Color.White, fontSize = 13.sp)
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // TABLAR
