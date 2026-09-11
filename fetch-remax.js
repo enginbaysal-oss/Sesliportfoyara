@@ -1,82 +1,80 @@
 // fetch-remax.js
 const fs = require('fs');
+const puppeteer = require('puppeteer');
 
-// RE/MAX Web Arama API Endpoint'i
-const API_URL = 'https://www.remax.com.tr/api/v1/property/search';
+// Aratmak veya çekmek istediğiniz office slug veya ilan adresi
+const OFFICE_SLUG = 'ilyada-3'; 
+const TARGET_URL = `https://www.remax.com.tr/ofis/${OFFICE_SLUG}`;
 
 async function fetchProperties() {
+  let browser;
   try {
-    console.log("RE/MAX Arama API'sine bağlanılıyor...");
-
-    // Arama filtreleri (Ofis adı veya anahtar kelime)
-    const payload = {
-      keyword: "ilyada", // Aratmak istediğiniz ofis veya danışman adı
-      pageSize: 100,
-      pageIndex: 1
-    };
-
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://www.remax.com.tr/'
-      },
-      body: JSON.stringify(payload)
+    console.log(`Tarayıcı başlatılıyor ve sayfaya gidiliyor: ${TARGET_URL}...`);
+    
+    browser = await puppeteer.launch({
+      headless: "new",
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
-    if (!response.ok) {
-      throw new Error(`RE/MAX API Bağlantı Hatası! Statü: ${response.status}`);
-    }
+    const page = await browser.newPage();
+    
+    // Gerçek bir kullanıcı tarayıcısı gibi görünmek için User-Agent ayarı
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-    const json = await response.json();
-    const rawListings = json.data?.items || json.listings || [];
+    // Sayfaya git ve yüklenmesini bekle
+    await page.goto(TARGET_URL, { waitUntil: 'networkidle2', timeout: 60000 });
 
-    if (rawListings.length === 0) {
-      console.warn("⚠️ Uyarı: API'den ilan dönmedi. Filtre parametrelerini kontrol edin.");
-    }
+    console.log("Sayfa yüklendi, ilan verileri toplanıyor...");
 
-    // Gelen verileri uygulamanın formatına dönüştürme
-    const cleanListings = rawListings.map(item => ({
-      id: item.code || item.id,
-      title: item.title?.[0]?.text || item.title || '',
-      description: item.description?.[0]?.text || item.description || '',
-      price: item.priceInfo?.amount || item.price,
-      currency: item.priceInfo?.amountTypeSymbol || item.currencySymbol || '₺',
-      category: item.categoryName || item.category,
-      operation: item.operationName || item.operation,
-      city: item.cityName || item.address?.split('/')[0]?.trim() || '',
-      town: item.townName || item.address?.split('/')[1]?.trim() || '',
-      neighborhood: item.neighborhoodName || item.address?.split('/')[2]?.trim() || '',
-      address: item.address || '',
-      m2: item.m2Area || item.m2,
-      roomOptions: item.roomOptions || item.rooms || '',
-      employeeName: item.employeeName || item.agentName || '',
-      mainImage: item.images?.[0] || item.coverImage || '',
-      images: item.images || [],
-      video: item.video || '',
-      url: item.url ? `https://www.remax.com.tr${item.url}` : '',
-      lat: item.latitude || item.lat,
-      lng: item.longitude || item.lng,
-      updatedAt: new Date().toISOString()
-    }));
+    // Sayfa içerisindeki ilan kartlarını tara
+    const listings = await page.evaluate(() => {
+      const items = [];
+      // RE/MAX sayfasındaki ilan kartlarının DOM yapıları
+      const cards = document.querySelectorAll('.property-item, .listing-card, [class*="property-card"]');
+
+      cards.forEach(card => {
+        const titleEl = card.querySelector('.title, [class*="title"], h3');
+        const priceEl = card.querySelector('.price, [class*="price"]');
+        const linkEl = card.querySelector('a');
+        const imgEl = card.querySelector('img');
+        const addressEl = card.querySelector('.location, [class*="address"], [class*="location"]');
+
+        if (titleEl || priceEl) {
+          items.push({
+            id: linkEl ? linkEl.href.split('/').pop() : Math.random().toString(),
+            title: titleEl ? titleEl.innerText.trim() : '',
+            price: priceEl ? priceEl.innerText.trim() : '',
+            address: addressEl ? addressEl.innerText.trim() : '',
+            url: linkEl ? linkEl.href : '',
+            mainImage: imgEl ? imgEl.src : ''
+          });
+        }
+      });
+
+      return items;
+    });
+
+    console.log(`Görüntülenen ilan sayısı: ${listings.length}`);
 
     const outputData = {
+      office: OFFICE_SLUG,
       lastUpdated: new Date().toISOString(),
-      count: cleanListings.length,
-      data: cleanListings
+      count: listings.length,
+      data: listings
     };
 
     if (!fs.existsSync('./data')) {
       fs.mkdirSync('./data');
     }
-    
+
     fs.writeFileSync('./data/portfoylari_guncel.json', JSON.stringify(outputData, null, 2));
-    console.log(`✅ Başarılı! Toplam ${cleanListings.length} adet portföy kaydedildi.`);
+    console.log(`✅ Başarılı! Toplam ${listings.length} adet portföy kaydedildi.`);
 
   } catch (error) {
-    console.error('❌ Veri çekilirken hata oluştu:', error);
+    console.error('❌ Hata oluştu:', error);
     process.exit(1);
+  } finally {
+    if (browser) await browser.close();
   }
 }
 

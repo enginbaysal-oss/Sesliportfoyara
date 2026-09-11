@@ -2,32 +2,34 @@ name: RE/MAX Portföylerini Otomatik Güncelle
 
 on:
   schedule:
-    # Her gece 03:00'te (UTC) otomatik çalışır
     - cron: '0 3 * * *'
-  workflow_dispatch: # GitHub panelinden 'Run workflow' butonuna basarak elle tetikleme imkanı verir
+  workflow_dispatch:
 
 jobs:
   update-data:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # GitHub'ın repoya yeni JSON dosyasını kaydetmesi için izin
+      contents: write
 
     steps:
       - name: Depoyu Klonla
         uses: actions/checkout@v3
 
-      - name: Node.js Ortamını Hazırla
+      - name: Node.js Kurulumu
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: RE/MAX Verilerini Çek
+      - name: Puppeteer Bağımlılığını Yükle
+        run: npm install puppeteer
+
+      - name: RE/MAX Verilerini Çek (Puppeteer)
         run: node fetch-remax.js
 
-      - name: Değişiklikleri Git'e Kaydet ve Otomatik Push Et
+      - name: Değişiklikleri Kaydet ve Push Et
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/portfoylari_guncel.json
-          git commit -m "auto: RE/MAX portföy verileri güncellendi [skip ci]" || exit 0
+          git add -A
+          git commit -m "auto: RE/MAX portföy verileri Puppeteer ile güncellendi [skip ci]" || exit 0
           git push
