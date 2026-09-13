@@ -8,132 +8,115 @@ object PortfolioSearchEngine {
         "lütfen", "lutfen", "ara", "arasana", "listele", "de", "da", "ve"
     )
 
-    private val NUMBER_MAP = mapOf(
-        "sifir" to "0", "bir" to "1", "iki" to "2", "uc" to "3", "dort" to "4",
-        "bes" to "5", "alti" to "6", "yedi" to "7", "sekiz" to "8", "dokuz" to "9",
-        "on" to "10"
+    // Emlak Tipleri (Kategori Grubu)
+    private val CATEGORIES = mapOf(
+        "daire" to setOf("daire", "konut", "rezidans", "apartman"),
+        "arsa" to setOf("arsa"),
+        "tarla" to setOf("tarla", "bag", "bahce", "zeytinlik"),
+        "villa" to setOf("villa", "kosk", "malikan"),
+        "isyeri" to setOf("isyeri", "ofis", "dukk"),
+        "zeytinlik" to setOf("zeytinlik", "tarla")
+    )
+    
+    private val ALL_CAT_WORDS = CATEGORIES.values.flatten().toSet()
+
+    private val COMMON_WORDS = setOf(
+        "satilik", "kiralik", "bahceli", "mustakil", "asansorli", "asansorlu", "site", 
+        "icerisinde", "ici", "kat", "katta", "oda", "odali", "m2", "metrekare", "fiyat"
     )
 
     fun normalize(str: String): String {
-        var n = str.lowercase()
-            .replace('ı', 'i')
-            .replace('ş', 's')
-            .replace('ğ', 'g')
-            .replace('ü', 'u')
-            .replace('ö', 'o')
-            .replace('ç', 'c')
-            .replace("arti", "+")
-            .trim()
-            
-        NUMBER_MAP.forEach { (word, digit) ->
-            n = n.replace(Regex("\\b$word\\b"), digit)
-        }
-        
-        return n
+        return str.lowercase()
+            .replace('ı', 'i').replace('ş', 's').replace('ğ', 'g')
+            .replace('ü', 'u').replace('ö', 'o').replace('ç', 'c')
+            .replace("arti", "+").trim()
     }
 
-    // Boşlukları ve özel karakterleri atarak karşılaştırma yapmak için
     private fun collapse(str: String): String {
         return normalize(str).filter { it.isLetterOrDigit() || it == '+' }
     }
 
     fun tokenize(str: String): List<String> {
         val normalized = normalize(str)
-        // Boşlukları ve virgülleri temizle ama '+' karakterini koru (oda sayısı için)
         return normalized.split(Regex("[\\s,.]+"))
             .map { it.trim() }
             .filter { it.isNotEmpty() && it !in STOPWORDS }
     }
 
     fun search(query: String, listings: List<Portfolio>): List<Portfolio> {
-        val normalizedQuery = normalize(query)
-        val collapsedQuery = collapse(query)
-        
-        println("🔍 Arama Başlatıldı: '$query'")
-        
-        if (normalizedQuery.isEmpty()) return emptyList()
-        
         val tokens = tokenize(query)
+        if (tokens.isEmpty()) return emptyList()
+        
         val uniqueTokens = tokens.toSet()
+        val collapsedQuery = collapse(query)
+
+        // 1. Kelimeleri Gruplandır
+        val requestedCategories = uniqueTokens.filter { it in ALL_CAT_WORDS }
+        val rareTokens = uniqueTokens.filter { it !in COMMON_WORDS && it !in ALL_CAT_WORDS && it.length > 1 }
 
         val scoredResults = listings.map { l ->
-            val fields = listOf(
-                l.title to 15,
-                l.location to 12, // Konum ağırlığı artırıldı
-                l.rooms to 25,
-                l.propertyType to 12, // Emlak tipi ağırlığı artırıldı
-                l.type to 8,
-                l.features.joinToString(" ") to 8,
-                l.consultantName to 5,
-                l.ownerName to 5,
-                l.price to 4,
-                l.area to 4
-            )
+            val titleNorm = normalize(l.title)
+            val locNorm = normalize(l.location)
+            val typeNorm = normalize(l.propertyType)
+            val opNorm = normalize(l.type)
+            val fullText = "$titleNorm $locNorm $typeNorm $opNorm ${l.features.joinToString(" ")}"
+            val collapsedText = collapse(fullText)
             
-            var baseScore = 0
-            val matchedTokens = mutableSetOf<String>()
-            
-            fields.forEach { (fieldValue, weight) ->
-                val normField = normalize(fieldValue)
-                val collField = collapse(fieldValue)
-                
-                // 1. TAM EŞLEŞME (Tüm sorgu bir alanda geçiyorsa büyük bonus)
-                if (collField.isNotBlank() && (collField.contains(collapsedQuery) || collapsedQuery.contains(collField))) {
-                    baseScore += weight * 5
-                    matchedTokens.addAll(uniqueTokens) // Tüm kelimeler eşleşmiş sayılır
-                }
-                
-                // 2. KELİME (TOKEN) BAZLI EŞLEŞME
-                uniqueTokens.forEach { tok ->
-                    val isShortToken = tok.length <= 2
-                    
-                    val matches = if (isShortToken) {
-                        normField == tok || (weight >= 20 && normField.contains(tok))
-                    } else {
-                        normField.contains(tok) || collField.contains(collapse(tok))
-                    }
+            val matchedTokens = uniqueTokens.filter { tok -> 
+                if (tok.length <= 2) fullText.split(" ").contains(tok)
+                else fullText.contains(tok) || collapsedText.contains(collapse(tok))
+            }.toSet()
 
-                    if (matches) {
-                        baseScore += weight
-                        matchedTokens.add(tok)
-                    }
+            // MANTIKSAL KONTROLLER
+            
+            // A) Kategori Kontrolü (Zorunlu)
+            // Eğer kullanıcı "daire" dediyse, ilan daire grubunda olmalı
+            val categoryMatch = if (requestedCategories.isEmpty()) true else {
+                requestedCategories.any { cat ->
+                    // Kategori anahtar kelimesi type veya title içinde geçmeli
+                    typeNorm.contains(cat) || titleNorm.contains(cat)
                 }
             }
-            
-            // TOKEN BOOSTING: 
-            // Kaç farklı kelimenin eşleştiği çok kritiktir. 
-            // "Güzelyurt daire" aramasında her iki kelimeyi de içeren ilanları katlayarak öne çıkar.
-            val matchRatio = if (uniqueTokens.isNotEmpty()) matchedTokens.size.toFloat() / uniqueTokens.size else 0f
-            
-            // Eğer sorguda birden fazla kelime varsa ve sadece biri eşleşiyorsa puanı düşür (Gürültü engelleme)
-            val finalScore = if (uniqueTokens.size > 1 && matchedTokens.size < 2) {
-                (baseScore * 0.5f).toInt() // Cezalandırma
-            } else {
-                // Eşleşen token sayısı arttıkça puanı katla (Üssel artış)
-                (baseScore * (1f + matchRatio * matchRatio * 2f)).toInt()
+
+            // B) Lokasyon Kontrolü (Zorunlu)
+            // Eğer kullanıcı "Karaali" dediyse, ilan lokasyonunda mutlaka geçmeli
+            val rareMatch = if (rareTokens.isEmpty()) true else {
+                rareTokens.any { rare -> locNorm.contains(rare) || titleNorm.contains(rare) }
             }
+
+            // PUANLAMA
+            var score = matchedTokens.size * 20
+            if (collapsedText.contains(collapsedQuery)) score += 200 // Tam eşleşme (en büyük bonus)
+            if (rareTokens.any { it in locNorm }) score += 100 // Lokasyon eşleşmesi bonusu
             
-            l to finalScore
+            // Eğer kategori tam tutuyorsa ekstra puan
+            if (requestedCategories.any { typeNorm.contains(it) }) score += 50
+
+            object {
+                val p = l
+                val isValid = categoryMatch && rareMatch
+                val matchCount = matchedTokens.size
+                val finalScore = score
+            }
+        }.filter { it.isValid && it.matchCount > 0 }
+
+        if (scoredResults.isEmpty()) return emptyList()
+
+        // En iyi eşleşmeyi bul
+        val maxMatches = scoredResults.maxOf { it.matchCount }
+        
+        // Sadece en iyi eşleşenleri veya bir altını getir (Gürültüyü tamamen silmek için)
+        val filtered = scoredResults.filter { 
+            if (uniqueTokens.size >= 3) it.matchCount >= (maxMatches).coerceAtLeast(2)
+            else it.matchCount >= maxMatches
         }
-        
-        val maxScore = scoredResults.maxOfOrNull { it.second } ?: 0
-        
-        // EŞİK DEĞERİ (Daha katı):
-        // En yüksek puanın %40'ından az olanları ele (Eskiden %30 idi)
-        // Mutlak olarak 25 puanın altını ele (Eskiden 20 idi)
-        val threshold = (maxScore * 0.4).coerceAtLeast(25.0)
-        
-        val finalResults = scoredResults
-            .filter { it.second >= threshold }
-            .sortedByDescending { it.second }
-            .map { it.first }
-            
-        println("📊 Max Skor: $maxScore, Eşik: $threshold, Sonuç: ${finalResults.size}")
-        
-        finalResults.take(5).forEach { l ->
-            println("✅ Sonuç: '${l.title}' - ${l.location} - ${l.propertyType}")
-        }
-        
-        return finalResults
+
+        val maxScore = filtered.maxOfOrNull { it.finalScore } ?: 0
+        val threshold = maxScore * 0.8
+
+        return filtered
+            .filter { it.finalScore >= threshold }
+            .sortedByDescending { it.finalScore }
+            .map { it.p }
     }
 }

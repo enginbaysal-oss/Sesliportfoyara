@@ -67,6 +67,10 @@ class LocalPortfolioManager(private val settings: Settings) {
         savePortfolios(current)
     }
 
+    fun clearAllPortfolios() {
+        savePortfolios(emptyList())
+    }
+
     fun getAllPortfolios(): List<Portfolio> = _portfolios.value
 
     fun importLocalPortfolios(list: List<Portfolio>) {

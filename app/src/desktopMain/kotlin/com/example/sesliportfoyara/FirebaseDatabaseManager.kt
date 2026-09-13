@@ -76,4 +76,13 @@ class FirebaseDatabaseManager : DatabaseManager {
             false
         }
     }
+
+    override suspend fun clearAllPortfolios(): Boolean {
+        return try {
+            client.delete("$baseUrl.json").status.isSuccess()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
 }

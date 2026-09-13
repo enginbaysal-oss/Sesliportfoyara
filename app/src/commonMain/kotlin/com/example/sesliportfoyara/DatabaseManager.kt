@@ -8,6 +8,7 @@ interface DatabaseManager {
     suspend fun addPortfolio(portfolio: Portfolio): String? // Başarılıysa ID döner, değilse null
     suspend fun updatePortfolio(portfolio: Portfolio): Boolean
     suspend fun deletePortfolio(id: String): Boolean
+    suspend fun clearAllPortfolios(): Boolean
 }
 
 // Bunu App() içine dışarıdan vereceğiz

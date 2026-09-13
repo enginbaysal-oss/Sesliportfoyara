@@ -6,10 +6,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -121,6 +123,8 @@ fun CRMMainScreen(
 
 @Composable
 fun ClientItem(client: Client, matchedCount: Int, onClick: (Client) -> Unit) {
+    val platformUtils = LocalPlatformUtils.current
+    
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable { onClick(client) },
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)), // Açık renk kart
@@ -132,7 +136,25 @@ fun ClientItem(client: Client, matchedCount: Int, onClick: (Client) -> Unit) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(client.name, color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
                     if (client.phone.isNotEmpty()) {
-                        Text(client.phone, color = Color.Gray, fontSize = 14.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                            Text(client.phone, color = Color.Gray, fontSize = 14.sp)
+                            Spacer(Modifier.width(12.dp))
+                            // Arama Butonu
+                            IconButton(
+                                onClick = { platformUtils.openUri("tel:${client.phone.filter { it.isDigit() }}") },
+                                modifier = Modifier.size(32.dp).background(Color(0xFF2196F3).copy(0.1f), CircleShape)
+                            ) {
+                                Icon(Icons.Default.Phone, null, tint = Color(0xFF2196F3), modifier = Modifier.size(16.dp))
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            // WhatsApp Butonu
+                            IconButton(
+                                onClick = { platformUtils.openUri("https://wa.me/${client.phone.filter { it.isDigit() }}") },
+                                modifier = Modifier.size(32.dp).background(Color(0xFF25D366).copy(0.1f), CircleShape)
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.Message, null, tint = Color(0xFF25D366), modifier = Modifier.size(16.dp))
+                            }
+                        }
                     }
                 }
                 
@@ -361,6 +383,7 @@ fun ClientDetailScreen(
     onEdit: () -> Unit,
     onBack: () -> Unit
 ) {
+    val platformUtils = LocalPlatformUtils.current
     val matchedPortfolios = remember(client, allPortfolios) {
         MatchingEngine.findMatches(client, allPortfolios)
     }
@@ -383,12 +406,31 @@ fun ClientDetailScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(client.name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
                     Text(client.phone, color = Color(0xFFFFC107), fontSize = 16.sp)
-                    Spacer(Modifier.width(12.dp))
-                    Box(Modifier.background(Color(0xFFFFC107).copy(alpha = 0.2f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                        Text("${client.dealType} ${client.propertyType}", color = Color(0xFFFFC107), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    
+                    if (client.phone.isNotEmpty()) {
+                        Spacer(Modifier.width(16.dp))
+                        // Arama Butonu
+                        IconButton(
+                            onClick = { platformUtils.openUri("tel:${client.phone.filter { it.isDigit() }}") },
+                            modifier = Modifier.size(36.dp).background(Color(0xFF2196F3).copy(0.2f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Phone, null, tint = Color(0xFF2196F3), modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        // WhatsApp Butonu
+                        IconButton(
+                            onClick = { platformUtils.openUri("https://wa.me/${client.phone.filter { it.isDigit() }}") },
+                            modifier = Modifier.size(36.dp).background(Color(0xFF25D366).copy(0.2f), CircleShape)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Message, null, tint = Color(0xFF25D366), modifier = Modifier.size(20.dp))
+                        }
                     }
+                }
+                
+                Box(Modifier.padding(top = 4.dp).background(Color(0xFFFFC107).copy(alpha = 0.2f), RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    Text("${client.dealType} ${client.propertyType}", color = Color(0xFFFFC107), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
                 
                 val locationParts = listOf(client.il, client.ilce, client.mahalle).filter { it.isNotEmpty() }

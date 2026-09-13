@@ -105,4 +105,21 @@ class FirebaseDatabaseManager : DatabaseManager {
             false
         }
     }
+
+    override suspend fun clearAllPortfolios(): Boolean {
+        return try {
+            println("🗑️ Tüm ofis portföyleri siliniyor...")
+            val response = client.delete("$baseUrl.json")
+            if (response.status.isSuccess()) {
+                println("✅ Tüm ofis portföyleri silindi.")
+                true
+            } else {
+                println("⚠️ Ofis temizleme başarısız: ${response.status}")
+                false
+            }
+        } catch (e: Exception) {
+            println("❌ Temizleme hatası: ${e.message}")
+            false
+        }
+    }
 }
