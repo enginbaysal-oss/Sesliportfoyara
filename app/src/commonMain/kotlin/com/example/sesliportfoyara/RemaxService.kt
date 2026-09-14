@@ -222,7 +222,11 @@ class RemaxService {
                                else phone
                     }
 
-                    val imageUrl = obj["photo"]?.jsonPrimitive?.content ?: obj["photoUrl"]?.jsonPrimitive?.content ?: ""
+                    val imageUrl = obj["photo"]?.jsonPrimitive?.content 
+                                   ?: obj["photoUrl"]?.jsonPrimitive?.content 
+                                   ?: obj["coverPhoto"]?.jsonPrimitive?.content
+                                   ?: obj["listingPhoto"]?.jsonPrimitive?.content
+                                   ?: ""
 
                     Portfolio(
                         id = "remax_$code",
