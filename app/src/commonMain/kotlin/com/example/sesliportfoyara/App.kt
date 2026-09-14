@@ -43,6 +43,8 @@ import com.example.sesliportfoyara.ui.CRMMainScreen
 import com.example.sesliportfoyara.ui.AddClientScreen
 import com.example.sesliportfoyara.ui.ClientDetailScreen
 import com.example.sesliportfoyara.ui.theme.SesliportfoyaraTheme
+import coil3.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -635,7 +637,8 @@ fun TabNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
             .navigationBarsPadding()
             .padding(horizontal = 12.dp)
             .padding(bottom = 16.dp, top = 8.dp)
-            .background(Color(0xFF1A1A1A), RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f)), RoundedCornerShape(16.dp))
             .padding(6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -655,13 +658,13 @@ fun TabNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
                     Icon(
                         imageVector = icon,
                         contentDescription = screen.title,
-                        tint = if (selected) color else Color.Gray.copy(alpha = 0.5f),
+                        tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
                         modifier = Modifier.size(22.dp)
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = screen.title,
-                        color = if (selected) color else Color.Gray.copy(alpha = 0.5f),
+                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
                         fontSize = 10.sp,
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                         textAlign = TextAlign.Center
@@ -716,7 +719,8 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>, onPublish: (Portfolio) -> Uni
             Box(
                 modifier = Modifier
                     .size(80.dp)
-                    .background(if (isListening) Color(0xFFFFC107) else Color(0xFF2C2C2C), CircleShape)
+                    .background(if (isListening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)), CircleShape)
                     .clickable { 
                         if (isListening) {
                             platformUtils.stopVoiceRecognition()
@@ -743,7 +747,7 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>, onPublish: (Portfolio) -> Uni
                     imageVector = Icons.Default.Mic,
                     contentDescription = "Mic",
                     modifier = Modifier.size(40.dp),
-                    tint = if (isListening) Color.Black else Color(0xFFFFC107)
+                    tint = if (isListening) Color.White else MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -752,7 +756,7 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>, onPublish: (Portfolio) -> Uni
 
         Text(
             text = if (isListening) "Sizi dinliyorum..." else lastQuery.ifEmpty { "Mikrofona dokunup portföyü tarif edin" },
-            color = if (isListening) Color(0xFFFFC107) else Color.White,
+            color = if (isListening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
             fontSize = 16.sp,
             textAlign = TextAlign.Center
         )
@@ -765,8 +769,9 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>, onPublish: (Portfolio) -> Uni
         
         Text(
             text = "${portfolios.size} portföy içinde aranıyor",
-            color = Color(0xFFFFC107).copy(alpha = 0.6f),
-            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(top = 16.dp)
         )
 
@@ -780,29 +785,30 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>, onPublish: (Portfolio) -> Uni
             TextField(
                 value = searchText,
                 onValueChange = { searchText = it },
-                placeholder = { Text("ya da yazarak arayın...", color = Color.Gray) },
+                placeholder = { Text("ya da yazarak arayın...", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)) },
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(12.dp)),
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)), RoundedCornerShape(12.dp)),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { performSearch(searchText) }),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF2C2C2C),
-                    unfocusedContainerColor = Color(0xFF2C2C2C),
-                    focusedIndicatorColor = Color.Transparent,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedIndicatorColor = MaterialTheme.colorScheme.primary,
                     unfocusedIndicatorColor = Color.Transparent,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
                 )
             )
             Spacer(modifier = Modifier.width(12.dp))
             Button(
                 onClick = { performSearch(searchText) },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C2C2C)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.height(56.dp)
             ) {
-                Text("Ara", color = Color(0xFFFFC107))
+                Text("Ara", color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -896,7 +902,7 @@ fun AddPortfolioScreen(
     ) {
         Text(
             if (editingPortfolio != null) "Portföyü Düzenle" else "Yeni Portföy Ekle", 
-            color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold
+            color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -907,11 +913,12 @@ fun AddPortfolioScreen(
                     val selected = saveLocally == isLocal
                     Box(
                         modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                            .background(if (selected) Color(0xFFFFC107) else Color(0xFF2C2C2C))
+                            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)), RoundedCornerShape(8.dp))
                             .clickable { saveLocally = isLocal }.padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(label, color = if (selected) Color.Black else Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(label, color = if (selected) Color.White else MaterialTheme.colorScheme.onBackground, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -930,12 +937,13 @@ fun AddPortfolioScreen(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (selected) Color(0xFFFFC107) else Color(0xFF2C2C2C))
+                        .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                        .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)), RoundedCornerShape(8.dp))
                         .clickable { type = option }
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(option, color = if (selected) Color.Black else Color.White, fontWeight = FontWeight.Bold)
+                    Text(option, color = if (selected) Color.White else MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -951,12 +959,13 @@ fun AddPortfolioScreen(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(20.dp))
-                        .background(if (selected) Color(0xFFFFC107) else Color(0xFF2C2C2C))
+                        .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                        .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)), RoundedCornerShape(20.dp))
                         .clickable { propertyType = option }
                         .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(option, color = if (selected) Color.Black else Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(option, color = if (selected) Color.White else MaterialTheme.colorScheme.onBackground, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -1113,8 +1122,8 @@ fun MyPortfolioScreen(
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
-            title = { Text(if (selectedTab == 0) "Tüm Yerel Portföyleri Sil?" else "Tüm Ofis Portföylerini Sil?", color = Color.White) },
-            text = { Text("Seçili sekmedeki tüm ilanlar silinecek. Bu işlem geri alınamaz.", color = Color.LightGray) },
+            title = { Text(if (selectedTab == 0) "Tüm Yerel Portföyleri Sil?" else "Tüm Ofis Portföylerini Sil?", color = MaterialTheme.colorScheme.onSurface) },
+            text = { Text("Seçili sekmedeki tüm ilanlar silinecek. Bu işlem geri alınamaz.", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -1131,14 +1140,14 @@ fun MyPortfolioScreen(
                     Text("İptal", color = Color.Gray)
                 }
             },
-            containerColor = Color(0xFF1E2126)
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
     if (showImportDialog) {
         AlertDialog(
             onDismissRequest = { showImportDialog = false },
-            title = { Text("RE/MAX'tan İçe Aktar", color = Color.White) },
+            title = { Text("RE/MAX'tan İçe Aktar", color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 Column {
                     Text("Ofis veya arama sayfası linkini girin:", color = Color.Gray, fontSize = 12.sp)
@@ -1162,15 +1171,15 @@ fun MyPortfolioScreen(
                     Text("İptal", color = Color.Gray)
                 }
             },
-            containerColor = Color(0xFF1E2126)
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
     if (portfolioToDelete != null) {
         AlertDialog(
             onDismissRequest = { portfolioToDelete = null },
-            title = { Text("Portföyü Sil?", color = Color.White) },
-            text = { Text("${portfolioToDelete?.title} başlıklı ilan silinecek. Bu işlem geri alınamaz.", color = Color.LightGray) },
+            title = { Text("Portföyü Sil?", color = MaterialTheme.colorScheme.onSurface) },
+            text = { Text("${portfolioToDelete?.title} başlıklı ilan silinecek. Bu işlem geri alınamaz.", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -1189,8 +1198,8 @@ fun MyPortfolioScreen(
                     Text("İptal", color = Color.Gray)
                 }
             },
-            containerColor = Color(0xFF1E2126),
-            titleContentColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = Color.LightGray
         )
     }
@@ -1222,26 +1231,26 @@ fun MyPortfolioScreen(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { showImportDialog = true },
-                modifier = Modifier.weight(1f).height(48.dp),
+                modifier = Modifier.weight(1.2f).height(48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(0.5f)),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
-                Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("RE/MAX'tan İçe Aktar", color = Color.White, fontSize = 12.sp)
+                Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("RE/MAX'tan Aktar", color = Color.White, fontSize = 11.sp, maxLines = 1, fontWeight = FontWeight.Bold)
             }
             
             Button(
                 onClick = { showClearDialog = true },
-                modifier = Modifier.weight(0.6f).height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C1A1A)),
-                border = BorderStroke(1.dp, Color.Red.copy(0.3f)),
-                shape = RoundedCornerShape(8.dp)
+                modifier = Modifier.weight(0.8f).height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE57373)),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
-                Icon(Icons.Default.DeleteSweep, null, tint = Color.Red.copy(0.7f), modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Tümünü Sil", color = Color.White, fontSize = 12.sp)
+                Icon(Icons.Default.DeleteSweep, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Tümünü Sil", color = Color.White, fontSize = 11.sp, maxLines = 1, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -1337,10 +1346,24 @@ fun PortfolioItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // ÜST BÖLÜM: TİP VE FİYAT
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+        Column {
+            // KAPAK FOTOĞRAFI
+            if (portfolio.imageUrl.isNotEmpty()) {
+                AsyncImage(
+                    model = portfolio.imageUrl,
+                    contentDescription = "Portföy Görseli",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            
+            Column(modifier = Modifier.padding(16.dp)) {
+                // ÜST BÖLÜM: TİP VE FİYAT
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(color = if (portfolio.type == "Satılık") MaterialTheme.colorScheme.primary else Color(0xFF4CAF50), shape = RoundedCornerShape(4.dp)) {
                         Text(portfolio.type, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
@@ -1503,4 +1526,5 @@ fun PortfolioItem(
             }
         }
     }
+}
 }

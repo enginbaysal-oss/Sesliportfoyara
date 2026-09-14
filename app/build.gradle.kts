@@ -51,6 +51,10 @@ kotlin {
                 implementation("io.ktor:ktor-client-core:$ktor_version")
                 implementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
                 implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
+                
+                // Coil 3 Image Loading Dependencies
+                implementation("io.coil-kt.coil3:coil-compose:3.0.0-rc02")
+                implementation("io.coil-kt.coil3:coil-network-ktor3:3.0.0-rc02")
             }
         }
         val wasmJsMain by getting {
