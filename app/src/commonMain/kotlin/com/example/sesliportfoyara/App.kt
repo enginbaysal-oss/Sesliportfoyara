@@ -64,6 +64,7 @@ data class Portfolio(
     val type: String = "Satılık",
     val propertyType: String = "Daire", // Daire, Arsa, Tarla, Villa, İşyeri
     val features: List<String> = emptyList(),
+    val imageUrl: String = "",
     val link: String = "",
     val createdAt: Long = 0
 )
@@ -140,7 +141,7 @@ fun App() {
         LocalSnackbarHostState provides snackbarHostState,
         LocalRemaxServiceProvider provides remaxService
     ) {
-        SesliportfoyaraTheme(darkTheme = true) {
+        SesliportfoyaraTheme(darkTheme = false) {
         val officePortfolios = remember { mutableStateListOf<Portfolio>() }
         val localPortfolios by localPortfolioManager.portfolios.collectAsState()
         val clients by crmManager.clients.collectAsState()
@@ -413,15 +414,15 @@ fun ProfileSetupScreen(
         Box(
             modifier = Modifier
                 .size(80.dp)
-                .background(Color(0xFF2C2C2C), RoundedCornerShape(20.dp)),
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), RoundedCornerShape(20.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Person, null, tint = Color(0xFFFFC107), modifier = Modifier.size(40.dp))
+            Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
         }
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        Text("Danışman Profili", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("Danışman Profili", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text(
             "Otomatik portföy çekme için RE/MAX ofis linkinizi girebilirsiniz.", 
             color = Color.Gray, fontSize = 14.sp, textAlign = TextAlign.Center,
@@ -565,7 +566,7 @@ fun HeaderSection() {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "Sesli Portföy CRM v1.2.3",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 0.5.sp
@@ -1046,12 +1047,12 @@ fun CustomTextFieldValueInput(label: String, value: TextFieldValue, onValueChang
                 keyboardType = KeyboardType.Text
             ),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color(0xFF2C2C2C),
-                unfocusedContainerColor = Color(0xFF2C2C2C),
-                focusedIndicatorColor = Color.Transparent,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
                 unfocusedIndicatorColor = Color.Transparent,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
             )
         )
     }
@@ -1072,14 +1073,14 @@ fun CustomInputField(label: String, value: String, enabled: Boolean = true, onVa
                 keyboardType = KeyboardType.Text
             ),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color(0xFF2C2C2C),
-                unfocusedContainerColor = Color(0xFF2C2C2C),
-                disabledContainerColor = Color(0xFF1E1E1E),
-                focusedIndicatorColor = Color.Transparent,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f),
+                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
                 unfocusedIndicatorColor = Color.Transparent,
                 disabledIndicatorColor = Color.Transparent,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
                 disabledTextColor = Color.Gray
             )
         )
@@ -1202,7 +1203,7 @@ fun MyPortfolioScreen(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Portföylerim", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text("Portföylerim", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 if (isAdmin) {
                     Spacer(Modifier.width(8.dp))
                     Box(modifier = Modifier.background(Color(0xFFFF5252), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
@@ -1222,11 +1223,11 @@ fun MyPortfolioScreen(
             Button(
                 onClick = { showImportDialog = true },
                 modifier = Modifier.weight(1f).height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2126)),
-                border = BorderStroke(1.dp, Color(0xFFFFC107).copy(0.5f)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(0.5f)),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Icon(Icons.Default.Download, null, tint = Color(0xFFFFC107), modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("RE/MAX'tan İçe Aktar", color = Color.White, fontSize = 12.sp)
             }
@@ -1247,7 +1248,7 @@ fun MyPortfolioScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // TABLAR
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF1A1A1A), RoundedCornerShape(8.dp)).padding(4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(4.dp)) {
             val tabs = listOf(
                 "Benim (${localPortfolios.size} adet)", 
                 "Ofis (${officePortfolios.size} adet)"
@@ -1256,11 +1257,11 @@ fun MyPortfolioScreen(
                 val selected = selectedTab == index
                 Box(
                     modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
-                        .background(if (selected) Color(0xFF2C2C2C) else Color.Transparent)
+                        .background(if (selected) MaterialTheme.colorScheme.surface else Color.Transparent)
                         .clickable { selectedTab = index }.padding(vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(title, color = if (selected) Color(0xFFFFC107) else Color.Gray, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center)
+                    Text(title, color = if (selected) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center)
                 }
             }
         }
@@ -1295,6 +1296,26 @@ fun MyPortfolioScreen(
     }
 }
 
+fun borderStroke(width: Dp, color: Color) = BorderStroke(width, color)
+
+fun formatPrice(p: String): String {
+    if (p.isEmpty()) return "Fiyat belirtilmedi"
+    // Sadece rakamları al
+    val digitsOnly = p.filter { it.isDigit() }
+    if (digitsOnly.isEmpty()) return p
+    
+    val n = digitsOnly.toLongOrNull() ?: return p
+    val formatted = n.toString().reversed().chunked(3).joinToString(".").reversed()
+    
+    // Orijinal string'de para birimi simgesi varsa onu korumaya çalış (genelde sonundadır)
+    return when {
+        p.contains("$") -> "$formatted $"
+        p.contains("€") -> "$formatted €"
+        p.contains("£") -> "$formatted £"
+        else -> "$formatted TL"
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PortfolioItem(
@@ -1311,20 +1332,21 @@ fun PortfolioItem(
     
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2126)),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // ÜST BÖLÜM: TİP VE FİYAT
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(color = if (portfolio.type == "Satılık") Color(0xFFFFC107) else Color(0xFF6FAE8C), shape = RoundedCornerShape(4.dp)) {
-                        Text(portfolio.type, color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                    Surface(color = if (portfolio.type == "Satılık") MaterialTheme.colorScheme.primary else Color(0xFF4CAF50), shape = RoundedCornerShape(4.dp)) {
+                        Text(portfolio.type, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
                     Spacer(Modifier.width(8.dp))
-                    Surface(color = Color.White.copy(0.1f), shape = RoundedCornerShape(4.dp)) {
-                        Text(portfolio.propertyType, color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                    Surface(color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp)) {
+                        Text(portfolio.propertyType, color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
                     
                     // Kaynak Etiketi (OFİS veya YEREL)
@@ -1344,7 +1366,7 @@ fun PortfolioItem(
                         )
                     }
                 }
-                Text(text = formatPrice(portfolio.price), color = Color(0xFFFFC107), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                Text(text = formatPrice(portfolio.price), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
             }
             
             Spacer(modifier = Modifier.height(12.dp))
@@ -1352,7 +1374,7 @@ fun PortfolioItem(
             // BAŞLIK (TAM GÖRÜNÜM - LİMİTSİZ SATIR)
             Text(
                 text = portfolio.title, 
-                color = Color.White, 
+                color = MaterialTheme.colorScheme.onBackground, 
                 fontWeight = FontWeight.Bold, 
                 fontSize = 17.sp,
                 lineHeight = 22.sp,
@@ -1368,8 +1390,8 @@ fun PortfolioItem(
                 Text(portfolio.location, color = Color.Gray, fontSize = 13.sp, modifier = Modifier.weight(1f))
                 
                 Spacer(Modifier.width(12.dp))
-                Surface(color = Color.White.copy(0.08f), shape = RoundedCornerShape(4.dp)) {
-                    Text(portfolio.rooms, color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                Surface(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f), shape = RoundedCornerShape(4.dp)) {
+                    Text(portfolio.rooms, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                 }
             }
 
@@ -1377,11 +1399,11 @@ fun PortfolioItem(
             if (portfolio.ownerName.isNotEmpty() || portfolio.ownerPhone.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AccountCircle, null, tint = Color(0xFFFFC107).copy(0.6f), modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.AccountCircle, null, tint = MaterialTheme.colorScheme.primary.copy(0.7f), modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(6.6.dp))
                     Text(
                         text = "Mülk Sahibi: ${portfolio.ownerName.ifEmpty { "Belirtilmedi" }}",
-                        color = Color.LightGray,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -1480,25 +1502,5 @@ fun PortfolioItem(
                 }
             }
         }
-    }
-}
-
-fun borderStroke(width: Dp, color: Color) = BorderStroke(width, color)
-
-fun formatPrice(p: String): String {
-    if (p.isEmpty()) return "Fiyat belirtilmedi"
-    // Sadece rakamları al
-    val digitsOnly = p.filter { it.isDigit() }
-    if (digitsOnly.isEmpty()) return p
-    
-    val n = digitsOnly.toLongOrNull() ?: return p
-    val formatted = n.toString().reversed().chunked(3).joinToString(".").reversed()
-    
-    // Orijinal string'de para birimi simgesi varsa onu korumaya çalış (genelde sonundadır)
-    return when {
-        p.contains("$") -> "$formatted $"
-        p.contains("€") -> "$formatted €"
-        p.contains("£") -> "$formatted £"
-        else -> "$formatted TL"
     }
 }

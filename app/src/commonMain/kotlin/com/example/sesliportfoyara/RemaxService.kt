@@ -222,6 +222,8 @@ class RemaxService {
                                else phone
                     }
 
+                    val imageUrl = obj["photo"]?.jsonPrimitive?.content ?: obj["photoUrl"]?.jsonPrimitive?.content ?: ""
+
                     Portfolio(
                         id = "remax_$code",
                         title = title,
@@ -233,6 +235,7 @@ class RemaxService {
                         consultantPhone = phone,
                         type = if ((obj["operationName"]?.jsonPrimitive?.content ?: "").contains("kira", true)) "Kiralık" else "Satılık",
                         propertyType = obj["categoryName"]?.jsonPrimitive?.content ?: "Daire",
+                        imageUrl = imageUrl,
                         link = "https://www.remax.com.tr/tr/portfoy/$code",
                         createdAt = Clock.now()
                     )

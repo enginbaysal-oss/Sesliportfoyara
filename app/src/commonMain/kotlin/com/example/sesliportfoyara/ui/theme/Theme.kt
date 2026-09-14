@@ -18,18 +18,18 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryGold,
-    onPrimary = OnSurfaceGold,
-    secondary = Gold,
-    background = Color.White,
-    surface = Color(0xFFF5F5F5),
-    onBackground = DarkBackground,
-    onSurface = DarkBackground
+    primary = Color(0xFFC5A059),      // Şık Premium Altın/Bronz rengi
+    onPrimary = Color.White,
+    secondary = Color(0xFF2C3E50),    // Koyu Lacivert/Mavi tonu (Sofistike kontrast)
+    background = Color(0xFFF8F9FA),   // Tertemiz, ferah mat beyaz arka plan
+    surface = Color.White,            // Kartlar tamamen beyaz, arkası hafif gri gölgeli duracak
+    onBackground = Color(0xFF1A1A1A), // Yazılar koyu gri/siyah (okunabilir)
+    onSurface = Color(0xFF222222)     // Kart üstü yazılar
 )
 
 @Composable
 fun SesliportfoyaraTheme(
-    darkTheme: Boolean = true, // Force dark theme to match screenshot
+    darkTheme: Boolean = false, // Default to light theme now
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
