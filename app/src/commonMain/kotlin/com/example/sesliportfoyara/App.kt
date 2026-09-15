@@ -1400,7 +1400,7 @@ fun PortfolioItem(
                                         color = if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252),
                                         fontSize = 8.sp,
                                         fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp) // Dikey ve yatay padding değerlerini diğer etiketlerle (2.dp) eşitleyerek taşmayı ve kaymayı önledik
                                     )
                                 }
                             }
