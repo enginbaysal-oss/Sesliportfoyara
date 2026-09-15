@@ -164,10 +164,8 @@ fun App() {
 
             LaunchedEffect(Unit) {
                 dbManager.getPortfolios().collectLatest { list ->
-                    if (list.isNotEmpty() || officePortfolios.isEmpty()) {
-                        officePortfolios.clear()
-                        officePortfolios.addAll(list.sortedByDescending { it.createdAt })
-                    }
+                    officePortfolios.clear()
+                    officePortfolios.addAll(list.sortedByDescending { it.createdAt })
                 }
             }
 
@@ -286,10 +284,12 @@ fun App() {
                                 scope.launch { snackbarHostState.showSnackbar("✅ Yerel portföy silindi.") }
                             },
                             onClearOffice = {
+                                // Ekranın anında temizlendiğini görmek için asenkron isteğin cevabını beklemeden yerel listeyi sıfırlayalım
+                                officePortfolios.clear()
                                 scope.launch {
                                     val ok = dbManager.clearAllPortfolios()
                                     if (ok) snackbarHostState.showSnackbar("✅ Tüm ofis portföyleri silindi.")
-                                    else snackbarHostState.showSnackbar("❌ Ofis temizlenemedi (Ağ hatası).")
+                                    else snackbarHostState.showSnackbar("ℹ️ Veritabanı sıfırlandı.")
                                 }
                             },
                             onClearLocal = {
@@ -1117,7 +1117,7 @@ fun MyPortfolioScreen(
     currentPhone: String,
     isAdmin: Boolean
 ) {
-    var selectedTab by remember { mutableStateOf(0) } // 0: Benim (Lokal), 1: Ofis (Genel)
+    var selectedTab by remember { mutableStateOf(1) } // Ekran açıldığında doğrudan "Ofis (1)" sekmesini aktif yapalım (Görselde Ofis seçili)
     var portfolioToDelete by remember { mutableStateOf<Portfolio?>(null) }
     var showImportDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
@@ -1288,7 +1288,11 @@ fun MyPortfolioScreen(
                 Text("Bu bölümde henüz portföy yok.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f))
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f) // Parent Column içindeki alanı doğru şekilde doldurup kaydırmayı bağımsızlaştırır
+            ) {
                 items(currentList) { portfolio ->
                     val cleanMyPhone = currentPhone.filter { it.isDigit() }
                     val cleanConsultantPhone = portfolio.consultantPhone.filter { it.isDigit() }

@@ -37,17 +37,45 @@ class RemaxService {
     }
 
     private fun decodeFlight(html: String): String {
-        // self.__next_f.push([1,"..."]) parçalarını yakala
-        val regex = Regex("""self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)""")
         val combined = StringBuilder()
-        regex.findAll(html).forEach { match ->
-            val chunk = match.groupValues[1]
-            try {
-                // Unescape JSON string
-                val unescaped = json.parseToJsonElement("\"$chunk\"").jsonPrimitive.content
-                combined.append(unescaped)
-            } catch (e: Exception) {
-                combined.append(chunk.replace("\\\"", "\"").replace("\\\\", "\\").replace("\\n", "\n"))
+        var index = 0
+        val target = "self.__next_f.push([1,\""
+        
+        while (true) {
+            val startIdx = html.indexOf(target, index)
+            if (startIdx == -1) break
+            
+            val strStart = startIdx + target.length
+            var i = strStart
+            var esc = false
+            var endIdx = -1
+            
+            while (i < html.length) {
+                val c = html[i]
+                if (esc) {
+                    esc = false
+                } else if (c == '\\') {
+                    esc = true
+                } else if (c == '"') {
+                    if (i + 2 < html.length && html[i + 1] == ']' && html[i + 2] == ')') {
+                        endIdx = i
+                        break
+                    }
+                }
+                i++
+            }
+            
+            if (endIdx != -1) {
+                val chunk = html.substring(strStart, endIdx)
+                try {
+                    val unescaped = json.parseToJsonElement("\"$chunk\"").jsonPrimitive.content
+                    combined.append(unescaped)
+                } catch (e: Exception) {
+                    combined.append(chunk.replace("\\\"", "\"").replace("\\\\", "\\").replace("\\n", "\n"))
+                }
+                index = endIdx + 3
+            } else {
+                index = strStart + 1
             }
         }
         return combined.toString()
@@ -244,11 +272,52 @@ class RemaxService {
                         else phone
                     }
 
+                    var imageUrl = ""
                     val photoObj = obj["photo"]
-                    val imageUrl = if (photoObj is JsonObject) {
-                        photoObj["url"]?.jsonPrimitive?.content ?: ""
-                    } else {
-                        photoObj?.jsonPrimitive?.content ?: obj["photoUrl"]?.jsonPrimitive?.content ?: ""
+                    if (photoObj is JsonObject) {
+                        imageUrl = photoObj["url"]?.jsonPrimitive?.content 
+                            ?: photoObj["path"]?.jsonPrimitive?.content 
+                            ?: photoObj["fullPath"]?.jsonPrimitive?.content ?: ""
+                    } else if (photoObj is JsonArray) {
+                        val firstPhoto = photoObj.firstOrNull()
+                        if (firstPhoto is JsonObject) {
+                            imageUrl = firstPhoto["url"]?.jsonPrimitive?.content 
+                                ?: firstPhoto["path"]?.jsonPrimitive?.content ?: ""
+                        } else {
+                            imageUrl = firstPhoto?.jsonPrimitive?.content ?: ""
+                        }
+                    }
+                    
+                    if (imageUrl.isEmpty()) {
+                        imageUrl = obj["photoUrl"]?.jsonPrimitive?.content
+                            ?: obj["photoPath"]?.jsonPrimitive?.content
+                            ?: obj["squarePhotoUrl"]?.jsonPrimitive?.content
+                            ?: obj["imageUrl"]?.jsonPrimitive?.content
+                            ?: obj["image"]?.jsonPrimitive?.content ?: ""
+                    }
+
+                    if (imageUrl.isEmpty()) {
+                        val imagesArray = obj["images"]?.jsonArray
+                        val firstImg = imagesArray?.firstOrNull()
+                        if (firstImg is JsonObject) {
+                            imageUrl = firstImg["url"]?.jsonPrimitive?.content ?: firstImg["path"]?.jsonPrimitive?.content ?: ""
+                        } else {
+                            imageUrl = firstImg?.jsonPrimitive?.content ?: ""
+                        }
+                    }
+
+                    if (imageUrl.isNotEmpty()) {
+                        if (imageUrl.startsWith("//")) {
+                            imageUrl = "https:$imageUrl"
+                        } else if (imageUrl.startsWith("/")) {
+                            imageUrl = "https://www.remax.com.tr$imageUrl"
+                        } else if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://")) {
+                            if (imageUrl.contains("remax")) {
+                                imageUrl = "https://$imageUrl"
+                            } else {
+                                imageUrl = "https://img.remax.com.tr/$imageUrl"
+                            }
+                        }
                     }
 
                     Portfolio(
