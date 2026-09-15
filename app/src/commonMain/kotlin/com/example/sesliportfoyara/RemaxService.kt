@@ -4,19 +4,28 @@ import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.*
 import androidx.compose.runtime.staticCompositionLocalOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 class RemaxService {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing
 
-    private val json = Json { 
-        ignoreUnknownKeys = true 
+    // CORS PROXY: Web (wasmJs) tarafında Remax'ın sunucusu doğrudan istek
+    // atmamıza CORS politikası nedeniyle izin vermiyor. Bu yüzden istekleri
+    // kendi Cloudflare Worker'ımız üzerinden yönlendiriyoruz. Mobil (Android)
+    // tarafında CORS kısıtlaması olmadığı için bu proxy orada da sorunsuz
+    // çalışır, herhangi bir olumsuz etkisi yoktur.
+    private val proxyBaseUrl = "https://sesliportfoy-proxy.engin-baysal.workers.dev/?url="
+
+    private val json = Json {
+        ignoreUnknownKeys = true
         coerceInputValues = true
         encodeDefaults = true
     }
@@ -52,7 +61,7 @@ class RemaxService {
             var q = p
             while (q < bytes.size && bytes[q] != ':'.code.toByte()) q++
             if (q >= bytes.size) break
-            
+
             val id = bytes.decodeToString(p, q)
             if (!id.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }) {
                 val nl = indexOfByte(bytes, '\n'.code.toByte(), p)
@@ -60,7 +69,7 @@ class RemaxService {
                 p = nl + 1
                 continue
             }
-            
+
             q++
             if (q < bytes.size && bytes[q] == 'T'.code.toByte()) {
                 val comma = indexOfByte(bytes, ','.code.toByte(), q)
@@ -93,14 +102,14 @@ class RemaxService {
         val searchKey = "\"$key\""
         val k = flight.indexOf(searchKey)
         if (k < 0) return null
-        
+
         val start = flight.indexOf("{", k)
         if (start < 0) return null
-        
+
         var depth = 0
         var inStr = false
         var esc = false
-        
+
         for (i in start until flight.length) {
             val c = flight[i]
             if (inStr) {
@@ -160,13 +169,26 @@ class RemaxService {
             } else {
                 url + (if (url.contains("?")) "&" else "?") + "page=$page"
             }
-            
-            val response = client.get(pagedUrl) {
-                header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                header("Accept-Language", "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7")
-                header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+
+            // İsteği doğrudan Remax'a değil, kendi CORS proxy'mize (Cloudflare Worker) gönderiyoruz.
+            // Proxy, hedef URL'yi 'url' query parametresi olarak bekliyor, bu yüzden encode ediyoruz.
+            val encodedTarget = pagedUrl.encodeURLParameter()
+            val requestUrl = proxyBaseUrl + encodedTarget
+
+            // Ağ isteğini 15 saniyelik sert bir zaman aşımı ile sarmalıyoruz.
+            // Herhangi bir sebeple (proxy yavaşlığı, ağ kesintisi vb.) istek
+            // takılırsa uygulama artık sonsuza kadar kilitlenmeyecek.
+            val response = withTimeoutOrNull(15000L) {
+                client.get(requestUrl) {
+                    header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                }
             }
-            
+
+            if (response == null) {
+                println("RemaxService: Timeout - istek 15 saniyede tamamlanamadı")
+                return emptyList()
+            }
+
             val html = response.bodyAsText()
             val flight = decodeFlight(html)
             if (flight.isEmpty()) return emptyList()
@@ -174,10 +196,10 @@ class RemaxService {
             val rows = parseFlightRows(flight)
             val rawJson = extractObjectStringByKey(flight, "officeDetailPropertyListingData")
             if (rawJson == null) return emptyList()
-            
+
             val root = json.parseToJsonElement(rawJson)
             val resolved = resolveRefs(root, rows)
-            
+
             val listingsArray = resolved.jsonObject["data"]?.jsonObject?.get("data")?.jsonArray
             if (listingsArray == null) return emptyList()
 
@@ -186,15 +208,15 @@ class RemaxService {
                     val obj = element.jsonObject
                     val code = obj["code"]?.jsonPrimitive?.content ?: ""
                     if (code.isBlank()) return@mapNotNull null
-                    
+
                     val title = obj["title"]?.jsonArray?.firstOrNull { it.jsonObject["languageId"]?.jsonPrimitive?.int == 1 }
-                                ?.jsonObject?.get("text")?.jsonPrimitive?.content 
-                                ?: obj["title"]?.jsonPrimitive?.content ?: ""
+                        ?.jsonObject?.get("text")?.jsonPrimitive?.content
+                        ?: obj["title"]?.jsonPrimitive?.content ?: ""
 
                     val priceInfo = obj["priceInfo"]?.jsonObject
                     val amount = priceInfo?.get("amount")?.jsonPrimitive?.content ?: ""
                     val symbol = priceInfo?.get("amountTypeSymbol")?.jsonPrimitive?.content ?: ""
-                    
+
                     val city = obj["cityName"]?.jsonPrimitive?.content ?: ""
                     val district = obj["townName"]?.jsonPrimitive?.content ?: ""
                     val neighborhood = obj["neighborhoodName"]?.jsonPrimitive?.content ?: ""
@@ -202,31 +224,32 @@ class RemaxService {
 
                     val consultant = obj["employeeName"]?.jsonPrimitive?.content ?: ""
                     var phone = obj["employeePhone"]?.jsonPrimitive?.content ?: ""
-                    
+
                     // Diğer olası telefon anahtarlarını kontrol et
                     if (phone.isEmpty()) phone = obj["employeeMobilePhone"]?.jsonPrimitive?.content ?: ""
                     if (phone.isEmpty()) phone = obj["mobilePhone"]?.jsonPrimitive?.content ?: ""
                     if (phone.isEmpty()) phone = obj["officePhone"]?.jsonPrimitive?.content ?: ""
-                    
+
                     if (phone.isEmpty()) {
                         val descArray = obj["description"]?.jsonArray
                         val desc = descArray?.firstOrNull { it.jsonObject["languageId"]?.jsonPrimitive?.int == 1 }
-                                    ?.jsonObject?.get("text")?.jsonPrimitive?.content ?: ""
+                            ?.jsonObject?.get("text")?.jsonPrimitive?.content ?: ""
                         phone = extractPhoneFromText(desc)
                     } else {
                         // Var olan telefonu temizleyip formatla (sadece rakam kalsın, başına 0 ekle eğer yoksa)
                         val digits = phone.filter { it.isDigit() }
                         phone = if (digits.startsWith("5") && digits.length == 10) "0$digits"
-                               else if (digits.startsWith("905") && digits.length == 12) "0${digits.substring(2)}"
-                               else if (digits.startsWith("05") && digits.length == 11) digits
-                               else phone
+                        else if (digits.startsWith("905") && digits.length == 12) "0${digits.substring(2)}"
+                        else if (digits.startsWith("05") && digits.length == 11) digits
+                        else phone
                     }
 
-                    val imageUrl = obj["photo"]?.jsonPrimitive?.content 
-                                   ?: obj["photoUrl"]?.jsonPrimitive?.content 
-                                   ?: obj["coverPhoto"]?.jsonPrimitive?.content
-                                   ?: obj["listingPhoto"]?.jsonPrimitive?.content
-                                   ?: ""
+                    val photoObj = obj["photo"]
+                    val imageUrl = if (photoObj is JsonObject) {
+                        photoObj["url"]?.jsonPrimitive?.content ?: ""
+                    } else {
+                        photoObj?.jsonPrimitive?.content ?: obj["photoUrl"]?.jsonPrimitive?.content ?: ""
+                    }
 
                     Portfolio(
                         id = "remax_$code",
@@ -258,27 +281,32 @@ class RemaxService {
         var currentPage = 1
         _isSyncing.value = true
         try {
-            val current = try { dbManager.getPortfolios().first() } catch (e: Exception) { emptyList<Portfolio>() }
-            val existingIds = current.map { it.id }.toMutableSet()
-            val existingLinks = current.map { l -> 
-                l.link.replace("https://", "").replace("www.", "").removeSuffix("/") 
-            }.toMutableSet()
+            // Tüm senkronizasyon işlemini 60 saniyelik bir üst sınırla sardık.
+            // Herhangi bir sayfa isteği takılsa bile, işlem en geç 60 saniyede
+            // kendini durdurur ve isSyncing=false'a döner; uygulama kilitlenmez.
+            withTimeoutOrNull(60000L) {
+                val current = try { dbManager.getPortfolios().first() } catch (e: Exception) { emptyList<Portfolio>() }
+                val existingIds = current.map { it.id }.toMutableSet()
+                val existingLinks = current.map { l ->
+                    l.link.replace("https://", "").replace("www.", "").removeSuffix("/")
+                }.toMutableSet()
 
-            while (currentPage <= 10) {
-                val list = fetchOfficePortfolios(url, currentPage)
-                if (list.isEmpty()) break
-                list.forEach { p ->
-                    val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/")
-                    if (!existingIds.contains(p.id) && !existingLinks.contains(norm)) {
-                        if (dbManager.addPortfolio(p) != null) {
-                            existingIds.add(p.id)
-                            existingLinks.add(norm)
-                            totalAdded++
+                while (currentPage <= 10) {
+                    val list = fetchOfficePortfolios(url, currentPage)
+                    if (list.isEmpty()) break
+                    list.forEach { p ->
+                        val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/")
+                        if (!existingIds.contains(p.id) && !existingLinks.contains(norm)) {
+                            if (dbManager.addPortfolio(p) != null) {
+                                existingIds.add(p.id)
+                                existingLinks.add(norm)
+                                totalAdded++
+                            }
                         }
                     }
+                    if (list.size < 10) break
+                    currentPage++
                 }
-                if (list.size < 10) break
-                currentPage++
             }
         } catch (e: Exception) {
             println("RemaxService: Sync error ${e.message}")

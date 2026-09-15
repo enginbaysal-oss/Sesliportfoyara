@@ -98,24 +98,28 @@ fun App() {
     val localPortfolioManager = LocalPortfolioManagerProvider.current
     val remaxService = remember { RemaxService() }
     val snackbarHostState = remember { SnackbarHostState() }
-    
+
     // Uygulamanın hatırladığı danışman bilgileri (Sizin kimliğiniz)
     var myName by remember { mutableStateOf(settings.getString("my_consultant_name", "")) }
     var myPhone by remember { mutableStateOf(settings.getString("my_consultant_phone", "")) }
     var remaxUrl by remember { mutableStateOf(settings.getString("remax_office_url", "")) }
     var isAdmin by remember { mutableStateOf(settings.getBoolean("is_admin", false)) }
-    
+
     // Eğer bilgiler boşsa, başlangıç ekranını profil kurulumu yapıyoruz
-    var currentScreen by remember { 
-        mutableStateOf<Screen>(if (myName.isEmpty() || myPhone.isEmpty()) Screen.ProfileSetup else Screen.VoiceSearch) 
+    var currentScreen by remember {
+        mutableStateOf<Screen>(if (myName.isEmpty() || myPhone.isEmpty()) Screen.ProfileSetup else Screen.VoiceSearch)
     }
 
     // GECE 00:00'DA OTOMATİK SENKRONİZASYON
     LaunchedEffect(remaxUrl) {
         if (remaxUrl.isNotBlank()) {
-            // Uygulama ilk açıldığında bir kez senkronize et
-            remaxService.syncWithFirebase(remaxUrl, dbManager)
-            
+            // NOT: Açılışta otomatik senkronizasyon devre dışı bırakıldı.
+            // Web (wasmJs) tarafında CORS engeli nedeniyle bu çağrı askıda kalıp
+            // tüm ekranı kilitleyebiliyordu. Artık kullanıcı "İçe Aktar" butonuyla
+            // manuel olarak tetikliyor. Gerekirse (proxy/CORS çözümü sonrası)
+            // aşağıdaki satırın başındaki // işaretini kaldırıp tekrar aktif edebilirsiniz.
+            // remaxService.syncWithFirebase(remaxUrl, dbManager)
+
             while (true) {
                 // Türkiye saatiyle (UTC+3) gece 00:00'ı hesapla
                 val now = Clock.now()
@@ -123,201 +127,106 @@ fun App() {
                 // Basit bir yaklaşımla gece yarısına kalan süreyi bul
                 val currentMillisInDay = (now + (3 * 3600_000)) % millisInDay // UTC+3 ayarı
                 var delayToMidnight = millisInDay - currentMillisInDay
-                
+
                 // Eğer çok yakınsa (1 dakikadan az), bir sonraki günü bekle
                 if (delayToMidnight < 60_000) delayToMidnight += millisInDay
 
                 println("🔄 Gece 00:00 senkronizasyonu için bekleniyor: ${delayToMidnight / 1000 / 60} dakika")
                 delay(delayToMidnight)
-                
+
                 println("🌙 Saat 00:00: Otomatik portföy güncellemesi başlatılıyor...")
                 remaxService.syncWithFirebase(remaxUrl, dbManager)
-                
+
                 delay(300_000) // 5 dakika bekle ki aynı gün içinde tekrar tetiklenmesin
             }
         }
     }
-    
+
     CompositionLocalProvider(
         LocalConsultantInfo provides ConsultantInfo(myName, myPhone),
         LocalSnackbarHostState provides snackbarHostState,
         LocalRemaxServiceProvider provides remaxService
     ) {
         SesliportfoyaraTheme(darkTheme = false) {
-        val officePortfolios = remember { mutableStateListOf<Portfolio>() }
-        val localPortfolios by localPortfolioManager.portfolios.collectAsState()
-        val clients by crmManager.clients.collectAsState()
-        
-        val allPortfolios by remember { 
-            derivedStateOf { officePortfolios + localPortfolios } 
-        }
+            val officePortfolios = remember { mutableStateListOf<Portfolio>() }
+            val localPortfolios by localPortfolioManager.portfolios.collectAsState()
+            val clients by crmManager.clients.collectAsState()
 
-        var editingPortfolio by remember { mutableStateOf<Portfolio?>(null) }
-        var isEditingLocal by remember { mutableStateOf(false) }
-        var selectedClient by remember { mutableStateOf<Client?>(null) }
-        
-        val scope = rememberCoroutineScope()
+            val allPortfolios by remember {
+                derivedStateOf { officePortfolios + localPortfolios }
+            }
 
-        LaunchedEffect(Unit) {
-            dbManager.getPortfolios().collectLatest { list ->
-                if (list.isNotEmpty() || officePortfolios.isEmpty()) {
-                    officePortfolios.clear()
-                    officePortfolios.addAll(list.sortedByDescending { it.createdAt })
+            var editingPortfolio by remember { mutableStateOf<Portfolio?>(null) }
+            var isEditingLocal by remember { mutableStateOf(false) }
+            var selectedClient by remember { mutableStateOf<Client?>(null) }
+
+            val scope = rememberCoroutineScope()
+
+            LaunchedEffect(Unit) {
+                dbManager.getPortfolios().collectLatest { list ->
+                    if (list.isNotEmpty() || officePortfolios.isEmpty()) {
+                        officePortfolios.clear()
+                        officePortfolios.addAll(list.sortedByDescending { it.createdAt })
+                    }
                 }
             }
-        }
 
-        Scaffold(
-            topBar = {
-                if (currentScreen != Screen.ProfileSetup && currentScreen != Screen.AddClient && currentScreen != Screen.ClientDetails) {
-                    HeaderSection()
-                }
-            },
-            bottomBar = {
-                if (currentScreen != Screen.ProfileSetup && currentScreen != Screen.AddClient && currentScreen != Screen.ClientDetails) {
-                    TabNavigation(currentScreen) { 
-                        currentScreen = it
-                        if (it != Screen.AddPortfolio) {
-                            editingPortfolio = null 
-                            isEditingLocal = false
-                        }
-                        if (it != Screen.CRM) selectedClient = null
+            Scaffold(
+                topBar = {
+                    if (currentScreen != Screen.ProfileSetup && currentScreen != Screen.AddClient && currentScreen != Screen.ClientDetails) {
+                        HeaderSection()
                     }
-                }
-            },
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            containerColor = MaterialTheme.colorScheme.background
-        ) { paddingValues ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-            ) {
-                when (currentScreen) {
-                    Screen.ProfileSetup -> ProfileSetupScreen(
-                        initialName = myName,
-                        initialPhone = myPhone,
-                        initialUrl = remaxUrl
-                    ) { name, phone, url, adminSecret ->
-                        settings.putString("my_consultant_name", name)
-                        settings.putString("my_consultant_phone", phone)
-                        settings.putString("remax_office_url", url)
-                        
-                        // Gizli şifreyi kontrol et (Şifre: adminengin)
-                        val adminStatus = adminSecret == "adminengin"
-                        settings.putBoolean("is_admin", adminStatus)
-                        
-                        myName = name
-                        myPhone = phone
-                        remaxUrl = url
-                        isAdmin = adminStatus
-                        currentScreen = Screen.VoiceSearch
-                    }
-                    Screen.VoiceSearch -> VoiceSearchScreen(officePortfolios) { p ->
-                        scope.launch {
-                            try {
-                                val officeCopy = p.copy(
-                                    id = "", 
-                                    createdAt = Clock.now()
-                                )
-                                val newId = dbManager.addPortfolio(officeCopy)
-                                if (newId != null) {
-                                    snackbarHostState.showSnackbar("✅ Ofise kopyalandı. Yerel kopyanız duruyor.")
-                                } else {
-                                    snackbarHostState.showSnackbar("❌ Ofise kopyalanamadı (Yetki veya Ağ hatası).")
-                                }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                snackbarHostState.showSnackbar("❌ Kopyalama hatası: ${e.message}")
+                },
+                bottomBar = {
+                    if (currentScreen != Screen.ProfileSetup && currentScreen != Screen.AddClient && currentScreen != Screen.ClientDetails) {
+                        TabNavigation(currentScreen) {
+                            currentScreen = it
+                            if (it != Screen.AddPortfolio) {
+                                editingPortfolio = null
+                                isEditingLocal = false
                             }
+                            if (it != Screen.CRM) selectedClient = null
                         }
                     }
-                    Screen.AddPortfolio -> AddPortfolioScreen(editingPortfolio, myName, myPhone, isAdmin) { p, saveLocally ->
-                        val wasEditing = editingPortfolio != null
-                        val wasEditingLocal = isEditingLocal
-                        
-                        scope.launch {
-                            try {
-                                if (wasEditing) {
-                                    if (wasEditingLocal) {
-                                        localPortfolioManager.updatePortfolio(p)
-                                        snackbarHostState.showSnackbar("✅ Yerel portföy güncellendi.")
-                                    } else {
-                                        val ok = dbManager.updatePortfolio(p)
-                                        if (ok) snackbarHostState.showSnackbar("✅ Ofis portföyü güncellendi.")
-                                        else snackbarHostState.showSnackbar("❌ Güncelleme başarısız (Ağ hatası).")
-                                    }
-                                } else {
-                                    val newP = p.copy(createdAt = Clock.now())
-                                    if (saveLocally) {
-                                        localPortfolioManager.addPortfolio(newP)
-                                        snackbarHostState.showSnackbar("✅ Yerel portföy eklendi.")
-                                    } else {
-                                        val newId = dbManager.addPortfolio(newP)
-                                        if (newId != null) snackbarHostState.showSnackbar("✅ Ofis portföyü eklendi.")
-                                        else snackbarHostState.showSnackbar("❌ Ofise eklenemedi (Ağ hatası).")
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                snackbarHostState.showSnackbar("❌ Bir hata oluştu.")
-                            }
+                },
+                snackbarHost = { SnackbarHost(snackbarHostState) },
+                containerColor = MaterialTheme.colorScheme.background
+            ) { paddingValues ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                ) {
+                    when (currentScreen) {
+                        Screen.ProfileSetup -> ProfileSetupScreen(
+                            initialName = myName,
+                            initialPhone = myPhone,
+                            initialUrl = remaxUrl
+                        ) { name, phone, url, adminSecret ->
+                            settings.putString("my_consultant_name", name)
+                            settings.putString("my_consultant_phone", phone)
+                            settings.putString("remax_office_url", url)
+
+                            // Gizli şifreyi kontrol et (Şifre: adminengin)
+                            val adminStatus = adminSecret == "adminengin"
+                            settings.putBoolean("is_admin", adminStatus)
+
+                            myName = name
+                            myPhone = phone
+                            remaxUrl = url
+                            isAdmin = adminStatus
+                            currentScreen = Screen.VoiceSearch
                         }
-                        editingPortfolio = null
-                        isEditingLocal = false
-                        currentScreen = Screen.MyPortfolio
-                    }
-                    Screen.MyPortfolio -> MyPortfolioScreen(
-                        officePortfolios = officePortfolios,
-                        localPortfolios = localPortfolios,
-                        onDeleteOffice = { p -> 
-                            scope.launch { 
-                                val ok = dbManager.deletePortfolio(p.id)
-                                if (ok) snackbarHostState.showSnackbar("✅ Ofis portföyü silindi.")
-                                else snackbarHostState.showSnackbar("❌ Silme başarısız (Ağ hatası).")
-                            } 
-                        },
-                        onDeleteLocal = { p -> 
-                            localPortfolioManager.deletePortfolio(p.id)
-                            scope.launch { snackbarHostState.showSnackbar("✅ Yerel portföy silindi.") }
-                        },
-                        onClearOffice = {
-                            scope.launch {
-                                val ok = dbManager.clearAllPortfolios()
-                                if (ok) snackbarHostState.showSnackbar("✅ Tüm ofis portföyleri silindi.")
-                                else snackbarHostState.showSnackbar("❌ Ofis temizlenemedi (Ağ hatası).")
-                            }
-                        },
-                        onClearLocal = {
-                            localPortfolioManager.clearAllPortfolios()
-                            scope.launch { snackbarHostState.showSnackbar("✅ Tüm yerel portföyler silindi.") }
-                        },
-                        onEditOffice = {
-                            editingPortfolio = it
-                            isEditingLocal = false
-                            currentScreen = Screen.AddPortfolio
-                        },
-                        onEditLocal = {
-                            editingPortfolio = it
-                            isEditingLocal = true
-                            currentScreen = Screen.AddPortfolio
-                        },
-                        onPublishLocal = { p ->
+                        Screen.VoiceSearch -> VoiceSearchScreen(officePortfolios) { p ->
                             scope.launch {
                                 try {
-                                    println("🛡️ Yerel liste korunuyor. Mevcut adet: ${localPortfolios.size}")
-                                    
-                                    // Sadece Firebase'e gönderiyoruz. 
-                                    // Yerel veri tabanına (localPortfolioManager) dair HİÇBİR işlem yapmıyoruz.
                                     val officeCopy = p.copy(
-                                        id = "", 
+                                        id = "",
                                         createdAt = Clock.now()
                                     )
                                     val newId = dbManager.addPortfolio(officeCopy)
-                                    
                                     if (newId != null) {
                                         snackbarHostState.showSnackbar("✅ Ofise kopyalandı. Yerel kopyanız duruyor.")
-                                        println("🛡️ Kopyalama bitti. Yerel adet: ${localPortfolios.size}")
                                     } else {
                                         snackbarHostState.showSnackbar("❌ Ofise kopyalanamadı (Yetki veya Ağ hatası).")
                                     }
@@ -326,69 +235,164 @@ fun App() {
                                     snackbarHostState.showSnackbar("❌ Kopyalama hatası: ${e.message}")
                                 }
                             }
-                        },
-                        onEditProfile = {
-                            currentScreen = Screen.ProfileSetup
-                        },
-                        onImportRemax = { url ->
+                        }
+                        Screen.AddPortfolio -> AddPortfolioScreen(editingPortfolio, myName, myPhone, isAdmin) { p, saveLocally ->
+                            val wasEditing = editingPortfolio != null
+                            val wasEditingLocal = isEditingLocal
+
                             scope.launch {
-                                snackbarHostState.showSnackbar("⌛ Portföyler ofise aktarılıyor...")
-                                // syncWithFirebase artık kaç tane yeni ilan eklendiğini dönüyor
-                                val count = remaxService.syncWithFirebase(url, dbManager)
-                                if (count > 0) {
-                                    snackbarHostState.showSnackbar("✅ $count yeni portföy başarıyla aktarıldı.")
-                                } else {
-                                    snackbarHostState.showSnackbar("ℹ️ Yeni portföy bulunamadı veya hepsi zaten mevcut.")
+                                try {
+                                    if (wasEditing) {
+                                        if (wasEditingLocal) {
+                                            localPortfolioManager.updatePortfolio(p)
+                                            snackbarHostState.showSnackbar("✅ Yerel portföy güncellendi.")
+                                        } else {
+                                            val ok = dbManager.updatePortfolio(p)
+                                            if (ok) snackbarHostState.showSnackbar("✅ Ofis portföyü güncellendi.")
+                                            else snackbarHostState.showSnackbar("❌ Güncelleme başarısız (Ağ hatası).")
+                                        }
+                                    } else {
+                                        val newP = p.copy(createdAt = Clock.now())
+                                        if (saveLocally) {
+                                            localPortfolioManager.addPortfolio(newP)
+                                            snackbarHostState.showSnackbar("✅ Yerel portföy eklendi.")
+                                        } else {
+                                            val newId = dbManager.addPortfolio(newP)
+                                            if (newId != null) snackbarHostState.showSnackbar("✅ Ofis portföyü eklendi.")
+                                            else snackbarHostState.showSnackbar("❌ Ofise eklenemedi (Ağ hatası).")
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    snackbarHostState.showSnackbar("❌ Bir hata oluştu.")
                                 }
                             }
-                        },
-                        currentName = myName,
-                        currentPhone = myPhone,
-                        isAdmin = isAdmin
-                    )
-                    Screen.CRM -> CRMMainScreen(
-                        clients = clients,
-                        allPortfolios = allPortfolios,
-                        onAddClient = {
-                            selectedClient = null
-                            currentScreen = Screen.AddClient
-                        },
-                        onClientClick = {
-                            selectedClient = it
-                            currentScreen = Screen.ClientDetails
+                            editingPortfolio = null
+                            isEditingLocal = false
+                            currentScreen = Screen.MyPortfolio
                         }
-                    )
-                    Screen.AddClient -> AddClientScreen(
-                        editingClient = selectedClient,
-                        onSave = { client ->
-                            if (selectedClient == null) {
-                                crmManager.addClient(client)
-                            } else {
-                                crmManager.updateClient(client)
-                            }
-                            currentScreen = Screen.CRM
-                        },
-                        onCancel = {
-                            currentScreen = Screen.CRM
-                        }
-                    )
-                    Screen.ClientDetails -> selectedClient?.let { client ->
-                        ClientDetailScreen(
-                            client = client,
+                        Screen.MyPortfolio -> MyPortfolioScreen(
+                            officePortfolios = officePortfolios,
+                            localPortfolios = localPortfolios,
+                            onDeleteOffice = { p ->
+                                scope.launch {
+                                    val ok = dbManager.deletePortfolio(p.id)
+                                    if (ok) snackbarHostState.showSnackbar("✅ Ofis portföyü silindi.")
+                                    else snackbarHostState.showSnackbar("❌ Silme başarısız (Ağ hatası).")
+                                }
+                            },
+                            onDeleteLocal = { p ->
+                                localPortfolioManager.deletePortfolio(p.id)
+                                scope.launch { snackbarHostState.showSnackbar("✅ Yerel portföy silindi.") }
+                            },
+                            onClearOffice = {
+                                scope.launch {
+                                    val ok = dbManager.clearAllPortfolios()
+                                    if (ok) snackbarHostState.showSnackbar("✅ Tüm ofis portföyleri silindi.")
+                                    else snackbarHostState.showSnackbar("❌ Ofis temizlenemedi (Ağ hatası).")
+                                }
+                            },
+                            onClearLocal = {
+                                localPortfolioManager.clearAllPortfolios()
+                                scope.launch { snackbarHostState.showSnackbar("✅ Tüm yerel portföyler silindi.") }
+                            },
+                            onEditOffice = {
+                                editingPortfolio = it
+                                isEditingLocal = false
+                                currentScreen = Screen.AddPortfolio
+                            },
+                            onEditLocal = {
+                                editingPortfolio = it
+                                isEditingLocal = true
+                                currentScreen = Screen.AddPortfolio
+                            },
+                            onPublishLocal = { p ->
+                                scope.launch {
+                                    try {
+                                        println("🛡️ Yerel liste korunuyor. Mevcut adet: ${localPortfolios.size}")
+
+                                        // Sadece Firebase'e gönderiyoruz.
+                                        // Yerel veri tabanına (localPortfolioManager) dair HİÇBİR işlem yapmıyoruz.
+                                        val officeCopy = p.copy(
+                                            id = "",
+                                            createdAt = Clock.now()
+                                        )
+                                        val newId = dbManager.addPortfolio(officeCopy)
+
+                                        if (newId != null) {
+                                            snackbarHostState.showSnackbar("✅ Ofise kopyalandı. Yerel kopyanız duruyor.")
+                                            println("🛡️ Kopyalama bitti. Yerel adet: ${localPortfolios.size}")
+                                        } else {
+                                            snackbarHostState.showSnackbar("❌ Ofise kopyalanamadı (Yetki veya Ağ hatası).")
+                                        }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                        snackbarHostState.showSnackbar("❌ Kopyalama hatası: ${e.message}")
+                                    }
+                                }
+                            },
+                            onEditProfile = {
+                                currentScreen = Screen.ProfileSetup
+                            },
+                            onImportRemax = { url ->
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("⌛ Portföyler ofise aktarılıyor...")
+                                    // syncWithFirebase artık kaç tane yeni ilan eklendiğini dönüyor
+                                    val count = remaxService.syncWithFirebase(url, dbManager)
+                                    if (count > 0) {
+                                        snackbarHostState.showSnackbar("✅ $count yeni portföy başarıyla aktarıldı.")
+                                    } else {
+                                        snackbarHostState.showSnackbar("ℹ️ Yeni portföy bulunamadı veya hepsi zaten mevcut.")
+                                    }
+                                }
+                            },
+                            currentName = myName,
+                            currentPhone = myPhone,
+                            isAdmin = isAdmin
+                        )
+                        Screen.CRM -> CRMMainScreen(
+                            clients = clients,
                             allPortfolios = allPortfolios,
-                            onEdit = {
+                            onAddClient = {
+                                selectedClient = null
                                 currentScreen = Screen.AddClient
                             },
-                            onBack = {
+                            onClientClick = {
+                                selectedClient = it
+                                currentScreen = Screen.ClientDetails
+                            }
+                        )
+                        Screen.AddClient -> AddClientScreen(
+                            editingClient = selectedClient,
+                            onSave = { client ->
+                                if (selectedClient == null) {
+                                    crmManager.addClient(client)
+                                } else {
+                                    crmManager.updateClient(client)
+                                }
+                                currentScreen = Screen.CRM
+                            },
+                            onCancel = {
                                 currentScreen = Screen.CRM
                             }
                         )
+                        Screen.ClientDetails -> selectedClient?.let { client ->
+                            ClientDetailScreen(
+                                client = client,
+                                allPortfolios = allPortfolios,
+                                onEdit = {
+                                    currentScreen = Screen.AddClient
+                                },
+                                onBack = {
+                                    currentScreen = Screen.CRM
+                                }
+                            )
+                        }
                     }
                 }
             }
         }
     }
-}
 }
 
 @Composable
@@ -402,9 +406,9 @@ fun ProfileSetupScreen(
     var phoneValue by remember { mutableStateOf(TextFieldValue(initialPhone)) }
     var remaxUrl by remember { mutableStateOf(initialUrl) }
     var adminSecret by remember { mutableStateOf("") }
-    
+
     val scrollState = rememberScrollState()
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -421,25 +425,25 @@ fun ProfileSetupScreen(
         ) {
             Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
         }
-        
+
         Spacer(modifier = Modifier.height(24.dp))
-        
+
         Text("Danışman Profili", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Otomatik portföy çekme için RE/MAX ofis linkinizi girebilirsiniz.", 
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 14.sp, textAlign = TextAlign.Center,
+            "Otomatik portföy çekme için RE/MAX ofis linkinizi girebilirsiniz.",
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 14.sp, textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp)
         )
-        
+
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
         CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
         CustomInputField("RE/MAX Ofis Linki (Otomatik Çekme İçin)", remaxUrl) { remaxUrl = it }
         CustomInputField("Admin Şifresi (Opsiyonel)", adminSecret) { adminSecret = it }
-        
+
         Spacer(modifier = Modifier.height(40.dp))
-        
+
         Button(
             onClick = {
                 if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
@@ -466,7 +470,7 @@ fun PremiumLogo(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(52.dp)) {
         val w = size.width
         val h = size.height
-        
+
         // 1. Kalkan (Shield) Formu
         val shieldPath = Path().apply {
             moveTo(w * 0.12f, h * 0.25f)
@@ -478,7 +482,7 @@ fun PremiumLogo(modifier: Modifier = Modifier) {
             close()
         }
         drawPath(path = shieldPath, color = goldColor, style = Stroke(width = 2.dp.toPx()))
-        
+
         // 2. Ses Dalgası (Üstte)
         val wavePath = Path().apply {
             moveTo(w * 0.38f, h * 0.35f)
@@ -506,12 +510,12 @@ fun PremiumLogo(modifier: Modifier = Modifier) {
             size = Size(w * 0.18f, h * 0.12f),
             style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
         )
-        
+
         // P Çizimi
         drawLine(
-            color = goldColor, 
-            start = Offset(w * 0.54f, h * 0.42f), 
-            end = Offset(w * 0.54f, h * 0.7f), 
+            color = goldColor,
+            start = Offset(w * 0.54f, h * 0.42f),
+            end = Offset(w * 0.54f, h * 0.7f),
             strokeWidth = 2.5.dp.toPx(),
             cap = StrokeCap.Round
         )
@@ -526,12 +530,12 @@ fun PremiumLogo(modifier: Modifier = Modifier) {
         // 4. CRM Yükseliş Grafiği (Altta)
         // Grafik Taban Çizgisi
         drawLine(color = goldColor.copy(alpha = 0.5f), start = Offset(w * 0.35f, h * 0.82f), end = Offset(w * 0.65f, h * 0.82f), strokeWidth = 1.dp.toPx())
-        
+
         // Barlar
         drawRect(color = goldColor, topLeft = Offset(w * 0.42f, h * 0.76f), size = Size(w * 0.05f, h * 0.06f))
         drawRect(color = goldColor, topLeft = Offset(w * 0.50f, h * 0.70f), size = Size(w * 0.05f, h * 0.12f))
         drawRect(color = goldColor, topLeft = Offset(w * 0.58f, h * 0.65f), size = Size(w * 0.05f, h * 0.17f))
-        
+
         // Yükseliş Oku (Arrow)
         val arrowPath = Path().apply {
             moveTo(w * 0.38f, h * 0.82f)
@@ -561,9 +565,9 @@ fun HeaderSection() {
         verticalAlignment = Alignment.CenterVertically
     ) {
         PremiumLogo()
-        
+
         Spacer(modifier = Modifier.width(18.dp))
-        
+
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -578,15 +582,15 @@ fun HeaderSection() {
                     CircularProgressIndicator(
                         modifier = Modifier.size(12.dp),
                         strokeWidth = 2.dp,
-                        color = Color(0xFFFFC107)
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
             Text(
                 text = "PREMIUM REAL ESTATE MANAGEMENT",
-                color = Color(0xFFc9a15a),
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.ExtraBold,
                 letterSpacing = 1.2.sp
             )
         }
@@ -594,7 +598,7 @@ fun HeaderSection() {
         // ANA SAYFAYA TAŞINAN YEDEKLEME BUTONLARI
         val snackbarHostState = LocalSnackbarHostState.current
         val scope = rememberCoroutineScope()
-        
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = {
                 val fullBackup = crmManager.exportFullBackup(localPortfolioManager.getAllPortfolios())
@@ -698,7 +702,7 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>, onPublish: (Portfolio) -> Uni
             searchResults = PortfolioSearchEngine.search(lastQuery, portfolios)
         }
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -721,7 +725,7 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>, onPublish: (Portfolio) -> Uni
                     .size(80.dp)
                     .background(if (isListening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                     .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)), CircleShape)
-                    .clickable { 
+                    .clickable {
                         if (isListening) {
                             platformUtils.stopVoiceRecognition()
                             isListening = false
@@ -762,11 +766,11 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>, onPublish: (Portfolio) -> Uni
         )
         Text(
             text = "Örn: \"Bahçelievler 3+1 asansörlü daire\"",
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f),
             fontSize = 14.sp,
             modifier = Modifier.padding(top = 8.dp)
         )
-        
+
         Text(
             text = "${portfolios.size} portföy içinde aranıyor",
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
@@ -816,21 +820,21 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>, onPublish: (Portfolio) -> Uni
             Spacer(modifier = Modifier.height(30.dp))
             Text(
                 text = if (searchResults.isNotEmpty()) "${searchResults.size} eşleşme bulundu" else "Eşleşme bulunamadı",
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f),
                 fontSize = 12.sp,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(10.dp))
             searchResults.forEach { portfolio ->
                 PortfolioItem(
-                    portfolio = portfolio, 
-                    onDelete = null, 
+                    portfolio = portfolio,
+                    onDelete = null,
                     onEdit = null,
                     onPublish = if (portfolio.id.startsWith("local_")) onPublish else null
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(40.dp))
     }
 }
@@ -867,9 +871,9 @@ fun SonarAnimation() {
 
 @Composable
 fun AddPortfolioScreen(
-    editingPortfolio: Portfolio?, 
-    defaultName: String, 
-    defaultPhone: String, 
+    editingPortfolio: Portfolio?,
+    defaultName: String,
+    defaultPhone: String,
     isAdmin: Boolean,
     onAdd: (Portfolio, Boolean) -> Unit
 ) {
@@ -901,13 +905,13 @@ fun AddPortfolioScreen(
             .padding(top = 20.dp)
     ) {
         Text(
-            if (editingPortfolio != null) "Portföyü Düzenle" else "Yeni Portföy Ekle", 
+            if (editingPortfolio != null) "Portföyü Düzenle" else "Yeni Portföy Ekle",
             color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(20.dp))
 
         if (editingPortfolio == null) {
-            Text("Portföy Nerede Saklansın?", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 12.sp)
+            Text("Portföy Nerede Saklansın?", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp)
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 listOf(true to "Sadece Benim (Yerel)", false to "Herkesle Paylaş (Ofis)").forEach { (isLocal, label) ->
                     val selected = saveLocally == isLocal
@@ -923,10 +927,10 @@ fun AddPortfolioScreen(
                 }
             }
         }
-        
+
         CustomInputField("İlan Başlığı", title) { title = it }
 
-        Text("İlan Tipi", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+        Text("İlan Tipi", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -948,7 +952,7 @@ fun AddPortfolioScreen(
             }
         }
 
-        Text("Emlak Türü", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+        Text("Emlak Türü", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -970,32 +974,32 @@ fun AddPortfolioScreen(
             }
         }
 
-        HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f).copy(0.2f))
-        Text("MÜLK SAHİBİ BİLGİLERİ (Özel)", color = Color(0xFFFFC107), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f).copy(0.2f))
+        Text("MÜLK SAHİBİ BİLGİLERİ (Özel)", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         Row(Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) { CustomInputField("Sahibi Adı", ownerName) { ownerName = it } }
             Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) { CustomInputField("Sahibi Telefon", ownerPhone) { ownerPhone = it } }
         }
 
-        HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f).copy(0.2f))
+        HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f).copy(0.2f))
         Text("DANIŞMAN BİLGİLERİ", color = if (canEditConsultant) Color(0xFF2196F3) else Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         Row(Modifier.fillMaxWidth()) {
-            Box(Modifier.weight(1f)) { 
-                CustomInputField("Danışman", consultantName, enabled = canEditConsultant) { consultantName = it } 
+            Box(Modifier.weight(1f)) {
+                CustomInputField("Danışman", consultantName, enabled = canEditConsultant) { consultantName = it }
             }
             Spacer(Modifier.width(10.dp))
-            Box(Modifier.weight(1f)) { 
-                CustomInputField("Danışman Tel", consultantPhone, enabled = canEditConsultant) { consultantPhone = it } 
+            Box(Modifier.weight(1f)) {
+                CustomInputField("Danışman Tel", consultantPhone, enabled = canEditConsultant) { consultantPhone = it }
             }
         }
-        
+
         Row(Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) { CustomInputField("Fiyat (TL)", price) { price = it } }
             Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) { CustomInputField("Oda Sayısı", rooms) { rooms = it } }
         }
-        
+
         Row(Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) { CustomInputField("Metrekare", area) { area = it } }
             Spacer(Modifier.width(10.dp))
@@ -1005,17 +1009,17 @@ fun AddPortfolioScreen(
         CustomInputField("İlan Linki", link) { link = it }
 
         Spacer(modifier = Modifier.height(30.dp))
-        
+
         Button(
             onClick = {
                 if (title.isNotEmpty()) {
                     onAdd(Portfolio(
                         id = editingPortfolio?.id ?: "",
-                        title = title, 
+                        title = title,
                         price = price,
                         rooms = rooms,
                         area = area,
-                        location = location, 
+                        location = location,
                         consultantName = consultantName,
                         consultantPhone = consultantPhone,
                         ownerName = ownerName,
@@ -1033,11 +1037,11 @@ fun AddPortfolioScreen(
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107))
         ) {
             Text(
-                if (editingPortfolio != null) "Değişiklikleri Kaydet" else "Portföyü Kaydet", 
+                if (editingPortfolio != null) "Değişiklikleri Kaydet" else "Portföyü Kaydet",
                 color = Color.Black, fontWeight = FontWeight.Bold
             )
         }
-        
+
         Spacer(modifier = Modifier.height(40.dp))
     }
 }
@@ -1045,7 +1049,7 @@ fun AddPortfolioScreen(
 @Composable
 fun CustomTextFieldValueInput(label: String, value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit) {
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Text(label, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 12.sp, modifier = Modifier.padding(bottom = 4.dp))
+        Text(label, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp, modifier = Modifier.padding(bottom = 4.dp))
         TextField(
             value = value,
             onValueChange = onValueChange,
@@ -1070,7 +1074,7 @@ fun CustomTextFieldValueInput(label: String, value: TextFieldValue, onValueChang
 @Composable
 fun CustomInputField(label: String, value: String, enabled: Boolean = true, onValueChange: (String) -> Unit) {
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Text(label, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 12.sp, modifier = Modifier.padding(bottom = 4.dp))
+        Text(label, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp, modifier = Modifier.padding(bottom = 4.dp))
         TextField(
             value = value,
             onValueChange = onValueChange,
@@ -1090,7 +1094,7 @@ fun CustomInputField(label: String, value: String, enabled: Boolean = true, onVa
                 disabledIndicatorColor = Color.Transparent,
                 focusedTextColor = MaterialTheme.colorScheme.onBackground,
                 unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                disabledTextColor = Color.Gray
+                disabledTextColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)
             )
         )
     }
@@ -1137,7 +1141,7 @@ fun MyPortfolioScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showClearDialog = false }) {
-                    Text("İptal", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+                    Text("İptal", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f))
                 }
             },
             containerColor = MaterialTheme.colorScheme.surface
@@ -1150,7 +1154,7 @@ fun MyPortfolioScreen(
             title = { Text("RE/MAX'tan İçe Aktar", color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 Column {
-                    Text("Ofis veya arama sayfası linkini girin:", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 12.sp)
+                    Text("Ofis veya arama sayfası linkini girin:", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp)
                     Spacer(Modifier.height(8.dp))
                     CustomInputField("URL", remaxUrl) { remaxUrl = it }
                 }
@@ -1168,7 +1172,7 @@ fun MyPortfolioScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showImportDialog = false }) {
-                    Text("İptal", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+                    Text("İptal", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f))
                 }
             },
             containerColor = MaterialTheme.colorScheme.surface
@@ -1195,7 +1199,7 @@ fun MyPortfolioScreen(
             },
             dismissButton = {
                 TextButton(onClick = { portfolioToDelete = null }) {
-                    Text("İptal", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+                    Text("İptal", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f))
                 }
             },
             containerColor = MaterialTheme.colorScheme.surface,
@@ -1224,31 +1228,33 @@ fun MyPortfolioScreen(
                 Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
             }
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // İŞLEM BUTONLARI (İçe Aktar ve Hepsini Sil)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { showImportDialog = true },
-                modifier = Modifier.weight(1f).height(48.dp),
+                modifier = Modifier.weight(1f).height(44.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
-                Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("RE/MAX'tan Aktar", color = Color.White, fontSize = 12.sp, maxLines = 1, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("İçe Aktar", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             }
-            
+
             Button(
                 onClick = { showClearDialog = true },
-                modifier = Modifier.weight(1f).height(48.dp),
+                modifier = Modifier.weight(1f).height(44.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B)),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
-                Icon(Icons.Default.DeleteSweep, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Hepsini Temizle", color = Color.White, fontSize = 12.sp, maxLines = 1, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.DeleteSweep, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Temizle", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
 
@@ -1257,7 +1263,7 @@ fun MyPortfolioScreen(
         // TABLAR
         Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(4.dp)) {
             val tabs = listOf(
-                "Benim (${localPortfolios.size} adet)", 
+                "Benim (${localPortfolios.size} adet)",
                 "Ofis (${officePortfolios.size} adet)"
             )
             tabs.forEachIndexed { index, title ->
@@ -1276,10 +1282,10 @@ fun MyPortfolioScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         val currentList = if (selectedTab == 0) localPortfolios else officePortfolios
-        
+
         if (currentList.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Bu bölümde henüz portföy yok.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+                Text("Bu bölümde henüz portföy yok.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f))
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -1287,13 +1293,13 @@ fun MyPortfolioScreen(
                     val cleanMyPhone = currentPhone.filter { it.isDigit() }
                     val cleanConsultantPhone = portfolio.consultantPhone.filter { it.isDigit() }
                     val isOwner = portfolio.consultantName.equals(currentName, ignoreCase = true) && cleanConsultantPhone == cleanMyPhone && cleanMyPhone.isNotEmpty()
-                    
+
                     // YETKİ: Lokal ise her zaman düzenlenir. Ofis ise sahibi veya admin ise düzenlenir.
                     val canManage = (selectedTab == 0) || isOwner || isAdmin || portfolio.consultantName.isEmpty()
-                    
+
                     PortfolioItem(
-                        portfolio = portfolio, 
-                        onDelete = if (canManage) { { portfolioToDelete = it } } else null, 
+                        portfolio = portfolio,
+                        onDelete = if (canManage) { { portfolioToDelete = it } } else null,
                         onEdit = if (canManage) (if (selectedTab == 0) onEditLocal else onEditOffice) else null,
                         onPublish = if (selectedTab == 0) onPublishLocal else null
                     )
@@ -1310,10 +1316,10 @@ fun formatPrice(p: String): String {
     // Sadece rakamları al
     val digitsOnly = p.filter { it.isDigit() }
     if (digitsOnly.isEmpty()) return p
-    
+
     val n = digitsOnly.toLongOrNull() ?: return p
     val formatted = n.toString().reversed().chunked(3).joinToString(".").reversed()
-    
+
     // Orijinal string'de para birimi simgesi varsa onu korumaya çalış (genelde sonundadır)
     return when {
         p.contains("$") -> "$formatted $"
@@ -1326,17 +1332,17 @@ fun formatPrice(p: String): String {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PortfolioItem(
-    portfolio: Portfolio, 
-    onDelete: ((Portfolio) -> Unit)?, 
+    portfolio: Portfolio,
+    onDelete: ((Portfolio) -> Unit)?,
     onEdit: ((Portfolio) -> Unit)?,
     onPublish: ((Portfolio) -> Unit)? = null
 ) {
     val currentConsultant = LocalConsultantInfo.current
-    
+
     // Akıllı Eşleşme Mantığı: Telefonun son 10 hanesini karşılaştır (ülke kodu/sıfır farkını önlemek için)
     val cleanMyPhone = currentConsultant.phone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
     val cleanConsultantPhone = portfolio.consultantPhone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
-    
+
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1357,172 +1363,172 @@ fun PortfolioItem(
                     contentScale = ContentScale.Crop
                 )
             }
-            
+
             Column(modifier = Modifier.padding(16.dp)) {
                 // ÜST BÖLÜM: TİP VE FİYAT
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(color = if (portfolio.type == "Satılık") MaterialTheme.colorScheme.primary else Color(0xFF4CAF50), shape = RoundedCornerShape(4.dp)) {
-                        Text(portfolio.type, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        Surface(color = if (portfolio.type == "Satılık") MaterialTheme.colorScheme.primary else Color(0xFF4CAF50), shape = RoundedCornerShape(4.dp)) {
+                            Text(portfolio.type, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Surface(color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp)) {
+                            Text(portfolio.propertyType, color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        }
+
+                        // Kaynak Etiketi (OFİS veya YEREL)
+                        Spacer(Modifier.width(8.dp))
+                        val isLocal = portfolio.id.startsWith("local_")
+                        Surface(
+                            color = if (isLocal) Color(0xFF2196F3).copy(0.2f) else Color(0xFFFF5252).copy(0.2f),
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(0.5.dp, if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252))
+                        ) {
+                            Text(
+                                text = if (isLocal) "YEREL" else "OFİS",
+                                color = if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
+                        }
                     }
-                    Spacer(Modifier.width(8.dp))
-                    Surface(color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp)) {
-                        Text(portfolio.propertyType, color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                    Text(text = formatPrice(portfolio.price), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // BAŞLIK (TAM GÖRÜNÜM - LİMİTSİZ SATIR)
+                Text(
+                    text = portfolio.title,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    lineHeight = 22.sp,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // KONUM VE BİLGİLER
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.6.dp))
+                    Text(portfolio.location, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 13.sp, modifier = Modifier.weight(1f))
+
+                    Spacer(Modifier.width(12.dp))
+                    Surface(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f), shape = RoundedCornerShape(4.dp)) {
+                        Text(portfolio.rooms, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
-                    
-                    // Kaynak Etiketi (OFİS veya YEREL)
-                    Spacer(Modifier.width(8.dp))
-                    val isLocal = portfolio.id.startsWith("local_")
-                    Surface(
-                        color = if (isLocal) Color(0xFF2196F3).copy(0.2f) else Color(0xFFFF5252).copy(0.2f),
-                        shape = RoundedCornerShape(4.dp),
-                        border = BorderStroke(0.5.dp, if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252))
-                    ) {
+                }
+
+                // MÜLK SAHİBİ BİLGİSİ (Varsa Her Zaman Göster)
+                if (portfolio.ownerName.isNotEmpty() || portfolio.ownerPhone.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AccountCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.6.dp))
                         Text(
-                            text = if (isLocal) "YEREL" else "OFİS",
-                            color = if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252),
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            text = "Mülk Sahibi: ${portfolio.ownerName.ifEmpty { "Belirtilmedi" }}",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
-                Text(text = formatPrice(portfolio.price), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
 
-            // BAŞLIK (TAM GÖRÜNÜM - LİMİTSİZ SATIR)
-            Text(
-                text = portfolio.title, 
-                color = MaterialTheme.colorScheme.onBackground, 
-                fontWeight = FontWeight.Bold, 
-                fontSize = 17.sp,
-                lineHeight = 22.sp,
-                modifier = Modifier.fillMaxWidth()
-            )
-            
-            Spacer(modifier = Modifier.height(14.dp))
-            
-            // KONUM VE BİLGİLER
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(6.6.dp))
-                Text(portfolio.location, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.weight(1f))
-                
-                Spacer(Modifier.width(12.dp))
-                Surface(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f), shape = RoundedCornerShape(4.dp)) {
-                    Text(portfolio.rooms, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
-                }
-            }
-
-            // MÜLK SAHİBİ BİLGİSİ (Varsa Her Zaman Göster)
-            if (portfolio.ownerName.isNotEmpty() || portfolio.ownerPhone.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AccountCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(6.6.dp))
-                    Text(
-                        text = "Mülk Sahibi: ${portfolio.ownerName.ifEmpty { "Belirtilmedi" }}",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            // DANIŞMAN BİLGİSİ (Varsa Her Zaman Göster)
-            if (portfolio.consultantName.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f).copy(0.6f), modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(6.6.dp))
-                    Text(
-                        text = "Danışman: ${portfolio.consultantName}${if(portfolio.consultantPhone.isNotEmpty()) " (${portfolio.consultantPhone})" else ""}",
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), 
-                        fontSize = 12.sp
-                    )
-                }
-            }
-            
-            val platformUtils = LocalPlatformUtils.current
-            Spacer(modifier = Modifier.height(18.dp))
-            
-            // BUTONLAR
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Sahibini Ara
-                if (portfolio.ownerPhone.isNotEmpty()) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Sahibini Ara:", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, modifier = Modifier.width(75.dp))
-                        IconButton(
-                            onClick = { platformUtils.openUri("tel:${portfolio.ownerPhone.filter { it.isDigit() }}") },
-                            modifier = Modifier.size(36.dp).background(Color(0xFF2196F3).copy(0.18f), CircleShape)
-                        ) {
-                            Icon(Icons.Default.Phone, null, tint = Color(0xFF2196F3), modifier = Modifier.size(18.dp))
-                        }
-                        IconButton(
-                            onClick = { platformUtils.openUri("https://wa.me/${portfolio.ownerPhone.filter { it.isDigit() }}") },
-                            modifier = Modifier.size(36.dp).background(Color(0xFF25D366).copy(0.18f), CircleShape)
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.Message, null, tint = Color(0xFF25D366), modifier = Modifier.size(18.dp))
-                        }
-                        Text(portfolio.ownerPhone, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 11.sp)
+                // DANIŞMAN BİLGİSİ (Varsa Her Zaman Göster)
+                if (portfolio.consultantName.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f).copy(0.6f), modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.6.dp))
+                        Text(
+                            text = "Danışman: ${portfolio.consultantName}${if(portfolio.consultantPhone.isNotEmpty()) " (${portfolio.consultantPhone})" else ""}",
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f),
+                            fontSize = 12.sp
+                        )
                     }
                 }
 
-                // Danışmanı Ara (Yeni Eklenen Row)
-                if (portfolio.consultantPhone.isNotEmpty()) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Danışmanı Ara:", color = Color(0xFF2196F3), fontSize = 10.sp, modifier = Modifier.width(75.dp))
-                        IconButton(
-                            onClick = { platformUtils.openUri("tel:${portfolio.consultantPhone.filter { it.isDigit() }}") },
-                            modifier = Modifier.size(36.dp).background(Color(0xFF2196F3).copy(0.18f), CircleShape)
-                        ) {
-                            Icon(Icons.Default.Phone, null, tint = Color(0xFF2196F3), modifier = Modifier.size(18.dp))
-                        }
-                        IconButton(
-                            onClick = { platformUtils.openUri("https://wa.me/${portfolio.consultantPhone.filter { it.isDigit() }}") },
-                            modifier = Modifier.size(36.dp).background(Color(0xFF25D366).copy(0.18f), CircleShape)
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.Message, null, tint = Color(0xFF25D366), modifier = Modifier.size(18.dp))
-                        }
-                        Text(portfolio.consultantPhone, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 11.sp)
-                    }
-                }
+                val platformUtils = LocalPlatformUtils.current
+                Spacer(modifier = Modifier.height(18.dp))
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (portfolio.link.isNotEmpty()) {
-                        Button(
-                            onClick = { platformUtils.openUri(portfolio.link) },
-                            modifier = Modifier.weight(1f).height(42.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Text("İlanı Aç", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                // BUTONLAR
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Sahibini Ara
+                    if (portfolio.ownerPhone.isNotEmpty()) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Sahibini Ara:", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, modifier = Modifier.width(75.dp))
+                            IconButton(
+                                onClick = { platformUtils.openUri("tel:${portfolio.ownerPhone.filter { it.isDigit() }}") },
+                                modifier = Modifier.size(36.dp).background(Color(0xFF2196F3).copy(0.18f), CircleShape)
+                            ) {
+                                Icon(Icons.Default.Phone, null, tint = Color(0xFF2196F3), modifier = Modifier.size(18.dp))
+                            }
+                            IconButton(
+                                onClick = { platformUtils.openUri("https://wa.me/${portfolio.ownerPhone.filter { it.isDigit() }}") },
+                                modifier = Modifier.size(36.dp).background(Color(0xFF25D366).copy(0.18f), CircleShape)
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.Message, null, tint = Color(0xFF25D366), modifier = Modifier.size(18.dp))
+                            }
+                            Text(portfolio.ownerPhone, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 11.sp)
                         }
                     }
 
-                    if (onEdit != null) {
-                        IconButton(onClick = { onEdit(portfolio) }, modifier = Modifier.size(42.dp).background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f), CircleShape)) {
-                            Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
-                        }
-                    }
-                    
-                    if (onPublish != null) {
-                        IconButton(onClick = { onPublish(portfolio) }, modifier = Modifier.size(42.dp).background(Color(0xFFFFC107).copy(0.15f), CircleShape)) {
-                            Icon(Icons.Default.CloudUpload, null, tint = Color(0xFFFFC107), modifier = Modifier.size(20.dp))
+                    // Danışmanı Ara (Yeni Eklenen Row)
+                    if (portfolio.consultantPhone.isNotEmpty()) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Danışmanı Ara:", color = Color(0xFF2196F3), fontSize = 10.sp, modifier = Modifier.width(75.dp))
+                            IconButton(
+                                onClick = { platformUtils.openUri("tel:${portfolio.consultantPhone.filter { it.isDigit() }}") },
+                                modifier = Modifier.size(36.dp).background(Color(0xFF2196F3).copy(0.18f), CircleShape)
+                            ) {
+                                Icon(Icons.Default.Phone, null, tint = Color(0xFF2196F3), modifier = Modifier.size(18.dp))
+                            }
+                            IconButton(
+                                onClick = { platformUtils.openUri("https://wa.me/${portfolio.consultantPhone.filter { it.isDigit() }}") },
+                                modifier = Modifier.size(36.dp).background(Color(0xFF25D366).copy(0.18f), CircleShape)
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.Message, null, tint = Color(0xFF25D366), modifier = Modifier.size(18.dp))
+                            }
+                            Text(portfolio.consultantPhone, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 11.sp)
                         }
                     }
 
-                    if (onDelete != null) {
-                        IconButton(onClick = { onDelete(portfolio) }, modifier = Modifier.size(42.dp).background(Color.Red.copy(0.1f), CircleShape)) {
-                            Icon(Icons.Default.Delete, null, tint = Color.Red.copy(0.7f), modifier = Modifier.size(18.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (portfolio.link.isNotEmpty()) {
+                            Button(
+                                onClick = { platformUtils.openUri(portfolio.link) },
+                                modifier = Modifier.weight(1f).height(42.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text("İlanı Aç", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        if (onEdit != null) {
+                            IconButton(onClick = { onEdit(portfolio) }, modifier = Modifier.size(42.dp).background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f), CircleShape)) {
+                                Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                            }
+                        }
+
+                        if (onPublish != null) {
+                            IconButton(onClick = { onPublish(portfolio) }, modifier = Modifier.size(42.dp).background(Color(0xFFFFC107).copy(0.15f), CircleShape)) {
+                                Icon(Icons.Default.CloudUpload, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            }
+                        }
+
+                        if (onDelete != null) {
+                            IconButton(onClick = { onDelete(portfolio) }, modifier = Modifier.size(42.dp).background(Color.Red.copy(0.1f), CircleShape)) {
+                                Icon(Icons.Default.Delete, null, tint = Color.Red.copy(0.7f), modifier = Modifier.size(18.dp))
+                            }
                         }
                     }
                 }
             }
         }
     }
-}
 }
