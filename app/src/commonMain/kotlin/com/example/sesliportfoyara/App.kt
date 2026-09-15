@@ -1355,49 +1355,66 @@ fun PortfolioItem(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f))
     ) {
         Column {
-            // KAPAK FOTOĞRAFI
-            if (portfolio.imageUrl.isNotEmpty()) {
-                AsyncImage(
-                    model = portfolio.imageUrl,
-                    contentDescription = "Portföy Görseli",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            }
-
             Column(modifier = Modifier.padding(16.dp)) {
-                // ÜST BÖLÜM: TİP VE FİYAT
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(color = if (portfolio.type == "Satılık") MaterialTheme.colorScheme.primary else Color(0xFF4CAF50), shape = RoundedCornerShape(4.dp)) {
-                            Text(portfolio.type, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Surface(color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp)) {
-                            Text(portfolio.propertyType, color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
-                        }
-
-                        // Kaynak Etiketi (OFİS veya YEREL)
-                        Spacer(Modifier.width(8.dp))
-                        val isLocal = portfolio.id.startsWith("local_")
-                        Surface(
-                            color = if (isLocal) Color(0xFF2196F3).copy(0.2f) else Color(0xFFFF5252).copy(0.2f),
-                            shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(0.5.dp, if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252))
-                        ) {
-                            Text(
-                                text = if (isLocal) "YEREL" else "OFİS",
-                                color = if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252),
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                            )
-                        }
+                // ÜST BÖLÜM: FOTOĞRAF VE SAĞINDA TEMEL BİLGİLER
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    // SOL TARAF: DİKDÖRTGEN GÜZEL KAPAK FOTOĞRAFI
+                    if (portfolio.imageUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model = portfolio.imageUrl,
+                            contentDescription = "Portföy Görseli",
+                            modifier = Modifier
+                                .size(width = 140.dp, height = 100.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f), RoundedCornerShape(10.dp)),
+                            contentScale = ContentScale.Crop
+                        )
                     }
-                    Text(text = formatPrice(portfolio.price), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+
+                    // SAĞ TARAF: ETİKETLER VE FİYAT
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Surface(color = if (portfolio.type == "Satılık") MaterialTheme.colorScheme.primary else Color(0xFF4CAF50), shape = RoundedCornerShape(4.dp)) {
+                                    Text(portfolio.type, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
+                                }
+                                Surface(color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp)) {
+                                    Text(portfolio.propertyType, color = MaterialTheme.colorScheme.secondary, fontSize = 9.sp, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
+                                }
+                                val isLocal = portfolio.id.startsWith("local_")
+                                Surface(
+                                    color = if (isLocal) Color(0xFF2196F3).copy(0.15f) else Color(0xFFFF5252).copy(0.15f),
+                                    shape = RoundedCornerShape(4.dp),
+                                    border = BorderStroke(0.5.dp, if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252))
+                                ) {
+                                    Text(
+                                        text = if (isLocal) "YEREL" else "OFİS",
+                                        color = if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252),
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(10.dp))
+                        
+                        Text(
+                            text = formatPrice(portfolio.price), 
+                            color = MaterialTheme.colorScheme.primary, 
+                            fontWeight = FontWeight.ExtraBold, 
+                            fontSize = 18.sp
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
