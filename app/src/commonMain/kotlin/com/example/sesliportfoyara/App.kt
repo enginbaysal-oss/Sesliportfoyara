@@ -1383,24 +1383,51 @@ fun PortfolioItem(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Surface(color = if (portfolio.type == "Satılık") MaterialTheme.colorScheme.primary else Color(0xFF4CAF50), shape = RoundedCornerShape(4.dp)) {
-                                    Text(portfolio.type, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
-                                }
-                                Surface(color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp)) {
-                                    Text(portfolio.propertyType, color = MaterialTheme.colorScheme.secondary, fontSize = 9.sp, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
-                                }
-                                val isLocal = portfolio.id.startsWith("local_")
+                                // İlan Tipi Etiketi (Satılık/Kiralık) - Hafif renkli altlık ve belirgin yazı
+                                val typeColor = if (portfolio.type == "Satılık") MaterialTheme.colorScheme.primary else Color(0xFF4CAF50)
                                 Surface(
-                                    color = if (isLocal) Color(0xFF2196F3).copy(0.15f) else Color(0xFFFF5252).copy(0.15f),
+                                    color = typeColor.copy(alpha = 0.12f),
                                     shape = RoundedCornerShape(4.dp),
-                                    border = BorderStroke(0.5.dp, if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252))
+                                    border = BorderStroke(0.5.dp, typeColor.copy(alpha = 0.3f))
+                                ) {
+                                    Text(
+                                        text = portfolio.type,
+                                        color = typeColor,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+
+                                // Emlak Türü Etiketi (Daire/Tarla vb.)
+                                Surface(
+                                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(4.dp),
+                                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
+                                ) {
+                                    Text(
+                                        text = portfolio.propertyType,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+
+                                // Kaynak Etiketi (OFİS/YEREL)
+                                val isLocal = portfolio.id.startsWith("local_")
+                                val sourceColor = if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252)
+                                Surface(
+                                    color = sourceColor.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(4.dp),
+                                    border = BorderStroke(0.5.dp, sourceColor.copy(alpha = 0.3f))
                                 ) {
                                     Text(
                                         text = if (isLocal) "YEREL" else "OFİS",
-                                        color = if (isLocal) Color(0xFF2196F3) else Color(0xFFFF5252),
+                                        color = sourceColor,
                                         fontSize = 8.sp,
                                         fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp) // Dikey ve yatay padding değerlerini diğer etiketlerle (2.dp) eşitleyerek taşmayı ve kaymayı önledik
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                                     )
                                 }
                             }
