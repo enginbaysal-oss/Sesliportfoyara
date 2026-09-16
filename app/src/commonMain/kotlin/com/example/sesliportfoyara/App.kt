@@ -567,7 +567,7 @@ fun HeaderSection() {
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Sesli Portföy CRM v1.2.4",
+                    text = "Sesli Portföy CRM v1.2.5",
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold,
