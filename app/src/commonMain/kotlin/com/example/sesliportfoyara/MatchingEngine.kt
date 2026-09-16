@@ -14,20 +14,17 @@ object MatchingEngine {
             val cType = normalizePropertyType(client.propertyType)
             if (pType != cType) return@filter false
 
-            // 3. KONUM KONTROLÜ (Kritik Düzeltme)
+            // 3. KONUM KONTROLÜ (Kesin Mahalle Filtresi)
             val pLoc = normalizeForSearch(portfolio.location)
             val cIlce = normalizeForSearch(client.ilce)
             val cMahalle = normalizeForSearch(client.mahalle)
             
-            // Eğer hem ilçe hem mahalle girilmişse:
-            // İlanda ilçe geçiyorsa YA DA mahalle geçiyorsa eşleşsin.
-            // Ama ilçe girilmişse ve ilanda ne ilçe ne mahalle geçmiyorsa elensin.
-            val ilceMatch = cIlce.isNotEmpty() && pLoc.contains(cIlce)
-            val mahalleMatch = cMahalle.isNotEmpty() && pLoc.contains(cMahalle)
+            // İlçe kontrolü: Eğer ilçe girilmişse, ilanda mutlaka geçmeli.
+            if (cIlce.isNotEmpty() && !pLoc.contains(cIlce)) return@filter false
             
-            if (cIlce.isNotEmpty() || cMahalle.isNotEmpty()) {
-                if (!ilceMatch && !mahalleMatch) return@filter false
-            }
+            // Mahalle kontrolü: Eğer müşteri mahalle belirtmişse (Örn: Muradiye), 
+            // ilanda bu mahalle adı geçmiyorsa kesinlikle elensin.
+            if (cMahalle.isNotEmpty() && !pLoc.contains(cMahalle)) return@filter false
             
             // 4. PUANLAMA VE FİLTRELEME
             scoreMatch(client, portfolio) >= 0.15f
