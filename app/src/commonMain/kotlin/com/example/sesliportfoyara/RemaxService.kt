@@ -350,20 +350,28 @@ class RemaxService {
         var currentPage = 1
         _isSyncing.value = true
         try {
-            // Tüm senkronizasyon işlemini 60 saniyelik bir üst sınırla sardık.
-            // Herhangi bir sayfa isteği takılsa bile, işlem en geç 60 saniyede
-            // kendini durdurur ve isSyncing=false'a döner; uygulama kilitlenmez.
-            withTimeoutOrNull(60000L) {
+            // Senkronizasyon süresini 2 dakikaya çıkardık (Daha fazla sayfa ve silme işlemi için)
+            withTimeoutOrNull(120000L) {
                 val current = try { dbManager.getPortfolios().first() } catch (e: Exception) { emptyList<Portfolio>() }
                 val existingIds = current.map { it.id }.toMutableSet()
                 val existingLinks = current.map { l ->
                     l.link.replace("https://", "").replace("www.", "").removeSuffix("/")
                 }.toMutableSet()
 
-                while (currentPage <= 10) {
+                val foundRemaxIds = mutableSetOf<String>()
+                var fetchedSuccessfully = false
+
+                // Sayfa limitini 20'ye çıkardık, büyük ofislerin tüm portföyünü yakalayabilmek için
+                while (currentPage <= 20) {
                     val list = fetchOfficePortfolios(url, currentPage)
-                    if (list.isEmpty()) break
+                    if (list.isEmpty()) {
+                        // Eğer ilk sayfada bile veri gelmediyse bir sorun olabilir, temizlik yapma
+                        break
+                    }
+                    
+                    fetchedSuccessfully = true
                     list.forEach { p ->
+                        foundRemaxIds.add(p.id)
                         val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/")
                         if (!existingIds.contains(p.id) && !existingLinks.contains(norm)) {
                             if (dbManager.addPortfolio(p) != null) {
@@ -373,8 +381,22 @@ class RemaxService {
                             }
                         }
                     }
-                    if (list.size < 10) break
+                    
+                    // Eğer gelen liste tam dolu değilse (genelde bir sayfada 20+ ilan olur) son sayfaya gelmiş olabiliriz
+                    if (list.size < 10) break 
                     currentPage++
+                }
+
+                // SİLİNENLERİ TEMİZLEME: 
+                // Sadece Remax'tan çekilen ilanları (ID'si remax_ ile başlayanlar) kontrol ediyoruz.
+                // Eğer RE/MAX sitesinde artık yoksa ama bizim DB'de varsa siliyoruz.
+                if (fetchedSuccessfully && foundRemaxIds.isNotEmpty()) {
+                    current.filter { it.id.startsWith("remax_") }.forEach { p ->
+                        if (!foundRemaxIds.contains(p.id)) {
+                            dbManager.deletePortfolio(p.id)
+                            println("🗑️ Sync: Remax'ta bulunmayan eski ilan silindi: ${p.title}")
+                        }
+                    }
                 }
             }
         } catch (e: Exception) {
