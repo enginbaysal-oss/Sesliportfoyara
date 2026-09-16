@@ -13,9 +13,15 @@ object MatchingEngine {
             val pType = normalizePropertyType(portfolio.propertyType)
             val cType = normalizePropertyType(client.propertyType)
             if (pType != cType) return@filter false
+
+            // 3. KONUM KONTROLÜ (İlçe mutlaka uymalı)
+            // Eğer müşteri bir ilçe belirttiyse, ilanda bu ilçe adı mutlaka geçmeli.
+            // Bu sayede Akhisar arayanın karşısına Saruhanlı çıkmaz.
+            val cIlce = client.ilce.trim().lowercase()
+            if (cIlce.isNotEmpty() && !portfolio.location.lowercase().contains(cIlce)) return@filter false
             
-            // 3. PUANLAMA
-            scoreMatch(client, portfolio) >= 0.2f // Eşiği biraz düşürdük ki daha fazla sonuç yakalansın
+            // 4. PUANLAMA
+            scoreMatch(client, portfolio) >= 0.2f
         }.sortedByDescending { scoreMatch(client, it) }
     }
     
