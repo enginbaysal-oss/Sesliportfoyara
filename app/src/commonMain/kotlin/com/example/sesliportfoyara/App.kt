@@ -152,10 +152,6 @@ fun App() {
             val localPortfolios by localPortfolioManager.portfolios.collectAsState()
             val clients by crmManager.clients.collectAsState()
 
-            val allPortfolios by remember {
-                derivedStateOf { officePortfolios + localPortfolios }
-            }
-
             var editingPortfolio by remember { mutableStateOf<Portfolio?>(null) }
             var isEditingLocal by remember { mutableStateOf(false) }
             var selectedClient by remember { mutableStateOf<Client?>(null) }
@@ -352,7 +348,7 @@ fun App() {
                         )
                         Screen.CRM -> CRMMainScreen(
                             clients = clients,
-                            allPortfolios = allPortfolios,
+                            allPortfolios = officePortfolios, // Eşleşmeler sadece Ofis portföyleri içinden yapılsın
                             onAddClient = {
                                 selectedClient = null
                                 currentScreen = Screen.AddClient
@@ -379,7 +375,7 @@ fun App() {
                         Screen.ClientDetails -> selectedClient?.let { client ->
                             ClientDetailScreen(
                                 client = client,
-                                allPortfolios = allPortfolios,
+                                allPortfolios = officePortfolios, // Detayda da sadece Ofis portföyleri eşleşsin
                                 onEdit = {
                                     currentScreen = Screen.AddClient
                                 },
@@ -1049,19 +1045,22 @@ fun AddPortfolioScreen(
 @Composable
 fun CustomTextFieldValueInput(label: String, value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit) {
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Text(label, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp, modifier = Modifier.padding(bottom = 4.dp))
+        Text(label, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
         TextField(
             value = value,
             onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
             singleLine = true,
             keyboardOptions = KeyboardOptions(
                 autoCorrectEnabled = false,
                 keyboardType = KeyboardType.Text
             ),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 focusedIndicatorColor = MaterialTheme.colorScheme.primary,
                 unfocusedIndicatorColor = Color.Transparent,
                 focusedTextColor = MaterialTheme.colorScheme.onBackground,
@@ -1074,11 +1073,14 @@ fun CustomTextFieldValueInput(label: String, value: TextFieldValue, onValueChang
 @Composable
 fun CustomInputField(label: String, value: String, enabled: Boolean = true, onValueChange: (String) -> Unit) {
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Text(label, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp, modifier = Modifier.padding(bottom = 4.dp))
+        Text(label, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
         TextField(
             value = value,
             onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
             singleLine = true,
             enabled = enabled,
             keyboardOptions = KeyboardOptions(
@@ -1086,9 +1088,9 @@ fun CustomInputField(label: String, value: String, enabled: Boolean = true, onVa
                 keyboardType = KeyboardType.Text
             ),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f),
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
                 focusedIndicatorColor = MaterialTheme.colorScheme.primary,
                 unfocusedIndicatorColor = Color.Transparent,
                 disabledIndicatorColor = Color.Transparent,
@@ -1271,6 +1273,7 @@ fun MyPortfolioScreen(
                 Box(
                     modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
                         .background(if (selected) MaterialTheme.colorScheme.surface else Color.Transparent)
+                        .border(if (selected) BorderStroke(0.5.dp, MaterialTheme.colorScheme.onBackground.copy(0.05f)) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(6.dp))
                         .clickable { selectedTab = index }.padding(vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {

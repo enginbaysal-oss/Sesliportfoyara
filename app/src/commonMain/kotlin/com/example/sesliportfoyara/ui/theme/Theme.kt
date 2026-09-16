@@ -21,11 +21,11 @@ private val LightColorScheme = lightColorScheme(
     primary = Color(0xFFB8860B),      // Daha doygun, zengin Gold (DarkGoldenrod)
     onPrimary = Color.White,
     secondary = Color(0xFF1B2631),    // Çok koyu lacivert (Kontrast için ideal)
-    background = Color(0xFFFDFDFD),   // Saf beyaza yakın, ferah zemin
-    surface = Color.White,            // Kar beyazı kartlar
+    background = Color(0xFFF0F2F5),   // Facebook/Twitter tarzı hafif gri-mavi arka plan
+    surface = Color.White,            // Kar beyazı kartlar (Arka plandan ayrışır)
     onBackground = Color(0xFF121212), // Kömür siyahı yazı (Yüksek okunabilirlik)
     onSurface = Color(0xFF1A1A1A),    // Kart üstü net yazılar
-    surfaceVariant = Color(0xFFF2F4F7) // Giriş alanları için hafif gri
+    surfaceVariant = Color(0xFFE5E7EB) // Giriş alanları için belirgin gri
 )
 
 @Composable
