@@ -245,10 +245,23 @@ class RemaxService {
                     val amount = priceInfo?.get("amount")?.jsonPrimitive?.content ?: ""
                     val symbol = priceInfo?.get("amountTypeSymbol")?.jsonPrimitive?.content ?: ""
 
-                    val city = obj["cityName"]?.jsonPrimitive?.content ?: ""
-                    val district = obj["townName"]?.jsonPrimitive?.content ?: ""
-                    val neighborhood = obj["neighborhoodName"]?.jsonPrimitive?.content ?: ""
-                    val location = listOf(city, district, neighborhood).filter { it.isNotEmpty() }.joinToString(", ")
+                    // KONUM BİLGİSİ ÇEKME (Daha esnek hale getirildi)
+                    val city = obj["cityName"]?.jsonPrimitive?.content 
+                        ?: obj["city"]?.jsonObject?.get("name")?.jsonPrimitive?.content ?: ""
+                    val district = obj["townName"]?.jsonPrimitive?.content 
+                        ?: obj["town"]?.jsonObject?.get("name")?.jsonPrimitive?.content
+                        ?: obj["districtName"]?.jsonPrimitive?.content ?: ""
+                    val neighborhood = obj["neighborhoodName"]?.jsonPrimitive?.content 
+                        ?: obj["neighborhood"]?.jsonObject?.get("name")?.jsonPrimitive?.content ?: ""
+                    
+                    var location = listOf(city, district, neighborhood).filter { it.isNotEmpty() }.joinToString(", ")
+                    
+                    // Eğer yukarıdakiler boşsa alternatif alanları kontrol et
+                    if (location.isEmpty()) {
+                        location = obj["address"]?.jsonPrimitive?.content 
+                            ?: obj["locationText"]?.jsonPrimitive?.content 
+                            ?: obj["fullLocation"]?.jsonPrimitive?.content ?: ""
+                    }
 
                     val consultant = obj["employeeName"]?.jsonPrimitive?.content ?: ""
                     var phone = obj["employeePhone"]?.jsonPrimitive?.content ?: ""
