@@ -56,48 +56,49 @@ fun CRMMainScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.background, // Beyaz yerine tema rengi
+        containerColor = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Müşterilerim", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text("Müşterilerim", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 
                 Button(
                     onClick = onAddClient,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    shape = RoundedCornerShape(12.dp)
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    modifier = Modifier.height(32.dp),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Icon(Icons.Default.Add, null, tint = Color.Black)
+                    Icon(Icons.Default.Add, null, tint = Color.Black, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Ekle", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text("Ekle", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(0.5f), RoundedCornerShape(8.dp)).padding(4.dp)
+                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(0.5f), RoundedCornerShape(8.dp)).padding(3.dp)
             ) {
                 listOf("Alıcılar", "Satıcılar").forEachIndexed { index, title ->
                     val selected = selectedTab == index
                     Box(
                         modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
                             .background(if (selected) MaterialTheme.colorScheme.surface else Color.Transparent)
-                            .clickable { selectedTab = index }.padding(vertical = 10.dp),
+                            .clickable { selectedTab = index }.padding(vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(title, color = if (selected) MaterialTheme.colorScheme.primary else Color.Gray, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                        Text(title, color = if (selected) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             val filteredClients = if (selectedTab == 0) {
                 clients.filter { it.type == ClientType.BUYER }
