@@ -3,56 +3,64 @@ package com.example.sesliportfoyara
 object MatchingEngine {
     
     fun findMatches(client: Client, portfolios: List<Portfolio>): List<Portfolio> {
-        // Sadece alıcılar için portföy eşleşmesi yapıyoruz
         if (client.type == ClientType.SELLER) return emptyList()
         
         return portfolios.filter { portfolio ->
-            // 1. KRİTİK FİLTRE: İşlem Tipi (Satılık/Kiralık) mutlaka uymalı
+            // 1. İŞLEM TİPİ KONTROLÜ (Satılık/Kiralık)
             if (!portfolio.type.equals(client.dealType, ignoreCase = true)) return@filter false
 
-            // 2. KRİTİK FİLTRE: Emlak Tipi mutlaka uymalı
-            if (!portfolio.propertyType.equals(client.propertyType, ignoreCase = true)) return@filter false
+            // 2. EMLAK TİPİ NORMALİZASYONU VE KONTROLÜ
+            val pType = normalizePropertyType(portfolio.propertyType)
+            val cType = normalizePropertyType(client.propertyType)
+            if (pType != cType) return@filter false
             
-            // 3. PUANLAMA: Diğer kriterlere göre (Konum, Fiyat, Oda) uygunluk puanı
-            scoreMatch(client, portfolio) > 0.3f
+            // 3. PUANLAMA
+            scoreMatch(client, portfolio) >= 0.2f // Eşiği biraz düşürdük ki daha fazla sonuç yakalansın
         }.sortedByDescending { scoreMatch(client, it) }
+    }
+    
+    private fun normalizePropertyType(type: String): String {
+        return when(type.trim().lowercase()) {
+            "konut", "rezidans", "daire", "apartman dairesi" -> "daire"
+            "ticari", "işyeri", "isyeri", "dükkan", "ofis", "bina" -> "işyeri"
+            "arsa", "tarla", "bağ", "bahçe" -> "arsa"
+            "villa", "müstakil", "köşk", "yalı" -> "villa"
+            else -> type.trim().lowercase()
+        }
     }
     
     private fun scoreMatch(client: Client, portfolio: Portfolio): Float {
         var score = 0f
         
-        // Konum kontrolü (İlçe veya Mahalle bazlı)
-        val clientLocation = "${client.ilce} ${client.mahalle}".trim()
-        if (clientLocation.isNotBlank()) {
-            val pLoc = portfolio.location.lowercase()
-            val cIlce = client.ilce.lowercase()
-            val cMahalle = client.mahalle.lowercase()
-            
-            if (cIlce.isNotEmpty() && pLoc.contains(cIlce)) {
-                score += 0.5f
-            } else if (cMahalle.isNotEmpty() && pLoc.contains(cMahalle)) {
-                score += 0.4f
-            }
-        } else {
-            score += 0.2f
-        }
+        // --- KONUM PUANLAMASI ---
+        val pLoc = portfolio.location.lowercase()
+        val cIlce = client.ilce.lowercase().trim()
+        val cMahalle = client.mahalle.lowercase().trim()
         
-        // Oda sayısı kontrolü (Daire ve Villa için)
-        if (client.preferredRooms.isNotBlank()) {
-            if (portfolio.rooms.contains(client.preferredRooms, ignoreCase = true)) {
+        if (cIlce.isNotEmpty() && pLoc.contains(cIlce)) score += 0.5f
+        if (cMahalle.isNotEmpty() && pLoc.contains(cMahalle)) score += 0.3f
+        
+        // --- ODA SAYISI PUANLAMASI ---
+        val cRooms = client.preferredRooms.replace(" ", "").lowercase()
+        val pRooms = portfolio.rooms.replace(" ", "").lowercase()
+        if (cRooms.isNotEmpty() && pRooms.isNotEmpty()) {
+            if (pRooms.contains(cRooms) || cRooms.contains(pRooms)) {
                 score += 0.3f
             }
         } else {
             score += 0.1f
         }
         
-        // Fiyat kontrolü
-        if (client.preferredPriceMax.isNotBlank() && portfolio.price.isNotEmpty()) {
+        // --- FİYAT PUANLAMASI (%15 tolerans payı ile) ---
+        if (client.preferredPriceMax.isNotEmpty() && portfolio.price.isNotEmpty()) {
             val maxPrice = client.preferredPriceMax.filter { it.isDigit() }.toLongOrNull() ?: Long.MAX_VALUE
             val portPrice = portfolio.price.filter { it.isDigit() }.toLongOrNull() ?: 0L
             
-            if (portPrice <= maxPrice && portPrice > 0) {
-                score += 0.2f
+            // Müşteri bütçesinin %15 üzerine kadar olan ilanları da gösterelim (Pazarlık payı)
+            val tolerancePrice = maxPrice * 1.15
+            
+            if (portPrice <= tolerancePrice && portPrice > 0) {
+                score += 0.3f
             }
         } else {
             score += 0.1f
