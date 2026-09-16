@@ -9,44 +9,56 @@ object MatchingEngine {
             // 1. İŞLEM TİPİ KONTROLÜ (Satılık/Kiralık)
             if (!portfolio.type.equals(client.dealType, ignoreCase = true)) return@filter false
 
-            // 2. EMLAK TİPİ NORMALİZASYONU VE KONTROLÜ
+            // 2. EMLAK TİPİ NORMALİZASYONU
             val pType = normalizePropertyType(portfolio.propertyType)
             val cType = normalizePropertyType(client.propertyType)
             if (pType != cType) return@filter false
 
-            // 3. KONUM KONTROLÜ (Gelişmiş ve Esnek)
+            // 3. KONUM KONTROLÜ (Kritik Düzeltme)
             val pLoc = normalizeForSearch(portfolio.location)
             val cIlce = normalizeForSearch(client.ilce)
             val cMahalle = normalizeForSearch(client.mahalle)
             
-            // Eğer ilçe girilmişse, ilçe mutlaka ilanda geçmeli.
-            if (cIlce.isNotEmpty() && !pLoc.contains(cIlce)) return@filter false
+            // Eğer hem ilçe hem mahalle girilmişse:
+            // İlanda ilçe geçiyorsa YA DA mahalle geçiyorsa eşleşsin.
+            // Ama ilçe girilmişse ve ilanda ne ilçe ne mahalle geçmiyorsa elensin.
+            val ilceMatch = cIlce.isNotEmpty() && pLoc.contains(cIlce)
+            val mahalleMatch = cMahalle.isNotEmpty() && pLoc.contains(cMahalle)
             
-            // Eğer mahalle de girilmişse, ilçe uysa bile mahalle uymuyorsa puan düşer ama elenmez (esneklik için)
+            if (cIlce.isNotEmpty() || cMahalle.isNotEmpty()) {
+                if (!ilceMatch && !mahalleMatch) return@filter false
+            }
             
             // 4. PUANLAMA VE FİLTRELEME
-            scoreMatch(client, portfolio) >= 0.15f // Eşiği biraz daha düşürdük
+            scoreMatch(client, portfolio) >= 0.15f
         }.sortedByDescending { scoreMatch(client, it) }
     }
     
     private fun normalizePropertyType(type: String): String {
         return when(val t = type.trim().lowercase()) {
-            "konut", "rezidans", "daire", "apartman dairesi" -> "daire"
-            "ticari", "işyeri", "isyeri", "dükkan", "ofis", "bina" -> "işyeri"
-            "arsa", "tarla", "bağ", "bahçe", "bag", "bahce" -> "arsa"
-            "villa", "müstakil", "köşk", "yalı", "mustakil", "kosk", "yali" -> "villa"
+            "konut", "rezidans", "daire", "apartman dairesi", "apart" -> "daire"
+            "ticari", "işyeri", "isyeri", "dükkan", "ofis", "bina", "dukkan" -> "işyeri"
+            "arsa", "tarla", "bağ", "bahçe", "bag", "bahce", "zeytinlik" -> "arsa"
+            "villa", "müstakil", "köşk", "yalı", "mustakil", "kosk", "yali", "yazlık", "yazlik" -> "villa"
             else -> t
         }
     }
 
-    // Türkçe karakterleri ve yazım farklarını normalize eden fonksiyon
     private fun normalizeForSearch(text: String): String {
+        // Türkçe karakterleri daha agresif ve temiz bir şekilde normalize edelim
         return text.trim().lowercase()
-            .replace("ç", "c").replace("ğ", "g")
-            .replace("ı", "i").replace("i̇", "i").replace("i", "i")
-            .replace("ö", "o").replace("ş", "s")
+            .replace("ç", "c")
+            .replace("ğ", "g")
+            .replace("ı", "i")
+            .replace("i̇", "i") // Özel birleşim karakteri
+            .replace("ö", "o")
+            .replace("ş", "s")
             .replace("ü", "u")
-            .replace("center", "merkez")
+            .replace("merkez", "") // "Yunusemre Merkez" gibi durumlar için merkez kelimesini görmezden gelelim
+            .replace(",", " ")
+            .replace(".", " ")
+            .replace(Regex("\\s+"), " ") // Fazla boşlukları temizle
+            .trim()
     }
     
     private fun scoreMatch(client: Client, portfolio: Portfolio): Float {
@@ -58,7 +70,7 @@ object MatchingEngine {
         
         // --- KONUM PUANLAMASI ---
         if (cIlce.isNotEmpty() && pLoc.contains(cIlce)) score += 0.5f
-        if (cMahalle.isNotEmpty() && pLoc.contains(cMahalle)) score += 0.4f // Mahalle uyumu yüksek puan
+        if (cMahalle.isNotEmpty() && pLoc.contains(cMahalle)) score += 0.4f
         
         // --- ODA SAYISI PUANLAMASI ---
         val cRooms = client.preferredRooms.replace(" ", "").lowercase()
@@ -76,9 +88,7 @@ object MatchingEngine {
             val maxPrice = client.preferredPriceMax.filter { it.isDigit() }.toLongOrNull() ?: Long.MAX_VALUE
             val portPrice = portfolio.price.filter { it.isDigit() }.toLongOrNull() ?: 0L
             
-            // %20 tolerans (pazarlık payı)
             val tolerancePrice = maxPrice * 1.20
-            
             if (portPrice <= tolerancePrice && portPrice > 0) {
                 score += 0.3f
             }
