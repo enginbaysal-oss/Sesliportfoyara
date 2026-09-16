@@ -24,9 +24,14 @@ object MatchingEngine {
         // Konum kontrolü (İlçe veya Mahalle bazlı)
         val clientLocation = "${client.ilce} ${client.mahalle}".trim()
         if (clientLocation.isNotBlank()) {
-            if (portfolio.location.contains(client.ilce, ignoreCase = true) || 
-                (client.mahalle.isNotBlank() && portfolio.location.contains(client.mahalle, ignoreCase = true))) {
+            val pLoc = portfolio.location.lowercase()
+            val cIlce = client.ilce.lowercase()
+            val cMahalle = client.mahalle.lowercase()
+            
+            if (cIlce.isNotEmpty() && pLoc.contains(cIlce)) {
                 score += 0.5f
+            } else if (cMahalle.isNotEmpty() && pLoc.contains(cMahalle)) {
+                score += 0.4f
             }
         } else {
             score += 0.2f

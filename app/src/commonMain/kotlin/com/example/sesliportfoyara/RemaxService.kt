@@ -330,7 +330,11 @@ class RemaxService {
                         consultantName = consultant,
                         consultantPhone = phone,
                         type = if ((obj["operationName"]?.jsonPrimitive?.content ?: "").contains("kira", true)) "Kiralık" else "Satılık",
-                        propertyType = obj["categoryName"]?.jsonPrimitive?.content ?: "Daire",
+                        propertyType = when(val cat = obj["categoryName"]?.jsonPrimitive?.content ?: "Daire") {
+                            "Konut", "Rezidans" -> "Daire"
+                            "Ticari", "Bina" -> "İşyeri"
+                            else -> cat
+                        },
                         imageUrl = imageUrl,
                         link = "https://www.remax.com.tr/tr/portfoy/$code",
                         createdAt = Clock.now()
