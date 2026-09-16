@@ -1,6 +1,8 @@
 package com.example.sesliportfoyara.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -54,8 +56,8 @@ fun CRMMainScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color.Transparent,
-        contentColor = Color.White
+        containerColor = MaterialTheme.colorScheme.background, // Beyaz yerine tema rengi
+        contentColor = MaterialTheme.colorScheme.onBackground
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp)) {
             Row(
@@ -63,7 +65,7 @@ fun CRMMainScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Müşterilerim", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text("Müşterilerim", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 
                 Button(
                     onClick = onAddClient,
@@ -80,17 +82,17 @@ fun CRMMainScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth().background(Color(0xFF1A1A1A), RoundedCornerShape(8.dp)).padding(4.dp)
+                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)).padding(4.dp)
             ) {
                 listOf("Alıcılar", "Satıcılar").forEachIndexed { index, title ->
                     val selected = selectedTab == index
                     Box(
                         modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
-                            .background(if (selected) Color(0xFF2C2C2C) else Color.Transparent)
+                            .background(if (selected) MaterialTheme.colorScheme.surface else Color.Transparent)
                             .clickable { selectedTab = index }.padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(title, color = if (selected) Color(0xFFFFC107) else Color.Gray, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                        Text(title, color = if (selected) MaterialTheme.colorScheme.primary else Color.Gray, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
             }
@@ -127,9 +129,12 @@ fun ClientItem(client: Client, matchedCount: Int, onClick: (Client) -> Unit) {
     
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable { onClick(client) },
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)), // Açık renk kart
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f) // Portföy kartlarıyla aynı şık zemin
+        ),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -252,10 +257,10 @@ fun AddClientScreen(
 
     val scrollState = rememberScrollState()
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(20.dp)) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(scrollState).padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onCancel) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-            Text(if (editingClient == null) "Yeni Müşteri" else "Müşteri Düzenle", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onCancel) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MaterialTheme.colorScheme.onBackground) }
+            Text(if (editingClient == null) "Yeni Müşteri" else "Müşteri Düzenle", color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -265,26 +270,28 @@ fun AddClientScreen(
                 val selected = type == cType
                 Box(
                     modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                        .background(if (selected) Color(0xFFE8F5E9) else Color(0xFF2C2C2C))
+                        .background(if (selected) MaterialTheme.colorScheme.primary.copy(0.12f) else MaterialTheme.colorScheme.surfaceVariant)
+                        .border(if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(0.3f)) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(8.dp))
                         .clickable { type = cType }.padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(label, color = if (selected) Color(0xFF2E7D32) else Color.White, fontWeight = FontWeight.Bold)
+                    Text(label, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(0.6f), fontWeight = FontWeight.Bold)
                 }
             }
         }
 
-        Text("İŞLEM TÜRÜ", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
+        Text("İŞLEM TÜRÜ", color = MaterialTheme.colorScheme.onBackground.copy(0.6f), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf("Satılık", "Kiralık").forEach { opt ->
                 val selected = dealType == opt
                 Box(
                     modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                        .background(if (selected) Color(0xFFE8F5E9) else Color(0xFF2C2C2C))
+                        .background(if (selected) MaterialTheme.colorScheme.primary.copy(0.12f) else MaterialTheme.colorScheme.surfaceVariant)
+                        .border(if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(0.3f)) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(8.dp))
                         .clickable { dealType = opt }.padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(opt, color = if (selected) Color(0xFF2E7D32) else Color.White, fontWeight = FontWeight.Bold)
+                    Text(opt, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(0.6f), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -293,17 +300,18 @@ fun AddClientScreen(
         CustomInputField("TELEFON", phone) { phone = it }
         CustomInputField("BÜTÇE", price) { price = it }
 
-        Text("EMLAK TÜRÜ", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
+        Text("EMLAK TÜRÜ", color = MaterialTheme.colorScheme.onBackground.copy(0.6f), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
         FlowRow(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("Daire", "Arsa", "Tarla", "Villa", "İşyeri").forEach { opt ->
                 val selected = propertyType == opt
                 Box(
                     modifier = Modifier.clip(RoundedCornerShape(8.dp))
-                        .background(if (selected) Color(0xFFFFC107) else Color(0xFF2C2C2C))
+                        .background(if (selected) MaterialTheme.colorScheme.primary.copy(0.12f) else MaterialTheme.colorScheme.surfaceVariant)
+                        .border(if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(0.3f)) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(8.dp))
                         .clickable { propertyType = opt }.padding(horizontal = 16.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(opt, color = if (selected) Color.Black else Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Text(opt, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(0.6f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -388,26 +396,27 @@ fun ClientDetailScreen(
         MatchingEngine.findMatches(client, allPortfolios)
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-                Text("Müşteri Detayı", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MaterialTheme.colorScheme.onBackground) }
+                Text("Müşteri Detayı", color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
-            IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, null, tint = Color(0xFFFFC107)) }
+            IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary) }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2126)),
-            shape = RoundedCornerShape(16.dp)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(0.3f)),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f))
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(client.name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(client.name, color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-                    Text(client.phone, color = Color(0xFFFFC107), fontSize = 16.sp)
+                    Text(client.phone, color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
                     
                     if (client.phone.isNotEmpty()) {
                         Spacer(Modifier.width(16.dp))
@@ -429,8 +438,8 @@ fun ClientDetailScreen(
                     }
                 }
                 
-                Box(Modifier.padding(top = 4.dp).background(Color(0xFFFFC107).copy(alpha = 0.2f), RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) {
-                    Text("${client.dealType} ${client.propertyType}", color = Color(0xFFFFC107), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Box(Modifier.padding(top = 4.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    Text("${client.dealType} ${client.propertyType}", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
                 
                 val locationParts = listOf(client.il, client.ilce, client.mahalle).filter { it.isNotEmpty() }
@@ -445,7 +454,7 @@ fun ClientDetailScreen(
 
                 if (client.note.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("Not: ${client.note}", color = Color.LightGray, fontSize = 13.sp)
+                    Text("Not: ${client.note}", color = MaterialTheme.colorScheme.onBackground.copy(0.7f), fontSize = 13.sp)
                 }
             }
         }
@@ -453,7 +462,7 @@ fun ClientDetailScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         if (client.type == ClientType.BUYER) {
-            Text("Otomatik Eşleşen Portföyler (${matchedPortfolios.size})", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("Otomatik Eşleşen Portföyler (${matchedPortfolios.size})", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(12.dp))
             
             if (matchedPortfolios.isEmpty()) {
