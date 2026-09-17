@@ -1,4 +1,4 @@
-package com.example.sesliportfoyara
+﻿package com.example.sesliportfoyara
 
 import android.app.Activity
 import android.content.Intent
@@ -6,19 +6,37 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
 import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
 import android.webkit.MimeTypeMap
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.core.content.FileProvider
+import androidx.activity.ComponentActivity
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
-class EmlakAsistanActivity : Activity() {
+class EmlakAsistanActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+
+    private val fileChooserLauncher =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
+            val callback = filePathCallback ?: return@registerForActivityResult
+            val data = result.data
+
+            val uris = if (result.resultCode == Activity.RESULT_OK) {
+                WebChromeClient.FileChooserParams.parseResult(result.resultCode, data)
+            } else {
+                null
+            }
+
+            callback.onReceiveValue(uris)
+            filePathCallback = null
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,6 +50,9 @@ class EmlakAsistanActivity : Activity() {
             allowContentAccess = true
             databaseEnabled = true
             cacheMode = WebSettings.LOAD_DEFAULT
+            useWideViewPort = true
+            loadWithOverviewMode = true
+            builtInZoomControls = false
         }
 
         webView.webViewClient = object : WebViewClient() {
@@ -41,7 +62,31 @@ class EmlakAsistanActivity : Activity() {
                 }
             }
         }
-        webView.webChromeClient = WebChromeClient()
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                this@EmlakAsistanActivity.filePathCallback?.onReceiveValue(null)
+                this@EmlakAsistanActivity.filePathCallback = filePathCallback
+
+                return try {
+                    val intent = fileChooserParams?.createIntent()
+                        ?: Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "image/*"
+                        }
+
+                    fileChooserLauncher.launch(intent)
+                    true
+                } catch (e: Exception) {
+                    this@EmlakAsistanActivity.filePathCallback = null
+                    filePathCallback?.onReceiveValue(null)
+                    false
+                }
+            }
+        }
 
         webView.addJavascriptInterface(
             EmlakAsistanBridge(this),
@@ -203,3 +248,6 @@ class EmlakAsistanBridge(
         }
     }
 }
+
+
+

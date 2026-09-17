@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="UTF-8" />
@@ -114,8 +114,8 @@
   .seal{width:60px;height:60px;border-radius:50%;border:2.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;color:#F4F1EA;background:conic-gradient(var(--gold) calc(var(--pct,0)*1%), rgba(244,241,234,0.08) 0);flex-shrink:0;}
   .seal .inner{width:48px;height:48px;border-radius:50%;background:var(--ink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;}
 
-  #topnav{position:sticky;top:0;z-index:30;background:var(--ink);display:flex;gap:2px;padding:0 24px;border-bottom:1px solid rgba(244,241,234,0.15);}
-  .nav-tab{padding:16px 16px;color:#B7C0C9;font-weight:600;font-size:14px;cursor:pointer;border-bottom:3px solid transparent;font-family:'Inter',sans-serif;background:none;}
+  #topnav{position:sticky;top:0;z-index:30;background:var(--ink);display:flex;gap:2px;padding:24px 8px 0 8px;border-bottom:1px solid rgba(244,241,234,0.15);box-sizing:border-box;}
+  .nav-tab{flex:1;min-width:0;text-align:center;padding:14px 4px;color:#B7C0C9;font-weight:600;font-size:14px;cursor:pointer;border-bottom:3px solid transparent;font-family:'Inter',sans-serif;background:none;}
   .nav-tab.active{color:#F4F1EA;border-bottom-color:var(--gold);}
   .nav-tab:hover{color:#F4F1EA;}
 
@@ -152,7 +152,7 @@
 
   @media (max-width:900px){
     #app{flex-direction:column;}
-    .panel{width:100%;position:sticky;top:53px;max-height:48vh;overflow-y:auto;z-index:15;box-shadow:0 10px 20px -10px rgba(0,0,0,0.45);}
+    .panel{width:100%;position:sticky;top:77px;max-height:48vh;overflow-y:auto;z-index:15;box-shadow:0 10px 20px -10px rgba(0,0,0,0.45);}
     .stage{padding:20px 14px;}
     .calc-menu-grid{grid-template-columns:1fr;}
   }
@@ -2269,3 +2269,4 @@ function renderDone(){
 </script>
 </body>
 </html>
+
