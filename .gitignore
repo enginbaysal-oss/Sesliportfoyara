@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Local Mapbox token - Git'e gonderme
+mapbox.local.txt

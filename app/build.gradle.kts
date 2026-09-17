@@ -1,4 +1,4 @@
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+﻿import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 
 plugins {
@@ -67,6 +67,7 @@ kotlin {
                 implementation(libs.androidx.activity.compose)
                 implementation(libs.androidx.core.ktx)
                 implementation(libs.androidx.lifecycle.runtime.ktx)
+                implementation("com.squareup.okhttp3:okhttp:4.12.0")
                 implementation("dev.gitlive:firebase-database:2.7.0")
                 implementation("io.ktor:ktor-client-android:3.0.0")
             }
@@ -87,6 +88,9 @@ android {
     sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
     sourceSets["main"].res.srcDirs("src/androidMain/res")
     sourceSets["main"].resources.srcDirs("src/androidMain/resources")
+    buildFeatures {
+        buildConfig = true
+    }
 
     defaultConfig {
         applicationId = "com.example.sesliportfoyara"
@@ -94,6 +98,19 @@ android {
         targetSdk = 35
         versionCode = 6
         versionName = "1.2.4"
+
+        val mapboxTokenFile = rootProject.file("mapbox.local.txt")
+        val mapboxToken = if (mapboxTokenFile.exists()) {
+            mapboxTokenFile.readText().trim()
+        } else {
+            ""
+        }
+
+        buildConfigField(
+            "String",
+            "MAPBOX_TOKEN",
+            "\"${mapboxToken.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        )
     }
     packaging {
         resources {
@@ -124,9 +141,11 @@ compose.desktop {
                 iconFile.set(project.file("src/desktopMain/package/windows/Sesliportfoyara.ico"))
                 menu = true
                 shortcut = true
-                // Kurulumda eski dosyaları temizlemesi için
+                // Kurulumda eski dosyalarÄ± temizlemesi iÃ§in
                 upgradeUuid = "68c92a6b-c743-47e2-9b29-e85c2c77ae8b"
             }
         }
     }
 }
+
+

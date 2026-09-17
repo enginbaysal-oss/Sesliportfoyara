@@ -1,4 +1,4 @@
-package com.example.sesliportfoyara
+﻿package com.example.sesliportfoyara
 
 import android.Manifest
 import android.content.Intent
@@ -79,6 +79,38 @@ class MainActivity : ComponentActivity() {
         checkPermissions()
 
         val platformUtils = object : PlatformUtils {
+            override fun openEmlakAsistan() {
+                android.widget.Toast.makeText(
+                    this@MainActivity,
+                    "EmlakAsistan açılıyor",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+
+                try {
+                    val intent = Intent(
+                        this@MainActivity,
+                        EmlakAsistanActivity::class.java
+                    )
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(
+                        this@MainActivity,
+                        "HATA: ${e.message}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                    e.printStackTrace()
+                }
+            }
+            override fun openArsaTakip() {
+                try {
+                    val intent = Intent(this@MainActivity, ArsaTakipActivity::class.java)
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(this@MainActivity, "ArsaTakip açılamadı: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                    e.printStackTrace()
+                }
+            }
+
             override fun openUri(uri: String) {
                 try {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
@@ -166,3 +198,4 @@ class MainActivity : ComponentActivity() {
         speechRecognizer?.destroy()
     }
 }
+

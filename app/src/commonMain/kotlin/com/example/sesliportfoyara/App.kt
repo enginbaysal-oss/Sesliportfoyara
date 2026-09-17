@@ -1,4 +1,4 @@
-package com.example.sesliportfoyara
+﻿package com.example.sesliportfoyara
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -86,6 +86,7 @@ sealed class Screen(val title: String) {
     object MyPortfolio : Screen("Portföyüm")
     object ProfileSetup : Screen("Profil Kurulumu")
     object CRM : Screen("Müşterilerim")
+    object Tools : Screen("Araçlar")
     object AddClient : Screen("Müşteri Ekle")
     object ClientDetails : Screen("Müşteri Detayı")
 }
@@ -346,6 +347,7 @@ fun App() {
                             currentPhone = myPhone,
                             isAdmin = isAdmin
                         )
+                        Screen.Tools -> ToolsScreen()
                         Screen.CRM -> CRMMainScreen(
                             clients = clients,
                             allPortfolios = officePortfolios, // Eşleşmeler sadece Ofis portföyleri içinden yapılsın
@@ -628,7 +630,8 @@ fun TabNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
         Triple(Screen.VoiceSearch, Icons.Default.Mic, Color(0xFFFFC107)),
         Triple(Screen.AddPortfolio, Icons.Default.AddCircle, Color(0xFF4CAF50)),
         Triple(Screen.CRM, Icons.Default.Groups, Color(0xFF2196F3)),
-        Triple(Screen.MyPortfolio, Icons.Default.Inventory, Color(0xFFFF9800))
+        Triple(Screen.MyPortfolio, Icons.Default.Inventory, Color(0xFFFF9800)),
+        Triple(Screen.Tools, Icons.Default.Build, Color(0xFF9C27B0))
     )
 
     Row(
@@ -1573,6 +1576,109 @@ fun PortfolioItem(
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ToolsScreen() {
+    val platformUtils = LocalPlatformUtils.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Araçlar",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Gayrimenkul işlemleriniz için yardımcı araçlar",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    platformUtils.openEmlakAsistan()
+                },
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Description,
+                    contentDescription = null,
+                    modifier = Modifier.size(38.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column {
+                    Text(
+                        text = "EmlakAsistan",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Şablonlar, belgeler ve hesaplamalar",
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable { platformUtils.openArsaTakip() },
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Map,
+                    contentDescription = null,
+                    modifier = Modifier.size(38.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column {
+                    Text(
+                        text = "ArsaTakip",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Arsa, parsel ve drone araçları yakında eklenecek",
+                        fontSize = 13.sp
+                    )
                 }
             }
         }
