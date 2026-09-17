@@ -631,7 +631,7 @@ fun TabNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
         Triple(Screen.AddPortfolio, Icons.Default.AddCircle, Color(0xFF4CAF50)),
         Triple(Screen.CRM, Icons.Default.Groups, Color(0xFF2196F3)),
         Triple(Screen.MyPortfolio, Icons.Default.Inventory, Color(0xFFFF9800)),
-        Triple(Screen.Tools, Icons.Default.Build, Color(0xFF9C27B0))
+        Triple(Screen.Tools, Icons.Default.Keyboard, Color(0xFF9C27B0))
     )
 
     Row(
@@ -1684,3 +1684,4 @@ fun ToolsScreen() {
         }
     }
 }
+

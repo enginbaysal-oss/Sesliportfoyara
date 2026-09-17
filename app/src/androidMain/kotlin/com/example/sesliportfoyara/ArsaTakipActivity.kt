@@ -71,14 +71,14 @@ class ArsaTakipActivity : ComponentActivity() {
                     if (status == DownloadManager.STATUS_SUCCESSFUL) {
                         val uriString = if (uriIdx != -1) cursor.getString(uriIdx) else null
                         Log.d("ArsaTakip", "Download completed: $title")
-                        runOnUiThread { Toast.makeText(this@ArsaTakipActivity, "$title Ä°ndirildi!", Toast.LENGTH_SHORT).show() }
+                        runOnUiThread { Toast.makeText(this@ArsaTakipActivity, "$title İndirildi!", Toast.LENGTH_SHORT).show() }
                         if (uriString != null) {
                             processDownloadedFile(Uri.parse(uriString), title)
                         }
                     } else if (status == DownloadManager.STATUS_FAILED) {
                         val reason = if (reasonIdx != -1) cursor.getInt(reasonIdx) else -1
                         Log.e("ArsaTakip", "Download failed: $reason")
-                        runOnUiThread { Toast.makeText(this@ArsaTakipActivity, "Ä°ndirme HatasÄ±! Kod: $reason", Toast.LENGTH_LONG).show() }
+                        runOnUiThread { Toast.makeText(this@ArsaTakipActivity, "İndirme Hatası! Kod: $reason", Toast.LENGTH_LONG).show() }
                     }
                 }
             }
@@ -98,7 +98,7 @@ class ArsaTakipActivity : ComponentActivity() {
                 parcelList.add(content)
                 pendingGeoJson = content
                 runOnUiThread {
-                    Toast.makeText(this, "Parsel Verisi AlÄ±ndÄ±, Harita GÃ¼ncelleniyor...", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Parsel Verisi Alındı, Harita Güncelleniyor...", Toast.LENGTH_SHORT).show()
                     if (webView.visibility == View.VISIBLE && webView.url?.contains("index.html") == true) {
                         injectGeoJsonToWebView()
                     } else {
@@ -152,16 +152,16 @@ class ArsaTakipActivity : ComponentActivity() {
             }
             isRecording = true
             updateRecordButtonUI()
-            Toast.makeText(this, "KayÄ±t BaÅŸladÄ±", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Kayıt Başladı", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(this, "KayÄ±t Ä°zni Reddedildi", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Kayıt İzni Reddedildi", Toast.LENGTH_SHORT).show()
         }
     }
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
         val notificationsGranted = permissions[Manifest.permission.POST_NOTIFICATIONS] ?: true
         if (!notificationsGranted) {
-            Toast.makeText(this, "Bildirim izni verilmedi, kayÄ±t sÄ±rasÄ±nda sorun oluÅŸabilir.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Bildirim izni verilmedi, kayıt sırasında sorun oluşabilir.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -221,7 +221,7 @@ class ArsaTakipActivity : ComponentActivity() {
         }
 
         val title = TextView(this).apply {
-            text = "ARSA TAKÄ°P 3D\nv3.2 - Sade SÃ¼rÃ¼m"
+            text = "ARSA TAKİP 3D\nv3.2 - Sade Sürüm"
             textSize = 24f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             setTextColor(Color.parseColor("#006064"))
@@ -231,9 +231,9 @@ class ArsaTakipActivity : ComponentActivity() {
         menuLayout.addView(title)
 
         menuLayout.addView(createMenuButton("TKGM PARSEL SORGU", "#007BFF") { showWebView("https://parselsorgu.tkgm.gov.tr/") })
-        menuLayout.addView(createMenuButton("3D DRONE & HARÄ°TA", "#28A745") { showWebView("file:///android_asset/arsatakip/index.html") })
-        menuLayout.addView(createMenuButton("KAYITLARIMI Ä°ZLE", "#6C757D") { showLastVideo() })
-        menuLayout.addView(createMenuButton("WHATSAPP Ä°LE GÃ–NDER", "#25D366") { shareLastVideoOnWhatsApp() })
+        menuLayout.addView(createMenuButton("3D DRONE & HARİTA", "#28A745") { showWebView("file:///android_asset/arsatakip/index.html") })
+        menuLayout.addView(createMenuButton("KAYITLARIMI İZLE", "#6C757D") { showLastVideo() })
+        menuLayout.addView(createMenuButton("WHATSAPP İLE GÖNDER", "#25D366") { shareLastVideoOnWhatsApp() })
         menuLayout.addView(createMenuButton("← ARAÇLAR MENÜSÜNE DÖN", "#DC3545") { finish() })
 
         webView = WebView(this).apply {
@@ -243,7 +243,7 @@ class ArsaTakipActivity : ComponentActivity() {
         setupWebView()
 
         backToMenuBtn = Button(this).apply {
-            text = "ANA MENÃœ"
+            text = "ANA MENÜ"
             setBackgroundColor(Color.RED)
             setTextColor(Color.WHITE)
             visibility = View.GONE
@@ -256,7 +256,7 @@ class ArsaTakipActivity : ComponentActivity() {
         }
 
         recordBtn = Button(this).apply {
-            text = "KAYDI BAÅLAT"
+            text = "KAYDI BAŞLAT"
             setBackgroundColor(Color.parseColor("#FF8C00"))
             setTextColor(Color.WHITE)
             visibility = View.GONE
@@ -462,7 +462,7 @@ class ArsaTakipActivity : ComponentActivity() {
         recordBtn.bringToFront()
         setImmersiveMode(true)
         
-        // EÄŸer zaten aynÄ± sayfa yÃ¼klÃ¼yse tekrar yÃ¼kleme yapma
+        // Eğer zaten aynı sayfa yüklüyse tekrar yükleme yapma
         if (webView.url != url) {
             if (url == "file:///android_asset/arsatakip/index.html") {
                 try {
@@ -528,19 +528,19 @@ class ArsaTakipActivity : ComponentActivity() {
         startService(Intent(this, RecordService::class.java).apply { action = "STOP" })
         isRecording = false
         updateRecordButtonUI()
-        Toast.makeText(this, "KayÄ±t Durduruldu", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Kayıt Durduruldu", Toast.LENGTH_SHORT).show()
     }
 
     private fun updateRecordButtonUI() {
         if (isRecording) {
             recordBtn.text = "DURDUR"
             recordBtn.setBackgroundColor(Color.BLACK)
-            // KayÄ±t sÄ±rasÄ±nda diÄŸer butonlarÄ± gizle (KayÄ±tta gÃ¶rÃ¼nmesinler)
+            // Kayıt sırasında diğer butonları gizle (Kayıtta görünmesinler)
             backToMenuBtn.visibility = View.GONE
             setImmersiveMode(true) 
-            Toast.makeText(this, "Tam Ekran KaydÄ± BaÅŸladÄ±", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Tam Ekran Kaydı Başladı", Toast.LENGTH_SHORT).show()
         } else {
-            recordBtn.text = "KAYDI BAÅLAT"
+            recordBtn.text = "KAYDI DURDUR"
             recordBtn.setBackgroundColor(Color.parseColor("#FF8C00"))
             backToMenuBtn.visibility = View.VISIBLE
             setImmersiveMode(true)
@@ -565,7 +565,7 @@ class ArsaTakipActivity : ComponentActivity() {
         }
         pendingGeoJson = null
         if (parcelList.isNotEmpty()) {
-            Toast.makeText(this, "${parcelList.size} Parsel YÃ¼klendi!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "${parcelList.size} Parsel Yüklendi!", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -584,7 +584,7 @@ class ArsaTakipActivity : ComponentActivity() {
             @JavascriptInterface
             fun clearParcelList() {
                 parcelList.clear()
-                runOnUiThread { Toast.makeText(this@ArsaTakipActivity, "KayÄ±tlÄ± parsel listesi temizlendi.", Toast.LENGTH_SHORT).show() }
+                runOnUiThread { Toast.makeText(this@ArsaTakipActivity, "Kayıtlı parsel listesi temizlendi.", Toast.LENGTH_SHORT).show() }
             }
         }, "Android")
 
@@ -615,7 +615,7 @@ class ArsaTakipActivity : ComponentActivity() {
         val cookie = CookieManager.getInstance().getCookie(url)
         lifecycleScope.launch(Dispatchers.IO) {
             withContext(Dispatchers.Main) {
-                Toast.makeText(this@ArsaTakipActivity, "HÄ±zlÄ± Ä°ndirme BaÅŸlatÄ±ldÄ±...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@ArsaTakipActivity, "Hızlı İndirme Başlatıldı...", Toast.LENGTH_SHORT).show()
                 hideWebView()
             }
 
@@ -628,7 +628,7 @@ class ArsaTakipActivity : ComponentActivity() {
                     .build()
 
                 client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) throw Exception("Sunucu HatasÄ±: ${response.code}")
+                    if (!response.isSuccessful) throw Exception("Sunucu Hatası: ${response.code}")
                     
                     val body = response.body
                     if (body != null) {
@@ -644,7 +644,7 @@ class ArsaTakipActivity : ComponentActivity() {
                             parcelList.add(content)
                             pendingGeoJson = content
                             withContext(Dispatchers.Main) {
-                                Toast.makeText(this@ArsaTakipActivity, "Parsel AlÄ±ndÄ±!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this@ArsaTakipActivity, "Parsel Alındı!", Toast.LENGTH_SHORT).show()
                                 if (webView.visibility == View.VISIBLE && webView.url?.contains("index.html") == true) {
                                     injectGeoJsonToWebView()
                                 } else {
@@ -653,7 +653,7 @@ class ArsaTakipActivity : ComponentActivity() {
                             }
                         } else {
                             withContext(Dispatchers.Main) {
-                                Toast.makeText(this@ArsaTakipActivity, "Dosya tanÄ±namadÄ± veya hatalÄ±.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this@ArsaTakipActivity, "Dosya tanınamadı veya hatalı.", Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
@@ -684,6 +684,8 @@ class ArsaTakipActivity : ComponentActivity() {
         return null
     }
 }
+
+
 
 
 

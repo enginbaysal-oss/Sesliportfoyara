@@ -77,14 +77,14 @@ class RecordService : Service() {
     private fun startForegroundService() {
         val channelId = "RecordChannel"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "Ekran KaydÄ±", NotificationManager.IMPORTANCE_LOW)
+            val channel = NotificationChannel(channelId, "Ekran Kaydı", NotificationManager.IMPORTANCE_LOW)
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
         }
 
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Ekran Kaydediliyor")
-            .setContentText("Arsa Takip 3D uÃ§uÅŸ kaydÄ± devam ediyor.")
+            .setContentText("Arsa Takip 3D uçuş kaydı devam ediyor.")
             .setSmallIcon(R.drawable.ic_media_play)
             .build()
 
@@ -108,7 +108,7 @@ class RecordService : Service() {
         }, Handler(Looper.getMainLooper()))
 
         val metrics = resources.displayMetrics
-        // Ã‡Ã¶zÃ¼nÃ¼rlÃ¼ÄŸÃ¼ makul bir seviyede tut (720p)
+        // Çözünürlüğü makul bir seviyede tut (720p)
         var width = metrics.widthPixels
         var height = metrics.heightPixels
         val maxDimension = 1280
@@ -163,7 +163,7 @@ class RecordService : Service() {
             isRecording = true
             Log.i("RecordService", "Recording started: $videoFilePath")
             Handler(Looper.getMainLooper()).post {
-                Toast.makeText(this, "Video kaydÄ± baÅŸladÄ±", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Video kaydı başladı", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
             Log.e("RecordService", "Start error", e)
@@ -249,12 +249,12 @@ class RecordService : Service() {
 
                 MediaScannerConnection.scanFile(this, arrayOf(file.absolutePath), arrayOf("video/mp4")) { _, uri ->
                     Handler(Looper.getMainLooper()).post {
-                        // Daha belirgin ve gÃ¼ncel bir mesaj
-                        Toast.makeText(this, "Video BaÅŸarÄ±yla Galeriye AktarÄ±ldÄ± âœ…", Toast.LENGTH_LONG).show()
+                        // Daha belirgin ve güncel bir mesaj
+                        Toast.makeText(this, "Video Başarıyla Galeriye Aktarıldı ✅", Toast.LENGTH_LONG).show()
                     }
                 }
                 
-                // Temp dosyayÄ± temizle
+                // Temp dosyayı temizle
                 file.delete()
                 
             } catch (e: Exception) {
