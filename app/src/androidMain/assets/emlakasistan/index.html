@@ -19,7 +19,7 @@
     --paper-line:#E4DED0;
     --sage:#5B7A63;
     --sage-dark:#43594A;
-    --gold:#B8935A;
+    --gold:#22A447;
     --gray:#746C60;
     --rose:#B85C4A;
     --shadow: 0 18px 40px -18px rgba(30,42,56,0.35);
@@ -175,7 +175,7 @@
 </style>
 </head>
 <body>
-<div id="topnav"></div>
+<div id="topnav"></div><button onclick="AndroidInterface.anaMenuyeDon()" style="position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:9999;background:#1f2d3d;color:white;border:1px solid #d39a00;border-radius:24px;padding:11px 22px;font-size:12px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.35);">← ANA MENÜ</button>
 <div id="app"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -504,6 +504,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
     topnavEl.innerHTML = tabs.map(function(t){
       return '<button class="nav-tab'+(state.section===t.key?' active':'')+'" onclick="app.switchSection(\''+t.key+'\')">'+t.label+'</button>';
     }).join('');
+
   }
 
   var DEFAULT_APP_PASSWORD = 'ilyada2026';
@@ -663,6 +664,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
       }
       return '<div class="'+cls+'" id="field-box-'+f.id+'" data-page="'+f.page+'" style="left:'+f.xPct+'%;top:'+f.yPct+'%;width:'+f.wPct+'%;height:'+f.hPct+'%;">'+content+handle+'</div>';
     }).join('');
+
   }
 
   function pageStackHtml(pages, fields, mode, answers, activeId, markable, editingId){
@@ -679,6 +681,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
         pendingHtml +
       '</div>';
     }).join('');
+
   }
 
   function fitTextInBoxes(){

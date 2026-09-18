@@ -390,7 +390,7 @@ class RemaxService {
                     list.forEach { p ->
                         foundRemaxIds.add(p.id)
                         val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/")
-                        if (!existingIds.contains(p.id) && !existingLinks.contains(norm)) {
+                        val existing = current.firstOrNull { it.id == p.id } ?: current.firstOrNull { it.link.replace("https://", "").replace("www.", "").removeSuffix("/") == norm }; if (existing != null) { val updated = p.copy(id = existing.id, consultantName = existing.consultantName.ifBlank { p.consultantName }, consultantPhone = existing.consultantPhone.ifBlank { p.consultantPhone }, createdAt = existing.createdAt); dbManager.updatePortfolio(updated) } else {
                             if (dbManager.addPortfolio(p) != null) {
                                 existingIds.add(p.id)
                                 existingLinks.add(norm)
@@ -408,8 +408,8 @@ class RemaxService {
                 // Sadece Remax'tan çekilen ilanları (ID'si remax_ ile başlayanlar) kontrol ediyoruz.
                 // Eğer RE/MAX sitesinde artık yoksa ama bizim DB'de varsa siliyoruz.
                 if (fetchedSuccessfully && foundRemaxIds.isNotEmpty()) {
-                    current.filter { it.id.startsWith("remax_") }.forEach { p ->
-                        if (!foundRemaxIds.contains(p.id)) {
+                    current.filter { it.link.contains("remax.com.tr", ignoreCase = true) }.forEach { p ->
+                        if (foundRemaxIds.none { rid -> p.link.contains(rid.removePrefix("remax_")) }) {
                             dbManager.deletePortfolio(p.id)
                             println("🗑️ Sync: Remax'ta bulunmayan eski ilan silindi: ${p.title}")
                         }

@@ -1,4 +1,10 @@
 ﻿package com.example.sesliportfoyara
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.long
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -87,10 +93,19 @@ sealed class Screen(val title: String) {
     object ProfileSetup : Screen("Profil Kurulumu")
     object CRM : Screen("Müşterilerim")
     object Tools : Screen("Araçlar")
+    object UserManagement : Screen("Kullanıcı Yönetimi")
     object AddClient : Screen("Müşteri Ekle")
     object ClientDetails : Screen("Müşteri Detayı")
 }
 
+data class AdminUser(
+    val id: Long,
+    val fullName: String,
+    val phone: String,
+    val isActive: Boolean,
+    val isAdmin: Boolean,
+    val canUseTools: Boolean
+)
 @Composable
 fun App() {
     val dbManager = LocalDatabaseManager.current
@@ -105,6 +120,7 @@ fun App() {
     var myPhone by remember { mutableStateOf(settings.getString("my_consultant_phone", "")) }
     var remaxUrl by remember { mutableStateOf(settings.getString("remax_office_url", "")) }
     var isAdmin by remember { mutableStateOf(settings.getBoolean("is_admin", false)) }
+    var canUseTools by remember { mutableStateOf(settings.getBoolean("can_use_tools", false)) }
 
     // Eğer bilgiler boşsa, başlangıç ekranını profil kurulumu yapıyoruz
     var currentScreen by remember {
@@ -169,7 +185,20 @@ fun App() {
             Scaffold(
                 topBar = {
                     if (currentScreen != Screen.ProfileSetup && currentScreen != Screen.AddClient && currentScreen != Screen.ClientDetails) {
-                        HeaderSection()
+                        Column {
+                            HeaderSection()
+
+                            if (isAdmin && currentScreen != Screen.UserManagement) {
+                                Button(
+                                    onClick = { currentScreen = Screen.UserManagement },
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.Default.Lock, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("KULLANICI YÖNETİMİ", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
                 },
                 bottomBar = {
@@ -197,19 +226,14 @@ fun App() {
                             initialName = myName,
                             initialPhone = myPhone,
                             initialUrl = remaxUrl
-                        ) { name, phone, url, adminSecret ->
+                        ) { name, phone, url ->
                             settings.putString("my_consultant_name", name)
                             settings.putString("my_consultant_phone", phone)
                             settings.putString("remax_office_url", url)
 
-                            // Gizli şifreyi kontrol et (Şifre: adminengin)
-                            val adminStatus = adminSecret == "adminengin"
-                            settings.putBoolean("is_admin", adminStatus)
-
                             myName = name
                             myPhone = phone
                             remaxUrl = url
-                            isAdmin = adminStatus
                             currentScreen = Screen.VoiceSearch
                         }
                         Screen.VoiceSearch -> VoiceSearchScreen(officePortfolios) { p ->
@@ -347,7 +371,417 @@ fun App() {
                             currentPhone = myPhone,
                             isAdmin = isAdmin
                         )
-                        Screen.Tools -> ToolsScreen()
+                        Screen.UserManagement -> {
+                            val platformUtils = LocalPlatformUtils.current
+                            var adminEmail by remember { mutableStateOf("engin.baysal@remax-ilyada.com") }
+                            var adminPassword by remember { mutableStateOf("") }
+                            var adminMessage by remember { mutableStateOf("") }
+                            var adminLoading by remember { mutableStateOf(false) }
+                            var adminAuthenticated by remember { mutableStateOf(false) }
+                            var adminSessionToken by remember { mutableStateOf("") }
+                            var adminUsers by remember { mutableStateOf<List<AdminUser>>(emptyList()) }
+                            var newUserName by remember { mutableStateOf("") }
+                            var newUserPhone by remember { mutableStateOf("") }
+                            var newUserTools by remember { mutableStateOf(false) }
+
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                        .verticalScroll(rememberScrollState())
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Lock,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp)
+                                )
+
+                                Spacer(Modifier.height(16.dp))
+
+                                Text(
+                                    "Kullanıcı Yönetimi",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                Spacer(Modifier.height(8.dp))
+
+                                Text(
+                                    "Güvenli yönetici doğrulaması",
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Spacer(Modifier.height(24.dp))
+
+                                OutlinedTextField(
+                                    value = adminEmail,
+                                    onValueChange = { adminEmail = it },
+                                    label = { Text("Yönetici E-posta") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Spacer(Modifier.height(12.dp))
+
+                                OutlinedTextField(
+                                    value = adminPassword,
+                                    onValueChange = { adminPassword = it },
+                                    label = { Text("Şifre") },
+                                    singleLine = true,
+                                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Spacer(Modifier.height(20.dp))
+
+                                Button(
+                                    onClick = {
+                                        if (adminEmail.isBlank() || adminPassword.isBlank()) {
+                                            adminMessage = "E-posta ve şifreyi giriniz."
+                                        } else {
+                                            adminLoading = true
+                                            adminMessage = ""
+                                            platformUtils.adminSignIn(
+                                                adminEmail,
+                                                adminPassword
+                                            ) { success, token, message ->
+                                                adminLoading = false
+                                                if (success) {
+                                                    adminSessionToken = token
+                                                    adminPassword = ""
+                                                    adminAuthenticated = true
+                                                    canUseTools = true
+                                                    adminMessage = "Kullanıcılar yükleniyor..."
+                                                    platformUtils.adminUsersRequest(token, """{"action":"list"}""") { listSuccess, listResponse ->
+                                                        adminMessage = if (listSuccess) {
+                                                            adminUsers = parseAdminUsers(listResponse)
+                                                            "Kullanıcılar yüklendi."
+                                                        } else {
+                                                            "Kullanıcı listesi alınamadı: " + listResponse
+                                                        }
+                                                    }
+                                                } else {
+                                                    adminMessage = message
+                                                }
+                                            }
+                                        }
+                                    },
+                                    enabled = !adminLoading,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(if (adminLoading) "GİRİŞ YAPILIYOR..." else "YÖNETİCİ GİRİŞİ")
+                                }
+
+                                Spacer(Modifier.height(10.dp))
+
+                                if (adminAuthenticated) {
+                                    Spacer(Modifier.height(16.dp))
+
+                                    HorizontalDivider()
+
+                                    Spacer(Modifier.height(16.dp))
+
+                                    Text(
+                                        "Yetkili Kullanıcılar",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+
+                                    Spacer(Modifier.height(12.dp))
+
+                                    adminUsers.forEach { user ->
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(12.dp)
+                                            ) {
+                                                Text(
+                                                    user.fullName,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+
+                                                Text(user.phone)
+
+                                                Spacer(Modifier.height(6.dp))
+
+                                                if (user.isAdmin) {
+                                                    Text(
+                                                        "Yönetici • Aktif • Araçlar Yetkili",
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                } else {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Aktif")
+
+                                                        Switch(
+                                                            checked = user.isActive,
+                                                            onCheckedChange = { checked ->
+                                                                val token = adminSessionToken
+                                                                adminLoading = true
+
+                                                                val requestJson =
+                                                                    """{"action":"update","id":${user.id},"is_active":$checked}"""
+
+                                                                platformUtils.adminUsersRequest(
+                                                                    token,
+                                                                    requestJson
+                                                                ) { success, response ->
+                                                                    if (success) {
+                                                                        platformUtils.adminUsersRequest(
+                                                                            token,
+                                                                            """{"action":"list"}"""
+                                                                        ) { listSuccess, listResponse ->
+                                                                            adminLoading = false
+                                                                            if (listSuccess) {
+                                                                                adminUsers = parseAdminUsers(listResponse)
+                                                                                adminMessage = "Kullanıcı durumu güncellendi."
+                                                                            } else {
+                                                                                adminMessage = "Liste yenilenemedi: $listResponse"
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        adminLoading = false
+                                                                        adminMessage = "Güncelleme başarısız: $response"
+                                                                    }
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Araçlar Yetkisi")
+
+                                                        Switch(
+                                                            checked = user.canUseTools,
+                                                            onCheckedChange = { checked ->
+                                                                val token = adminSessionToken
+                                                                adminLoading = true
+
+                                                                val requestJson =
+                                                                    """{"action":"update","id":${user.id},"can_use_tools":$checked}"""
+
+                                                                platformUtils.adminUsersRequest(
+                                                                    token,
+                                                                    requestJson
+                                                                ) { success, response ->
+                                                                    if (success) {
+                                                                        platformUtils.adminUsersRequest(
+                                                                            token,
+                                                                            """{"action":"list"}"""
+                                                                        ) { listSuccess, listResponse ->
+                                                                            adminLoading = false
+                                                                            if (listSuccess) {
+                                                                                adminUsers = parseAdminUsers(listResponse)
+                                                                                adminMessage = "Araçlar yetkisi güncellendi."
+                                                                            } else {
+                                                                                adminMessage = "Liste yenilenemedi: $listResponse"
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        adminLoading = false
+                                                                        adminMessage = "Güncelleme başarısız: $response"
+                                                                    }
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+
+                                                    Spacer(Modifier.height(8.dp))
+
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            val token = adminSessionToken
+                                                            adminLoading = true
+
+                                                            val requestJson =
+                                                                """{"action":"delete","id":${user.id}}"""
+
+                                                            platformUtils.adminUsersRequest(
+                                                                token,
+                                                                requestJson
+                                                            ) { success, response ->
+                                                                if (success) {
+                                                                    platformUtils.adminUsersRequest(
+                                                                        token,
+                                                                        """{"action":"list"}"""
+                                                                    ) { listSuccess, listResponse ->
+                                                                        adminLoading = false
+                                                                        if (listSuccess) {
+                                                                            adminUsers = parseAdminUsers(listResponse)
+                                                                            adminMessage = "Kullanıcı silindi."
+                                                                        } else {
+                                                                            adminMessage = "Liste yenilenemedi: $listResponse"
+                                                                        }
+                                                                    }
+                                                                } else {
+                                                                    adminLoading = false
+                                                                    adminMessage = "Silme işlemi başarısız: $response"
+                                                                }
+                                                            }
+                                                        },
+                                                        enabled = !adminLoading,
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) {
+                                                        Text("KULLANICIYI SİL")
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Spacer(Modifier.height(20.dp))
+
+                                    Text(
+                                        "Yeni Kullanıcı Ekle",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+
+                                    Spacer(Modifier.height(8.dp))
+
+                                    OutlinedTextField(
+                                        value = newUserName,
+                                        onValueChange = { newUserName = it },
+                                        label = { Text("Ad Soyad") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    Spacer(Modifier.height(8.dp))
+
+                                    OutlinedTextField(
+                                        value = newUserPhone,
+                                        onValueChange = { newUserPhone = it.filter { ch -> ch.isDigit() } },
+                                        label = { Text("Telefon - 05XXXXXXXXX") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Checkbox(
+                                            checked = newUserTools,
+                                            onCheckedChange = { newUserTools = it }
+                                        )
+
+                                        Text("Araçlar bölümüne erişebilsin")
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            val token = adminSessionToken
+
+                                            if (newUserName.isBlank() || newUserPhone.length != 11) {
+                                                adminMessage = "Ad soyad ve 11 haneli telefon giriniz."
+                                            } else {
+                                                adminLoading = true
+
+                                                val requestJson =
+                                                    """{"action":"add","full_name":${Json.encodeToString(newUserName.trim())},"phone":${Json.encodeToString(newUserPhone)},"can_use_tools":$newUserTools}"""
+
+                                                platformUtils.adminUsersRequest(
+                                                    token,
+                                                    requestJson
+                                                ) { success, response ->
+
+                                                    if (success) {
+                                                        newUserName = ""
+                                                        newUserPhone = ""
+                                                        newUserTools = false
+
+                                                        platformUtils.adminUsersRequest(
+                                                            token,
+                                                            """{"action":"list"}"""
+                                                        ) { listSuccess, listResponse ->
+
+                                                            adminLoading = false
+
+                                                            if (listSuccess) {
+                                                                adminUsers = parseAdminUsers(listResponse)
+                                                                adminMessage = "Kullanıcı eklendi."
+                                                            } else {
+                                                                adminMessage = "Liste yenilenemedi: $listResponse"
+                                                            }
+                                                        }
+                                                    } else {
+                                                        adminLoading = false
+                                                        adminMessage = "Kullanıcı eklenemedi: $response"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        enabled = !adminLoading,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            if (adminLoading)
+                                                "İŞLEM YAPILIYOR..."
+                                            else
+                                                "KULLANICI EKLE"
+                                        )
+                                    }
+                                }
+                                if (adminMessage.isNotBlank()) {
+                                    Spacer(Modifier.height(16.dp))
+                                    Text(
+                                        adminMessage,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                        Screen.Tools -> {
+                            if (canUseTools) {
+                                ToolsScreen()
+                            } else {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.padding(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Lock,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(64.dp),
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+
+                                        Spacer(Modifier.height(16.dp))
+
+                                        Text(
+                                            "Araçlar İçin Yetkiniz Bulunmuyor",
+                                            fontSize = 20.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            textAlign = TextAlign.Center
+                                        )
+
+                                        Spacer(Modifier.height(8.dp))
+
+                                        Text(
+                                            "Bu bölüm yönetici tarafından ayrıca yetkilendirilen kullanıcılara açıktır.",
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         Screen.CRM -> CRMMainScreen(
                             clients = clients,
                             allPortfolios = officePortfolios, // Eşleşmeler sadece Ofis portföyleri içinden yapılsın
@@ -392,18 +826,35 @@ fun App() {
         }
     }
 }
+fun parseAdminUsers(response: String): List<AdminUser> {
+    return try {
+        val root = Json.parseToJsonElement(response).jsonObject
+        root["users"]?.jsonArray?.map { element ->
+            val obj = element.jsonObject
+            AdminUser(
+                id = obj["id"]!!.jsonPrimitive.long,
+                fullName = obj["full_name"]!!.jsonPrimitive.content,
+                phone = obj["phone"]!!.jsonPrimitive.content,
+                isActive = obj["is_active"]!!.jsonPrimitive.boolean,
+                isAdmin = obj["is_admin"]!!.jsonPrimitive.boolean,
+                canUseTools = obj["can_use_tools"]!!.jsonPrimitive.boolean
+            )
+        } ?: emptyList()
+    } catch (_: Exception) {
+        emptyList()
+    }
+}
 
 @Composable
 fun ProfileSetupScreen(
     initialName: String = "",
     initialPhone: String = "",
     initialUrl: String = "",
-    onComplete: (String, String, String, String) -> Unit
+    onComplete: (String, String, String) -> Unit
 ) {
     var nameValue by remember { mutableStateOf(TextFieldValue(initialName)) }
     var phoneValue by remember { mutableStateOf(TextFieldValue(initialPhone)) }
     var remaxUrl by remember { mutableStateOf(initialUrl) }
-    var adminSecret by remember { mutableStateOf("") }
 
     val scrollState = rememberScrollState()
 
@@ -438,19 +889,18 @@ fun ProfileSetupScreen(
         CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
         CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
         CustomInputField("RE/MAX Ofis Linki (Otomatik Çekme İçin)", remaxUrl) { remaxUrl = it }
-        CustomInputField("Admin Şifresi (Opsiyonel)", adminSecret) { adminSecret = it }
 
         Spacer(modifier = Modifier.height(40.dp))
 
         Button(
             onClick = {
                 if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
-                    onComplete(nameValue.text.trim(), phoneValue.text.trim(), remaxUrl.trim(), adminSecret.trim())
+                    onComplete(nameValue.text.trim(), phoneValue.text.trim(), remaxUrl.trim())
                 }
             },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
             enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()
         ) {
             Text("Bilgileri Kaydet", color = Color.Black, fontWeight = FontWeight.Bold)
@@ -464,7 +914,7 @@ object Clock {
 
 @Composable
 fun PremiumLogo(modifier: Modifier = Modifier) {
-    val goldColor = Color(0xFFc9a15a)
+    val goldColor = Color(0xFF22A447)
     Canvas(modifier = modifier.size(36.dp)) { // Boyut 52'den 36'ya düşürüldü
         val w = size.width
         val h = size.height
@@ -569,7 +1019,7 @@ fun HeaderSection() {
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Sesli Portföy CRM v1.4.3",
+                    text = "CeptEmlak v1.4.3",
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 14.sp, // Başlık küçültüldü
                     fontWeight = FontWeight.ExtraBold,
@@ -606,7 +1056,7 @@ fun HeaderSection() {
                     }
                 }
             }, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Download, "Yedekle", tint = Color(0xFFc9a15a), modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Download, "Yedekle", tint = Color(0xFF22A447), modifier = Modifier.size(20.dp))
             }
             IconButton(onClick = {
                 platformUtils.pickFile { json ->
@@ -627,7 +1077,7 @@ fun HeaderSection() {
 @Composable
 fun TabNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
     val items = listOf(
-        Triple(Screen.VoiceSearch, Icons.Default.Mic, Color(0xFFFFC107)),
+        Triple(Screen.VoiceSearch, Icons.Default.Mic, Color(0xFF22A447)),
         Triple(Screen.AddPortfolio, Icons.Default.AddCircle, Color(0xFF4CAF50)),
         Triple(Screen.CRM, Icons.Default.Groups, Color(0xFF2196F3)),
         Triple(Screen.MyPortfolio, Icons.Default.Inventory, Color(0xFFFF9800)),
@@ -855,7 +1305,7 @@ fun SonarAnimation() {
                         scaleY = scale.value
                         alpha = opacities[i].value
                     }
-                    .border(1.dp, Color(0xFFFFC107), CircleShape)
+                    .border(1.dp, Color(0xFF22A447), CircleShape)
             )
         }
     }
@@ -1026,7 +1476,7 @@ fun AddPortfolioScreen(
             },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107))
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
         ) {
             Text(
                 if (editingPortfolio != null) "Değişiklikleri Kaydet" else "Portföyü Kaydet",
@@ -1163,7 +1613,7 @@ fun MyPortfolioScreen(
                         onImportRemax(remaxUrl)
                         showImportDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
                 ) {
                     Text("Aktar", color = Color.Black)
                 }
@@ -1550,7 +2000,7 @@ fun PortfolioItem(
                             Button(
                                 onClick = { platformUtils.openUri(portfolio.link) },
                                 modifier = Modifier.weight(1f).height(42.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
                                 shape = RoundedCornerShape(10.dp),
                                 contentPadding = PaddingValues(0.dp)
                             ) {
@@ -1565,7 +2015,7 @@ fun PortfolioItem(
                         }
 
                         if (onPublish != null) {
-                            IconButton(onClick = { onPublish(portfolio) }, modifier = Modifier.size(42.dp).background(Color(0xFFFFC107).copy(0.15f), CircleShape)) {
+                            IconButton(onClick = { onPublish(portfolio) }, modifier = Modifier.size(42.dp).background(Color(0xFF22A447).copy(0.15f), CircleShape)) {
                                 Icon(Icons.Default.CloudUpload, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                             }
                         }
@@ -1684,4 +2134,6 @@ fun ToolsScreen() {
         }
     }
 }
+
+
 

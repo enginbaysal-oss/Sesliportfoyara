@@ -18,7 +18,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFFB8860B),      // Zengin Gold
+    primary = Color(0xFF22A447),      // Zengin Gold
     onPrimary = Color.White,
     secondary = Color(0xFF1B2631),    // Lacivert
     background = Color(0xFFE8ECEF),   // Daha belirgin gri-mavi zemin (Fark edilsin diye)

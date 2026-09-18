@@ -110,6 +110,13 @@ class EmlakAsistanActivity : ComponentActivity() {
 class EmlakAsistanBridge(
     private val activity: Activity
 ) {
+    @JavascriptInterface
+    fun anaMenuyeDon() {
+        activity.runOnUiThread {
+            activity.finish()
+        }
+    }
+
 
     private val archiveDir: File
         get() = File(activity.filesDir, "emlakasistan_archive").apply {

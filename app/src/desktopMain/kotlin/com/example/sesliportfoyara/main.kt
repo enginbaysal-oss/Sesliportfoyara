@@ -1,4 +1,4 @@
-package com.example.sesliportfoyara
+﻿package com.example.sesliportfoyara
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
@@ -31,7 +31,7 @@ fun createIcon(): BufferedImage {
     g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
     g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
     
-    val gold = AwtColor(201, 161, 90)
+    val gold = AwtColor(34, 164, 71)
     val darkBg = AwtColor(15, 20, 30)
     
     // 1. Dairesel Arka Plan
@@ -167,7 +167,7 @@ fun main() {
 
         Window(
             onCloseRequest = ::exitApplication,
-            title = "Sesli Portföy CRM Asistanı",
+            title = "CeptEmlak",
             icon = iconPainter
         ) {
             val crmManager = remember { LocalCRMManager(desktopSettings) }
@@ -184,3 +184,4 @@ fun main() {
         }
     }
 }
+

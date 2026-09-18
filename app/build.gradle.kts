@@ -1,4 +1,5 @@
-﻿import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+﻿import java.util.Properties
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 
 plugins {
@@ -111,6 +112,15 @@ android {
             "MAPBOX_TOKEN",
             "\"${mapboxToken.replace("\\", "\\\\").replace("\"", "\\\"")}\""
         )
+        val supabaseProperties = Properties()
+        val supabasePropertiesFile = rootProject.file("supabase.local.properties")
+        if (supabasePropertiesFile.exists()) {
+            supabasePropertiesFile.inputStream().use { supabaseProperties.load(it) }
+        }
+        val supabaseUrl = supabaseProperties.getProperty("SUPABASE_URL", "")
+        val supabaseKey = supabaseProperties.getProperty("SUPABASE_KEY", "")
+        buildConfigField("String", "SUPABASE_URL", "\"${supabaseUrl}\"")
+        buildConfigField("String", "SUPABASE_KEY", "\"${supabaseKey}\"")
     }
     packaging {
         resources {
@@ -147,5 +157,6 @@ compose.desktop {
         }
     }
 }
+
 
 

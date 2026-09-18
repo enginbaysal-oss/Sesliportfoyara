@@ -69,7 +69,7 @@ fun CRMMainScreen(
                 
                 Button(
                     onClick = onAddClient,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     modifier = Modifier.height(32.dp),
                     shape = RoundedCornerShape(8.dp)
