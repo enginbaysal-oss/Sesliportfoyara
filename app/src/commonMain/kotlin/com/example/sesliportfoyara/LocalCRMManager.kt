@@ -10,6 +10,7 @@ import kotlinx.serialization.json.*
 class LocalCRMManager(private val settings: Settings) {
     private val CLIENTS_KEY = "crm_clients_v1"
     private val SEEN_MATCHES_KEY = "crm_seen_matches_v1"
+    private val KNOWN_OFFICE_PORTFOLIOS_KEY = "crm_known_office_portfolios_v1"
     private val json = Json { 
         ignoreUnknownKeys = true 
         coerceInputValues = true
@@ -60,6 +61,55 @@ class LocalCRMManager(private val settings: Settings) {
     private fun matchKey(clientId: String, portfolioId: String): String =
         clientId + "|" + portfolioId
 
+    fun getNewOfficePortfolios(portfolios: List<Portfolio>): List<Portfolio> {
+        if (portfolios.isEmpty()) return emptyList()
+
+        val currentIds = portfolios
+            .map { it.id }
+            .filter { it.isNotBlank() }
+            .toSet()
+
+        val raw = settings.getString(KNOWN_OFFICE_PORTFOLIOS_KEY, "")
+
+        // Ilk calismada mevcut ofis portfoylerini baslangic kabul et.
+        // Boylece eski portfoyler yeni diye bildirilmez.
+        if (raw.isBlank()) {
+            settings.putString(
+                KNOWN_OFFICE_PORTFOLIOS_KEY,
+                currentIds.joinToString("\n")
+            )
+            return emptyList()
+        }
+
+        val knownIds = raw
+            .split("\n")
+            .filter { it.isNotBlank() }
+            .toSet()
+
+        return portfolios.filter {
+            it.id.isNotBlank() && it.id !in knownIds
+        }
+    }
+
+    fun markOfficePortfoliosKnown(portfolios: List<Portfolio>) {
+        if (portfolios.isEmpty()) return
+
+        val updated = settings
+            .getString(KNOWN_OFFICE_PORTFOLIOS_KEY, "")
+            .split("\n")
+            .filter { it.isNotBlank() }
+            .toMutableSet()
+
+        portfolios
+            .map { it.id }
+            .filter { it.isNotBlank() }
+            .forEach { updated.add(it) }
+
+        settings.putString(
+            KNOWN_OFFICE_PORTFOLIOS_KEY,
+            updated.joinToString("\n")
+        )
+    }
     fun getSeenMatches(): Set<String> {
         val raw = settings.getString(SEEN_MATCHES_KEY, "")
         return raw.split("\n").filter { it.isNotBlank() }.toSet()

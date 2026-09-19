@@ -43,12 +43,21 @@ fun CRMMainScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var newMatches by remember { mutableStateOf<List<Pair<Client, Portfolio>>>(emptyList()) }
 
-    // Daha once gorulmemis eslesmeleri kalici olarak ekranda tut
+    // Sadece ofise sonradan eklenen portfoyleri CRM musterileriyle karsilastir
     LaunchedEffect(allPortfolios, clients) {
-        newMatches = if (allPortfolios.isNotEmpty() && clients.isNotEmpty()) {
-            crmManager.getNewMatches(clients, allPortfolios)
-        } else {
-            emptyList()
+        if (allPortfolios.isNotEmpty() && clients.isNotEmpty()) {
+            val newPortfolios = crmManager.getNewOfficePortfolios(allPortfolios)
+
+            if (newPortfolios.isNotEmpty()) {
+                newMatches = clients
+                    .filter { it.type == ClientType.BUYER }
+                    .flatMap { client ->
+                        MatchingEngine.findMatches(client, newPortfolios)
+                            .map { portfolio -> client to portfolio }
+                    }
+
+                crmManager.markOfficePortfoliosKnown(newPortfolios)
+            }
         }
     }
 
