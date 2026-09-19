@@ -42,14 +42,16 @@ fun CRMMainScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Yeni eşleşme bildirimi kontrolü
-    LaunchedEffect(allPortfolios.size) {
-        if (allPortfolios.isNotEmpty()) {
-            val anyNewMatch = clients.any { client -> 
-                MatchingEngine.findMatches(client, allPortfolios).isNotEmpty()
-            }
-            if (anyNewMatch && clients.isNotEmpty()) {
-                snackbarHostState.showSnackbar("🎯 Kriterlere uygun yeni portföy eşleşmeleri mevcut!")
+    // Sadece daha önce görülmemiş müşteri-portföy eşleşmelerini bildir
+    LaunchedEffect(allPortfolios, clients) {
+        if (allPortfolios.isNotEmpty() && clients.isNotEmpty()) {
+            val newMatches = crmManager.getNewMatches(clients, allPortfolios)
+
+            if (newMatches.isNotEmpty()) {
+                snackbarHostState.showSnackbar(
+                    "🔔 ${newMatches.size} yeni portföy eşleşmesi bulundu!"
+                )
+                crmManager.markMatchesSeen(newMatches)
             }
         }
     }

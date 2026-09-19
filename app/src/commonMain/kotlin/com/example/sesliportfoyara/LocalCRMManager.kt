@@ -9,6 +9,7 @@ import kotlinx.serialization.json.*
 
 class LocalCRMManager(private val settings: Settings) {
     private val CLIENTS_KEY = "crm_clients_v1"
+    private val SEEN_MATCHES_KEY = "crm_seen_matches_v1"
     private val json = Json { 
         ignoreUnknownKeys = true 
         coerceInputValues = true
@@ -56,6 +57,33 @@ class LocalCRMManager(private val settings: Settings) {
         saveClients(current)
     }
 
+    private fun matchKey(clientId: String, portfolioId: String): String =
+        clientId + "|" + portfolioId
+
+    fun getSeenMatches(): Set<String> {
+        val raw = settings.getString(SEEN_MATCHES_KEY, "")
+        return raw.split("\n").filter { it.isNotBlank() }.toSet()
+    }
+
+    fun getNewMatches(clients: List<Client>, portfolios: List<Portfolio>): List<Pair<Client, Portfolio>> {
+        val seen = getSeenMatches()
+        return clients
+            .filter { it.type == ClientType.BUYER }
+            .flatMap { client ->
+                MatchingEngine.findMatches(client, portfolios)
+                    .filter { portfolio -> matchKey(client.id, portfolio.id) !in seen }
+                    .map { portfolio -> client to portfolio }
+            }
+    }
+
+    fun markMatchesSeen(matches: List<Pair<Client, Portfolio>>) {
+        if (matches.isEmpty()) return
+        val updated = getSeenMatches().toMutableSet()
+        matches.forEach { (client, portfolio) ->
+            updated.add(matchKey(client.id, portfolio.id))
+        }
+        settings.putString(SEEN_MATCHES_KEY, updated.joinToString("\n"))
+    }
     fun exportFullBackup(localPortfolios: List<Portfolio>): String {
         // Müşterileri ve portföyleri içeren bir yapı oluşturuyoruz
         val backupJson = JsonObject(mapOf(
