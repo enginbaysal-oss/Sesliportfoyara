@@ -19,10 +19,16 @@ class FirebaseDatabaseManager : DatabaseManager {
 
     override suspend fun addPortfolio(portfolio: Portfolio): String? {
         return try {
-            val newRef = db.push()
-            val key = newRef.key ?: return null
-            db.child(key).setValue(portfolio.copy(id = key))
-            key
+            if (portfolio.id.startsWith("remax_")) {
+                val key = portfolio.id
+                db.child(key).setValue(portfolio)
+                key
+            } else {
+                val newRef = db.push()
+                val key = newRef.key ?: return null
+                db.child(key).setValue(portfolio.copy(id = key))
+                key
+            }
         } catch (e: Exception) { null }
     }
 
