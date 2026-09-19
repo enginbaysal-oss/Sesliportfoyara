@@ -41,18 +41,14 @@ fun CRMMainScreen(
     val platformUtils = LocalPlatformUtils.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    var newMatches by remember { mutableStateOf<List<Pair<Client, Portfolio>>>(emptyList()) }
 
-    // Sadece daha önce görülmemiş müşteri-portföy eşleşmelerini bildir
+    // Daha once gorulmemis eslesmeleri kalici olarak ekranda tut
     LaunchedEffect(allPortfolios, clients) {
-        if (allPortfolios.isNotEmpty() && clients.isNotEmpty()) {
-            val newMatches = crmManager.getNewMatches(clients, allPortfolios)
-
-            if (newMatches.isNotEmpty()) {
-                snackbarHostState.showSnackbar(
-                    "🔔 ${newMatches.size} yeni portföy eşleşmesi bulundu!"
-                )
-                crmManager.markMatchesSeen(newMatches)
-            }
+        newMatches = if (allPortfolios.isNotEmpty() && clients.isNotEmpty()) {
+            crmManager.getNewMatches(clients, allPortfolios)
+        } else {
+            emptyList()
         }
     }
 
@@ -83,6 +79,50 @@ fun CRMMainScreen(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+
+            if (newMatches.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5EC)),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(2.dp, Color(0xFF22A447))
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "🔔 YENİ PORTFÖY EŞLEŞMELERİ",
+                                color = Color(0xFF137A34),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "${newMatches.size} yeni müşteri-portföy eşleşmesi sizi bekliyor.",
+                                color = Color(0xFF333333),
+                                fontSize = 13.sp
+                            )
+                        }
+                        Surface(
+                            color = Color(0xFF22A447),
+                            shape = CircleShape
+                        ) {
+                            Text(
+                                newMatches.size.toString(),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(0.5f), RoundedCornerShape(8.dp)).padding(3.dp)
