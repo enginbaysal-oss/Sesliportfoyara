@@ -1,7 +1,8 @@
-﻿package com.example.sesliportfoyara
+package com.example.sesliportfoyara
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.long
@@ -109,6 +110,7 @@ data class AdminUser(
 @Composable
 fun App() {
     val dbManager = LocalDatabaseManager.current
+    val platformUtils = LocalPlatformUtils.current
     val settings = remember { Settings() }
     val crmManager = LocalCRMManagerProvider.current
     val localPortfolioManager = LocalPortfolioManagerProvider.current
@@ -124,7 +126,7 @@ fun App() {
 
     // Eğer bilgiler boşsa, başlangıç ekranını profil kurulumu yapıyoruz
     var currentScreen by remember {
-        mutableStateOf<Screen>(if (myName.isEmpty() || myPhone.isEmpty()) Screen.ProfileSetup else Screen.VoiceSearch)
+        mutableStateOf<Screen>(Screen.VoiceSearch)
     }
 
     // GECE 00:00'DA OTOMATİK SENKRONİZASYON
@@ -225,17 +227,32 @@ fun App() {
                         Screen.ProfileSetup -> ProfileSetupScreen(
                             initialName = myName,
                             initialPhone = myPhone,
-                            initialUrl = remaxUrl
-                        ) { name, phone, url ->
-                            settings.putString("my_consultant_name", name)
-                            settings.putString("my_consultant_phone", phone)
-                            settings.putString("remax_office_url", url)
-
-                            myName = name
-                            myPhone = phone
-                            remaxUrl = url
-                            currentScreen = Screen.VoiceSearch
-                        }
+                            initialUrl = remaxUrl,
+                            onComplete = { name, phone, url ->
+                            platformUtils.checkAppAuthorization(phone) { authorized, serverName, serverIsAdmin, serverCanUseTools, error ->
+                                if (authorized) {
+                                    val finalName = serverName.ifBlank { name }
+                                    settings.putString("my_consultant_name", finalName)
+                                    settings.putString("my_consultant_phone", phone)
+                                    settings.putString("remax_office_url", url)
+                                    settings.putBoolean("is_admin", serverIsAdmin)
+                                    settings.putBoolean("can_use_tools", serverCanUseTools)
+                                    myName = finalName
+                                    myPhone = phone
+                                    remaxUrl = url
+                                    isAdmin = serverIsAdmin
+                                    canUseTools = serverCanUseTools
+                                    platformUtils.setActiveSession(true)
+                                    currentScreen = Screen.VoiceSearch
+                                } else {
+                                    scope.launch { snackbarHostState.showSnackbar(error.ifBlank { "Kullanım yetkiniz bulunmuyor." }) }
+                                }
+                            }
+                            },
+                            onAdminLogin = {
+                                currentScreen = Screen.UserManagement
+                            }
+                        )
                         Screen.VoiceSearch -> VoiceSearchScreen(officePortfolios) { p ->
                             scope.launch {
                                 try {
@@ -691,7 +708,7 @@ fun App() {
                                                 adminLoading = true
 
                                                 val requestJson =
-                                                    """{"action":"add","full_name":${Json.encodeToString(newUserName.trim())},"phone":${Json.encodeToString(newUserPhone)},"can_use_tools":$newUserTools}"""
+                                                    """{"action":"add","full_name":${JsonPrimitive(newUserName.trim()).toString()},"phone":${JsonPrimitive(newUserPhone).toString()},"can_use_tools":$newUserTools}"""
 
                                                 platformUtils.adminUsersRequest(
                                                     token,
@@ -850,7 +867,8 @@ fun ProfileSetupScreen(
     initialName: String = "",
     initialPhone: String = "",
     initialUrl: String = "",
-    onComplete: (String, String, String) -> Unit
+    onComplete: (String, String, String) -> Unit,
+    onAdminLogin: () -> Unit
 ) {
     var nameValue by remember { mutableStateOf(TextFieldValue(initialName)) }
     var phoneValue by remember { mutableStateOf(TextFieldValue(initialPhone)) }
@@ -904,6 +922,13 @@ fun ProfileSetupScreen(
             enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()
         ) {
             Text("Bilgileri Kaydet", color = Color.Black, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+        OutlinedButton(onClick = onAdminLogin, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(12.dp)) {
+            Icon(Icons.Default.Lock, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("YÖNETİCİ GİRİŞİ", fontWeight = FontWeight.Bold)
         }
     }
 }
