@@ -110,6 +110,9 @@ class LocalCRMManager(private val settings: Settings) {
             updated.joinToString("\n")
         )
     }
+    fun clearSeenMatches() {
+        settings.putString(SEEN_MATCHES_KEY, "")
+    }
     fun getSeenMatches(): Set<String> {
         val raw = settings.getString(SEEN_MATCHES_KEY, "")
         return raw.split("\n").filter { it.isNotBlank() }.toSet()

@@ -43,24 +43,16 @@ fun CRMMainScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var newMatches by remember { mutableStateOf<List<Pair<Client, Portfolio>>>(emptyList()) }
 
-    // Sadece ofise sonradan eklenen portfoyleri CRM musterileriyle karsilastir
+    // Gorulmemis eslesmeleri her CRM acilisinda yeniden hesapla.
+    // Bildirim, kullanici ilgili musteriyi acana kadar kaybolmaz.
     LaunchedEffect(allPortfolios, clients) {
         if (allPortfolios.isNotEmpty() && clients.isNotEmpty()) {
-            val newPortfolios = crmManager.getNewOfficePortfolios(allPortfolios)
-
-            if (newPortfolios.isNotEmpty()) {
-                newMatches = clients
-                    .filter { it.type == ClientType.BUYER }
-                    .flatMap { client ->
-                        MatchingEngine.findMatches(client, newPortfolios)
-                            .map { portfolio -> client to portfolio }
-                    }
-
-                crmManager.markOfficePortfoliosKnown(newPortfolios)
-            }
+            newMatches = crmManager.getNewMatches(clients, allPortfolios)
+            crmManager.markOfficePortfoliosKnown(allPortfolios)
+        } else {
+            newMatches = emptyList()
         }
     }
-
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
@@ -91,7 +83,14 @@ fun CRMMainScreen(
 
             if (newMatches.isNotEmpty()) {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        val client = newMatches.firstOrNull()?.first
+                        if (client != null) {
+                            crmManager.markMatchesSeen(newMatches.filter { it.first.id == client.id })
+                            newMatches = crmManager.getNewMatches(clients, allPortfolios)
+                            onClientClick(client)
+                        }
+                    },
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5EC)),
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(2.dp, Color(0xFF22A447))
