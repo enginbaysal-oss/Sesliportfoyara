@@ -64,7 +64,7 @@ fun CRMMainScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Müşterilerim", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("CRM", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 
                 Button(
                     onClick = onAddClient,
@@ -305,6 +305,12 @@ fun AddClientScreen(
     var price by remember { mutableStateOf(editingClient?.preferredPriceMax ?: "") }
     var rooms by remember { mutableStateOf(editingClient?.preferredRooms ?: "") }
     var note by remember { mutableStateOf(editingClient?.note ?: "") }
+    var reminderDateTime by remember { mutableStateOf("") }
+    var reminderNote by remember { mutableStateOf("") }
+    var reminders by remember { mutableStateOf(editingClient?.reminders ?: emptyList()) }
+    var sharedLink by remember { mutableStateOf("") }
+    var sharedLinkNote by remember { mutableStateOf("") }
+    var sharedLinks by remember { mutableStateOf(editingClient?.sharedPortfolioLinks ?: emptyList()) }
 
     val scrollState = rememberScrollState()
 
@@ -349,7 +355,10 @@ fun AddClientScreen(
 
         CustomInputField("AD SOYAD", name) { name = it }
         CustomInputField("TELEFON", phone) { phone = it }
-        CustomInputField("BÜTÇE", price) { price = it }
+        CustomInputField("BÜTÇE", price) { input ->
+    val digits = input.filter { it.isDigit() }
+    price = digits.reversed().chunked(3).joinToString(".").reversed()
+}
 
         Text("EMLAK TÜRÜ", color = MaterialTheme.colorScheme.onBackground.copy(0.6f), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
         FlowRow(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -377,6 +386,114 @@ fun AddClientScreen(
 
         CustomInputField("NOTLAR", note) { note = it }
 
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            "HATIRLATMALAR",
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        reminders.forEachIndexed { index, reminder ->
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(reminder.dateTime, fontWeight = FontWeight.Bold)
+                    if (reminder.note.isNotBlank()) Text(reminder.note)
+                    Text(
+                        "Kaldır",
+                        color = Color.Red,
+                        modifier = Modifier.padding(top = 6.dp).clickable {
+                            reminders = reminders.filterIndexed { i, _ -> i != index }
+                        }
+                    )
+                }
+            }
+        }
+
+        CustomInputField("TARİH / SAAT (ÖRN: 25.09.2026 14:30)", reminderDateTime) {
+            reminderDateTime = it
+        }
+        CustomInputField("HATIRLATMA NOTU", reminderNote) {
+            reminderNote = it
+        }
+
+        OutlinedButton(
+            onClick = {
+                if (reminderDateTime.isNotBlank() || reminderNote.isNotBlank()) {
+                    reminders = reminders + CRMReminder(
+                        dateTime = reminderDateTime.trim(),
+                        note = reminderNote.trim()
+                    )
+                    reminderDateTime = ""
+                    reminderNote = ""
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("+ Hatırlatma Ekle")
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            "MÜŞTERİYLE PAYLAŞILAN PORTFÖYLER",
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        sharedLinks.forEachIndexed { index, item ->
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    if (item.note.isNotBlank()) {
+                        Text(item.note, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        item.url,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        "Kaldır",
+                        color = Color.Red,
+                        modifier = Modifier.padding(top = 6.dp).clickable {
+                            sharedLinks = sharedLinks.filterIndexed { i, _ -> i != index }
+                        }
+                    )
+                }
+            }
+        }
+
+        CustomInputField("PORTFÖY LİNKİ", sharedLink) {
+            sharedLink = it
+        }
+        CustomInputField("AÇIKLAMA (İSTEĞE BAĞLI)", sharedLinkNote) {
+            sharedLinkNote = it
+        }
+
+        OutlinedButton(
+            onClick = {
+                if (sharedLink.isNotBlank()) {
+                    sharedLinks = sharedLinks + SharedPortfolioLink(
+                        url = sharedLink.trim(),
+                        note = sharedLinkNote.trim()
+                    )
+                    sharedLink = ""
+                    sharedLinkNote = ""
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("+ Link Ekle")
+        }
+
         Spacer(modifier = Modifier.height(40.dp))
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -391,18 +508,22 @@ fun AddClientScreen(
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(0.1f))
                 ) {
-                    Text("Sil", color = Color.Red)
+                    Icon(Icons.Default.Delete, contentDescription = "Sil", tint = Color.Red, modifier = Modifier.size(20.dp))
                 }
             }
             
-            OutlinedButton(
-                onClick = onCancel,
-                modifier = Modifier.weight(1f).height(56.dp),
-                shape = RoundedCornerShape(12.dp),
-                border = borderStroke(1.dp, Color.Gray)
-            ) {
-                Text("Vazgeç", color = Color.White)
-            }
+            Button(
+    onClick = onCancel,
+    modifier = Modifier.weight(1f).height(56.dp),
+    shape = RoundedCornerShape(12.dp),
+    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B2B36))
+) {
+    Text(
+        "Vazgeç",
+        color = Color.White,
+        fontWeight = FontWeight.Bold
+    )
+}
 
             Button(
                 onClick = {
@@ -420,6 +541,8 @@ fun AddClientScreen(
                             preferredPriceMax = price,
                             preferredRooms = rooms,
                             note = note,
+                            reminders = reminders,
+                            sharedPortfolioLinks = sharedLinks,
                             createdAt = editingClient?.createdAt ?: Clock.now()
                         ))
                     }
@@ -447,89 +570,324 @@ fun ClientDetailScreen(
         MatchingEngine.findMatches(client, allPortfolios)
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(20.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MaterialTheme.colorScheme.onBackground) }
-                Text("Müşteri Detayı", color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            }
-            IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary) }
-        }
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 18.dp),
+        contentPadding = PaddingValues(bottom = 40.dp)
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Geri",
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(0.3f)),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f))
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(client.name, color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-                    Text(client.phone, color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
-                    
-                    if (client.phone.isNotEmpty()) {
-                        Spacer(Modifier.width(16.dp))
-                        // Arama Butonu
-                        IconButton(
-                            onClick = { platformUtils.openUri("tel:${client.phone.filter { it.isDigit() }}") },
-                            modifier = Modifier.size(36.dp).background(Color(0xFF2196F3).copy(0.2f), CircleShape)
-                        ) {
-                            Icon(Icons.Default.Phone, null, tint = Color(0xFF2196F3), modifier = Modifier.size(20.dp))
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        // WhatsApp Butonu
-                        IconButton(
-                            onClick = { platformUtils.openUri("https://wa.me/${client.phone.filter { it.isDigit() }}") },
-                            modifier = Modifier.size(36.dp).background(Color(0xFF25D366).copy(0.2f), CircleShape)
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.Message, null, tint = Color(0xFF25D366), modifier = Modifier.size(20.dp))
-                        }
+                    Column {
+                        Text(
+                            "Müşteri Detayı",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 21.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            client.name,
+                            color = Color.Gray,
+                            fontSize = 13.sp
+                        )
                     }
                 }
-                
-                Box(Modifier.padding(top = 4.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) {
-                    Text("${client.dealType} ${client.propertyType}", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            CircleShape
+                        )
+                ) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Düzenle",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
-                
-                val locationParts = listOf(client.il, client.ilce, client.mahalle).filter { it.isNotEmpty() }
-                if (locationParts.isNotEmpty()) {
+            }
+        }
+
+        item {
+            Text(
+                "MÜŞTERİ BİLGİLERİ",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        client.name,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
                     Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.LocationOn, null, tint = Color.Gray, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(locationParts.joinToString(" / "), color = Color.Gray, fontSize = 13.sp)
-                    }
-                }
 
-                if (client.note.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("Not: ${client.note}", color = MaterialTheme.colorScheme.onBackground.copy(0.7f), fontSize = 13.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            client.phone,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 16.sp
+                        )
+
+                        if (client.phone.isNotBlank()) {
+                            Spacer(Modifier.weight(1f))
+
+                            IconButton(
+                                onClick = {
+                                    platformUtils.openUri(
+                                        "tel:${client.phone.filter { it.isDigit() }}"
+                                    )
+                                },
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .background(
+                                        Color(0xFF2196F3).copy(alpha = 0.15f),
+                                        CircleShape
+                                    )
+                            ) {
+                                Icon(
+                                    Icons.Default.Phone,
+                                    contentDescription = "Ara",
+                                    tint = Color(0xFF2196F3),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            Spacer(Modifier.width(8.dp))
+
+                            IconButton(
+                                onClick = {
+                                    platformUtils.openUri(
+                                        "https://wa.me/${client.phone.filter { it.isDigit() }}"
+                                    )
+                                },
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .background(
+                                        Color(0xFF25D366).copy(alpha = 0.15f),
+                                        CircleShape
+                                    )
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.Message,
+                                    contentDescription = "WhatsApp",
+                                    tint = Color(0xFF25D366),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Text(
+                        "${client.dealType} • ${client.propertyType}",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    val locationParts = listOf(
+                        client.il,
+                        client.ilce,
+                        client.mahalle
+                    ).filter { it.isNotBlank() }
+
+                    if (locationParts.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Konum: ${locationParts.joinToString(" / ")}",
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    if (client.preferredRooms.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Oda: ${client.preferredRooms}",
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    if (client.preferredPriceMax.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Maksimum bütçe: ${client.preferredPriceMax}",
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    if (client.note.isNotBlank()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "Notlar",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            client.note,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        item {
+            Text(
+                "HATIRLATMALAR (${client.reminders.size})",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
+            )
+
+            if (client.reminders.isEmpty()) {
+                Text(
+                    "Bu müşteri için hatırlatma bulunmuyor.",
+                    color = Color.Gray,
+                    fontSize = 14.sp
+                )
+            } else {
+                client.reminders.forEach { reminder ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            if (reminder.dateTime.isNotBlank()) {
+                                Text(
+                                    reminder.dateTime,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
+
+                            if (reminder.note.isNotBlank()) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    reminder.note,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Text(
+                "SUNULAN PORTFÖYLER (${client.sharedPortfolioLinks.size})",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
+            )
+
+            if (client.sharedPortfolioLinks.isEmpty()) {
+                Text(
+                    "Bu müşteriye henüz portföy linki eklenmemiş.",
+                    color = Color.Gray,
+                    fontSize = 14.sp
+                )
+            } else {
+                client.sharedPortfolioLinks.forEach { link ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                            .clickable {
+                                if (link.url.isNotBlank()) {
+                                    platformUtils.openUri(link.url)
+                                }
+                            },
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            if (link.note.isNotBlank()) {
+                                Text(
+                                    link.note,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Spacer(Modifier.height(4.dp))
+                            }
+
+                            Text(
+                                link.url,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         if (client.type == ClientType.BUYER) {
-            Text("Otomatik Eşleşen Portföyler (${matchedPortfolios.size})", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            if (matchedPortfolios.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
-                    Text("Uygun portföy bulunamadı.", color = Color.Gray)
-                }
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxSize().weight(1f)) {
-                    items(matchedPortfolios) { portfolio ->
-                        PortfolioItem(portfolio, onDelete = null, onEdit = null)
-                    }
+            item {
+                Text(
+                    "EŞLEŞEN PORTFÖYLER (${matchedPortfolios.size})",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
+                )
+
+                if (matchedPortfolios.isEmpty()) {
+                    Text(
+                        "Şu anda uygun portföy bulunamadı.",
+                        color = Color.Gray,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
                 }
             }
-        } else {
-            Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
-                Text("Satıcı müşteriler için portföy eşleşmesi yakında eklenecek.", color = Color.Gray)
+
+            items(matchedPortfolios) { portfolio ->
+                PortfolioItem(
+                    portfolio,
+                    onDelete = null,
+                    onEdit = null
+                )
             }
         }
     }

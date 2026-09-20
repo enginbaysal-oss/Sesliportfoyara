@@ -9,6 +9,18 @@ enum class ClientType {
 }
 
 @Serializable
+data class CRMReminder(
+    val dateTime: String = "",
+    val note: String = ""
+)
+
+@kotlinx.serialization.Serializable
+data class SharedPortfolioLink(
+    val url: String = "",
+    val note: String = ""
+)
+
+@Serializable
 data class Client(
     val id: String = "",
     val name: String = "",
@@ -22,5 +34,6 @@ data class Client(
     val preferredPriceMax: String = "",
     val preferredRooms: String = "",
     val note: String = "",
-    val createdAt: Long = 0
-)
+    val createdAt: Long = 0,
+    val reminders: List<CRMReminder> = emptyList(),
+    val sharedPortfolioLinks: List<SharedPortfolioLink> = emptyList())

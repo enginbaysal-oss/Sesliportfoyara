@@ -92,7 +92,7 @@ sealed class Screen(val title: String) {
     object AddPortfolio : Screen("Portföy Ekle")
     object MyPortfolio : Screen("Portföyüm")
     object ProfileSetup : Screen("Profil Kurulumu")
-    object CRM : Screen("Müşterilerim")
+    object CRM : Screen("CRM")
     object Tools : Screen("Araçlar")
     object UserManagement : Screen("Kullanıcı Yönetimi")
     object AddClient : Screen("Müşteri Ekle")
