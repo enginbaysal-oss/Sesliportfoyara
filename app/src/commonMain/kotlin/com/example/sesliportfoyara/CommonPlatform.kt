@@ -11,6 +11,10 @@ interface PlatformUtils {
     fun startVoiceRecognition(onResult: (String) -> Unit, onError: (String) -> Unit)
     fun stopVoiceRecognition()
     fun saveFile(fileName: String, content: String, onResult: (Boolean) -> Unit)
+    fun checkAppAuthorization(phone: String, onResult: (Boolean, String, Boolean, Boolean, String) -> Unit) { onResult(false, "", false, false, "Bu platformda yetkilendirme desteklenmiyor.") }
+    fun hasActiveSession(): Boolean = false
+    fun setActiveSession(active: Boolean) {}
+    fun saveRemaxUrl(url: String) {}
     fun adminSignUp(email: String, password: String, onResult: (Boolean, String) -> Unit)
     fun adminSignIn(email: String, password: String, onResult: (Boolean, String, String) -> Unit)
     fun adminResendConfirmation(email: String, onResult: (Boolean, String) -> Unit)

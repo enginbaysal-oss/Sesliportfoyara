@@ -386,9 +386,18 @@ class MainActivity : ComponentActivity() {
             e.printStackTrace()
         }
 
+        RemaxSyncScheduler.schedule(applicationContext)
+
         checkPermissions()
 
         val platformUtils = object : PlatformUtils {
+            override fun saveRemaxUrl(url: String) {
+                this@MainActivity
+                    .getSharedPreferences("ceptemlak_background", android.content.Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("remax_office_url", url)
+                    .apply()
+            }
             override fun openEmlakAsistan() {
                 android.widget.Toast.makeText(
                     this@MainActivity,
@@ -473,6 +482,10 @@ class MainActivity : ComponentActivity() {
                 saveFileCallback = onResult
                 saveFileContent = content
                 createDocumentLauncher.launch(fileName)
+            }
+
+            override fun checkAppAuthorization(phone: String, onResult: (Boolean, String, Boolean, Boolean, String) -> Unit) {
+                this@MainActivity.checkSupabaseAuthorization(phone) { r -> onResult(r.authorized, r.fullName, r.isAdmin, r.canUseTools, r.error ?: "") }
             }
 
             override fun adminSignUp(email: String, password: String, onResult: (Boolean, String) -> Unit) {

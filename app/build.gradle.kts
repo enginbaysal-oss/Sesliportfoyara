@@ -1,4 +1,4 @@
-﻿import java.util.Properties
+import java.util.Properties
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 
@@ -71,6 +71,7 @@ kotlin {
                 implementation("com.squareup.okhttp3:okhttp:4.12.0")
                 implementation("dev.gitlive:firebase-database:2.7.0")
                 implementation("io.ktor:ktor-client-android:3.0.0")
+                implementation("androidx.work:work-runtime-ktx:2.10.1")
             }
         }
         val desktopMain by getting {

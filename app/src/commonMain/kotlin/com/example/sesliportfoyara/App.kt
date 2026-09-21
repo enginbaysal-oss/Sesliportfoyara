@@ -129,38 +129,6 @@ fun App() {
         mutableStateOf<Screen>(Screen.VoiceSearch)
     }
 
-    // GECE 00:00'DA OTOMATİK SENKRONİZASYON
-    LaunchedEffect(remaxUrl) {
-        if (remaxUrl.isNotBlank()) {
-            // NOT: Açılışta otomatik senkronizasyon devre dışı bırakıldı.
-            // Web (wasmJs) tarafında CORS engeli nedeniyle bu çağrı askıda kalıp
-            // tüm ekranı kilitleyebiliyordu. Artık kullanıcı "İçe Aktar" butonuyla
-            // manuel olarak tetikliyor. Gerekirse (proxy/CORS çözümü sonrası)
-            // aşağıdaki satırın başındaki // işaretini kaldırıp tekrar aktif edebilirsiniz.
-            // remaxService.syncWithFirebase(remaxUrl, dbManager)
-
-            while (true) {
-                // Türkiye saatiyle (UTC+3) gece 00:00'ı hesapla
-                val now = Clock.now()
-                val millisInDay = 24 * 60 * 60 * 1000L
-                // Basit bir yaklaşımla gece yarısına kalan süreyi bul
-                val currentMillisInDay = (now + (3 * 3600_000)) % millisInDay // UTC+3 ayarı
-                var delayToMidnight = millisInDay - currentMillisInDay
-
-                // Eğer çok yakınsa (1 dakikadan az), bir sonraki günü bekle
-                if (delayToMidnight < 60_000) delayToMidnight += millisInDay
-
-                println("🔄 Gece 00:00 senkronizasyonu için bekleniyor: ${delayToMidnight / 1000 / 60} dakika")
-                delay(delayToMidnight)
-
-                println("🌙 Saat 00:00: Otomatik portföy güncellemesi başlatılıyor...")
-                remaxService.syncWithFirebase(remaxUrl, dbManager)
-
-                delay(300_000) // 5 dakika bekle ki aynı gün içinde tekrar tetiklenmesin
-            }
-        }
-    }
-
     CompositionLocalProvider(
         LocalConsultantInfo provides ConsultantInfo(myName, myPhone),
         LocalSnackbarHostState provides snackbarHostState,
@@ -235,6 +203,7 @@ fun App() {
                                     settings.putString("my_consultant_name", finalName)
                                     settings.putString("my_consultant_phone", phone)
                                     settings.putString("remax_office_url", url)
+                                    platformUtils.saveRemaxUrl(url)
                                     settings.putBoolean("is_admin", serverIsAdmin)
                                     settings.putBoolean("can_use_tools", serverCanUseTools)
                                     myName = finalName
