@@ -395,6 +395,10 @@ class MainActivity : ComponentActivity() {
                 return ReminderScheduler.schedule(this@MainActivity, dateTime, note)
             }
 
+            override fun cancelReminder(dateTime: String, note: String) {
+                ReminderScheduler.cancel(this@MainActivity, dateTime, note)
+            }
+
             override fun saveRemaxUrl(url: String) {
                 this@MainActivity
                     .getSharedPreferences("ceptemlak_background", android.content.Context.MODE_PRIVATE)

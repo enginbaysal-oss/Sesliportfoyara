@@ -337,7 +337,7 @@ fun CRMMainScreen(
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier
                                             .padding(top = 8.dp)
-                                            .clickable { crmManager.deleteGeneralReminder(index) }
+                                            .clickable { platformUtils.cancelReminder(reminder.dateTime, reminder.note); crmManager.deleteGeneralReminder(index) }
                                     )
                                 }
                             }

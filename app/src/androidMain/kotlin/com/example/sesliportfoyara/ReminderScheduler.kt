@@ -2,6 +2,7 @@
 
 import android.content.Context
 import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import java.text.SimpleDateFormat
@@ -9,6 +10,10 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 object ReminderScheduler {
+
+    private fun workName(dateTime: String, note: String): String {
+        return "crm_reminder_${("$dateTime|$note").hashCode()}"
+    }
 
     fun schedule(
         context: Context,
@@ -37,13 +42,25 @@ object ReminderScheduler {
                 .setInputData(data)
                 .build()
 
-            WorkManager
-                .getInstance(context)
-                .enqueue(request)
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                workName(dateTime, note),
+                ExistingWorkPolicy.REPLACE,
+                request
+            )
 
             true
         } catch (_: Exception) {
             false
         }
+    }
+
+    fun cancel(
+        context: Context,
+        dateTime: String,
+        note: String
+    ) {
+        WorkManager.getInstance(context).cancelUniqueWork(
+            workName(dateTime, note)
+        )
     }
 }
