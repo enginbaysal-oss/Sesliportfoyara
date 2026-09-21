@@ -709,13 +709,14 @@ fun ClientItem(client: Client, matchedCount: Int, onClick: (Client) -> Unit) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun AddClientScreen(
     editingClient: Client?,
     onSave: (Client) -> Unit,
     onCancel: () -> Unit
 ) {
+    val platformUtils = LocalPlatformUtils.current
     var name by remember { mutableStateOf(editingClient?.name ?: "") }
     var phone by remember { mutableStateOf(editingClient?.phone ?: "") }
     var type by remember { mutableStateOf(editingClient?.type ?: ClientType.BUYER) }
@@ -728,6 +729,12 @@ fun AddClientScreen(
     var rooms by remember { mutableStateOf(editingClient?.preferredRooms ?: "") }
     var note by remember { mutableStateOf(editingClient?.note ?: "") }
     var reminderDateTime by remember { mutableStateOf("") }
+    var reminderDate by remember { mutableStateOf("") }
+    var reminderHour by remember { mutableStateOf<Int?>(null) }
+    var reminderMinute by remember { mutableStateOf<Int?>(null) }
+    var showReminderDatePicker by remember { mutableStateOf(false) }
+    var showReminderTimePicker by remember { mutableStateOf(false) }
+    val reminderDatePickerState = rememberDatePickerState()
     var reminderNote by remember { mutableStateOf("") }
     var reminders by remember { mutableStateOf(editingClient?.reminders ?: emptyList()) }
     var sharedLink by remember { mutableStateOf("") }
@@ -886,6 +893,12 @@ fun AddClientScreen(
                         "Kaldır",
                         color = Color.Red,
                         modifier = Modifier.padding(top = 6.dp).clickable {
+                            if (reminder.dateTime.isNotBlank()) {
+                                platformUtils.cancelReminder(
+                                    reminder.dateTime,
+                                    "${name.trim()} - ${reminder.note}".trimEnd(' ', '-')
+                                )
+                            }
                             reminders = reminders.filterIndexed { i, _ -> i != index }
                         }
                     )
@@ -893,9 +906,113 @@ fun AddClientScreen(
             }
         }
 
-        CustomInputField("TARİH / SAAT (ÖRN: 25.09.2026 14:30)", reminderDateTime) {
-            reminderDateTime = it
+        OutlinedButton(
+            onClick = { showReminderDatePicker = true },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                if (reminderDateTime.isBlank()) "📅 Tarih ve Saat Seç"
+                else "📅 $reminderDateTime"
+            )
         }
+
+        if (showReminderDatePicker) {
+            DatePickerDialog(
+                onDismissRequest = { showReminderDatePicker = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            reminderDatePickerState.selectedDateMillis?.let { millis ->
+                                reminderDate = formatReminderDate(millis)
+                                showReminderDatePicker = false
+                                showReminderTimePicker = true
+                            }
+                        }
+                    ) {
+                        Text("Tamam")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showReminderDatePicker = false }
+                    ) {
+                        Text("İptal")
+                    }
+                }
+            ) {
+                DatePicker(state = reminderDatePickerState)
+            }
+        }
+
+        if (showReminderTimePicker) {
+            AlertDialog(
+                onDismissRequest = { showReminderTimePicker = false },
+                title = { Text("Saat Seç") },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 500.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text("Saat", fontWeight = FontWeight.Bold)
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            (0..23).forEach { hour ->
+                                FilterChip(
+                                    selected = reminderHour == hour,
+                                    onClick = { reminderHour = hour },
+                                    label = { Text(hour.toString().padStart(2, '0')) }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text("Dakika", fontWeight = FontWeight.Bold)
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            (0..59).forEach { minute ->
+                                FilterChip(
+                                    selected = reminderMinute == minute,
+                                    onClick = { reminderMinute = minute },
+                                    label = { Text(minute.toString().padStart(2, '0')) }
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            if (reminderDate.isNotBlank() &&
+                                reminderHour != null &&
+                                reminderMinute != null
+                            ) {
+                                reminderDateTime =
+                                    "$reminderDate ${reminderHour.toString().padStart(2, '0')}:${reminderMinute.toString().padStart(2, '0')}"
+                                showReminderTimePicker = false
+                            }
+                        }
+                    ) {
+                        Text("Tamam")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showReminderTimePicker = false }
+                    ) {
+                        Text("İptal")
+                    }
+                }
+            )
+        }
+
         CustomInputField("HATIRLATMA NOTU", reminderNote) {
             reminderNote = it
         }
@@ -903,10 +1020,17 @@ fun AddClientScreen(
         OutlinedButton(
             onClick = {
                 if (reminderDateTime.isNotBlank() || reminderNote.isNotBlank()) {
-                    reminders = reminders + CRMReminder(
+                    val newReminder = CRMReminder(
                         dateTime = reminderDateTime.trim(),
                         note = reminderNote.trim()
                     )
+                    reminders = reminders + newReminder
+                    if (newReminder.dateTime.isNotBlank()) {
+                        platformUtils.scheduleReminder(
+                            newReminder.dateTime,
+                            "${name.trim()} - ${newReminder.note}".trimEnd(' ', '-')
+                        )
+                    }
                     reminderDateTime = ""
                     reminderNote = ""
                 }
