@@ -222,7 +222,7 @@ fun App() {
                                 currentScreen = Screen.UserManagement
                             }
                         )
-                        Screen.VoiceSearch -> VoiceSearchScreen(officePortfolios) { p ->
+                        Screen.VoiceSearch -> VoiceSearchScreen(officePortfolios, localPortfolios) { p ->
                             scope.launch {
                                 try {
                                     val officeCopy = p.copy(
@@ -1123,10 +1123,16 @@ fun TabNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
 }
 
 @Composable
-fun VoiceSearchScreen(portfolios: List<Portfolio>, onPublish: (Portfolio) -> Unit) {
+fun VoiceSearchScreen(
+    officePortfolios: List<Portfolio>,
+    localPortfolios: List<Portfolio>,
+    onPublish: (Portfolio) -> Unit
+) {
     val scrollState = rememberScrollState()
     var searchResults by remember { mutableStateOf<List<Portfolio>>(emptyList()) }
     var lastQuery by remember { mutableStateOf("") }
+    var searchSource by remember { mutableStateOf(0) }
+    val portfolios = if (searchSource == 0) officePortfolios else localPortfolios
     val platformUtils = LocalPlatformUtils.current
     val snackbarHostState = LocalSnackbarHostState.current
     val scope = rememberCoroutineScope()
@@ -1154,6 +1160,56 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>, onPublish: (Portfolio) -> Uni
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    RoundedCornerShape(10.dp)
+                )
+                .padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            listOf(
+                "🏢 Ofis" to 0,
+                "👤 Portföylerim" to 1
+            ).forEach { (title, source) ->
+                val selected = searchSource == source
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (selected) MaterialTheme.colorScheme.primary
+                            else Color.Transparent
+                        )
+                        .clickable {
+                            searchSource = source
+                            val selectedPortfolios =
+                                if (source == 0) officePortfolios else localPortfolios
+                            searchResults =
+                                if (lastQuery.isNotBlank())
+                                    PortfolioSearchEngine.search(lastQuery, selectedPortfolios)
+                                else
+                                    emptyList()
+                        }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = title,
+                        color = if (selected) Color.White
+                        else MaterialTheme.colorScheme.onBackground,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
         Spacer(modifier = Modifier.height(10.dp)) // Boşluk daraltıldı
 
         Box(
@@ -1272,7 +1328,10 @@ fun VoiceSearchScreen(portfolios: List<Portfolio>, onPublish: (Portfolio) -> Uni
         }
 
         Spacer(modifier = Modifier.height(40.dp))
-    }
+    
+
+        Spacer(modifier = Modifier.height(8.dp))
+}
 }
 
 @Composable
