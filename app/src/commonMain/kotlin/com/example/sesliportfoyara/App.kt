@@ -2120,7 +2120,7 @@ fun ToolsScreen() {
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Arsa, parsel ve drone araçları yakında eklenecek",
+                        text = "Parsel sınırlarını 3D haritada görüntüleyin ve drone uçuşu oluşturun",
                         fontSize = 13.sp
                     )
                 }
