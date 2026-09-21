@@ -424,7 +424,7 @@ fun CRMMainScreen(
                     modifier = Modifier.fillMaxWidth().clickable {
                         val client = newMatches.firstOrNull()?.first
                         if (client != null) {
-                            crmManager.markMatchesSeen(newMatches)
+                            crmManager.markMatchesSeen(newMatches.filter { it.first.id == client.id })
                             newMatches = crmManager.getNewMatches(clients, allPortfolios)
                             onClientClick(client)
                         }
