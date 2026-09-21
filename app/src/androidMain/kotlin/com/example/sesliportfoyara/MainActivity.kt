@@ -391,6 +391,10 @@ class MainActivity : ComponentActivity() {
         checkPermissions()
 
         val platformUtils = object : PlatformUtils {
+            override fun scheduleReminder(dateTime: String, note: String): Boolean {
+                return ReminderScheduler.schedule(this@MainActivity, dateTime, note)
+            }
+
             override fun saveRemaxUrl(url: String) {
                 this@MainActivity
                     .getSharedPreferences("ceptemlak_background", android.content.Context.MODE_PRIVATE)

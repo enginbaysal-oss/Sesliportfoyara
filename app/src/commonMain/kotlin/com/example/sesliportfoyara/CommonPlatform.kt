@@ -15,6 +15,7 @@ interface PlatformUtils {
     fun hasActiveSession(): Boolean = false
     fun setActiveSession(active: Boolean) {}
     fun saveRemaxUrl(url: String) {}
+    fun scheduleReminder(dateTime: String, note: String): Boolean = false
     fun adminSignUp(email: String, password: String, onResult: (Boolean, String) -> Unit)
     fun adminSignIn(email: String, password: String, onResult: (Boolean, String, String) -> Unit)
     fun adminResendConfirmation(email: String, onResult: (Boolean, String) -> Unit)

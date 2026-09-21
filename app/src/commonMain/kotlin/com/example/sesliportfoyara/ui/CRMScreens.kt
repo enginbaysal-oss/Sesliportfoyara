@@ -32,6 +32,22 @@ import androidx.compose.ui.unit.sp
 import com.example.sesliportfoyara.*
 import kotlinx.coroutines.launch
 
+private fun formatReminderDate(epochMillis: Long): String {
+    var z = epochMillis / 86_400_000L + 719_468L
+    val era = if (z >= 0) z / 146_097L else (z - 146_096L) / 146_097L
+    val doe = z - era * 146_097L
+    val yoe = (doe - doe / 1_460L + doe / 36_524L - doe / 146_096L) / 365L
+    var year = yoe + era * 400L
+    val doy = doe - (365L * yoe + yoe / 4L - yoe / 100L)
+    val mp = (5L * doy + 2L) / 153L
+    val day = doy - (153L * mp + 2L) / 5L + 1L
+    val month = mp + if (mp < 10L) 3L else -9L
+    if (month <= 2L) year += 1L
+
+    return "${day.toString().padStart(2, '0')}.${month.toString().padStart(2, '0')}.$year"
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CRMMainScreen(
     clients: List<Client>,
@@ -45,6 +61,16 @@ fun CRMMainScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var newMatches by remember { mutableStateOf<List<Pair<Client, Portfolio>>>(emptyList()) }
+    val generalReminders by crmManager.generalReminders.collectAsState()
+    var showGeneralReminderDialog by remember { mutableStateOf(false) }
+    var showReminderListDialog by remember { mutableStateOf(false) }
+    var showGeneralDatePicker by remember { mutableStateOf(false) }
+    var showGeneralTimePicker by remember { mutableStateOf(false) }
+    var generalReminderDateTime by remember { mutableStateOf("") }
+    var generalReminderDate by remember { mutableStateOf("") }
+    var generalReminderHour by remember { mutableStateOf<Int?>(null) }
+    var generalReminderMinute by remember { mutableStateOf<Int?>(null) }
+    var generalReminderNote by remember { mutableStateOf("") }
 
     // Gorulmemis eslesmeleri her CRM acilisinda yeniden hesapla.
     // Bildirim, kullanici ilgili musteriyi acana kadar kaybolmaz.
@@ -56,6 +82,315 @@ fun CRMMainScreen(
             newMatches = emptyList()
         }
     }
+    if (showGeneralReminderDialog) {
+        AlertDialog(
+            onDismissRequest = { showGeneralReminderDialog = false },
+            title = {
+                Text("Genel Hatırlatma Ekle")
+            },
+            text = {
+                Column {
+                    OutlinedButton(
+                        onClick = { showGeneralDatePicker = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.DateRange, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (generalReminderDate.isBlank()) "Tarih Seç" else generalReminderDate)
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = { showGeneralTimePicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = generalReminderDate.isNotBlank()
+                    ) {
+                        Icon(Icons.Default.Schedule, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        val timeText = if (generalReminderHour != null && generalReminderMinute != null) {
+                            "${generalReminderHour.toString().padStart(2, '0')}:${generalReminderMinute.toString().padStart(2, '0')}"
+                        } else {
+                            "Saat Seç"
+                        }
+                        Text(timeText)
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = generalReminderNote,
+                        onValueChange = { generalReminderNote = it },
+                        label = { Text("Hatırlatma Notu") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = generalReminderDate.isNotBlank() &&
+                        generalReminderHour != null &&
+                        generalReminderMinute != null,
+                    onClick = {
+                        generalReminderDateTime =
+                            "$generalReminderDate ${generalReminderHour.toString().padStart(2, '0')}:${generalReminderMinute.toString().padStart(2, '0')}"
+                        crmManager.addGeneralReminder(
+                            CRMReminder(
+                                dateTime = generalReminderDateTime,
+                                note = generalReminderNote.trim()
+                            )
+                        )
+                        platformUtils.scheduleReminder(
+                            generalReminderDateTime,
+                            generalReminderNote.trim()
+                        )
+                        generalReminderDateTime = ""
+                        generalReminderDate = ""
+                        generalReminderHour = null
+                        generalReminderMinute = null
+                        generalReminderNote = ""
+                        showGeneralReminderDialog = false
+                    }
+                ) {
+                    Text("Kaydet")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showGeneralReminderDialog = false }
+                ) {
+                    Text("İptal")
+                }
+            }
+        )
+    }
+
+    if (showGeneralDatePicker) {
+        val datePickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showGeneralDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            generalReminderDate = formatReminderDate(millis)
+                            showGeneralDatePicker = false
+                            showGeneralTimePicker = true
+                        }
+                    }
+                ) {
+                    Text("Tamam")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showGeneralDatePicker = false }) {
+                    Text("İptal")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showGeneralTimePicker) {
+        var tempHour by remember { mutableStateOf(generalReminderHour ?: 12) }
+        var tempMinute by remember { mutableStateOf(generalReminderMinute ?: 0) }
+        var hourMenuExpanded by remember { mutableStateOf(false) }
+        var minuteMenuExpanded by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { showGeneralTimePicker = false },
+            title = { Text("Saat Seç") },
+            text = {
+                Column {
+                    Text(
+                        "Saati seçin",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { hourMenuExpanded = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Saat  ${tempHour.toString().padStart(2, '0')}")
+                        }
+
+                        DropdownMenu(
+                            expanded = hourMenuExpanded,
+                            onDismissRequest = { hourMenuExpanded = false }
+                        ) {
+                            (0..23).forEach { hour ->
+                                DropdownMenuItem(
+                                    text = { Text(hour.toString().padStart(2, '0')) },
+                                    onClick = {
+                                        tempHour = hour
+                                        hourMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { minuteMenuExpanded = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Dakika  ${tempMinute.toString().padStart(2, '0')}")
+                        }
+
+                        DropdownMenu(
+                            expanded = minuteMenuExpanded,
+                            onDismissRequest = { minuteMenuExpanded = false }
+                        ) {
+                            (0..59).forEach { minute ->
+                                DropdownMenuItem(
+                                    text = { Text(minute.toString().padStart(2, '0')) },
+                                    onClick = {
+                                        tempMinute = minute
+                                        minuteMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "Seçilen saat: ${tempHour.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        generalReminderHour = tempHour
+                        generalReminderMinute = tempMinute
+                        showGeneralTimePicker = false
+                    }
+                ) {
+                    Text("Tamam")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showGeneralTimePicker = false }) {
+                    Text("İptal")
+                }
+            }
+        )
+    }
+
+    if (showReminderListDialog) {
+        val customerReminders = clients.flatMap { client ->
+            client.reminders.map { reminder -> client to reminder }
+        }
+
+        AlertDialog(
+            onDismissRequest = { showReminderListDialog = false },
+            title = {
+                Text("Hatırlatmalar")
+            },
+            text = {
+                if (generalReminders.isEmpty() && customerReminders.isEmpty()) {
+                    Text("Kayıtlı hatırlatma bulunmuyor.")
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 460.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(generalReminders.size) { index ->
+                            val reminder = generalReminders[index]
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFFFF3E0)
+                                )
+                            ) {
+                                Column(Modifier.padding(12.dp)) {
+                                    Text(
+                                        "GENEL",
+                                        color = Color(0xFFE65100),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (reminder.dateTime.isNotBlank()) {
+                                        Spacer(Modifier.height(3.dp))
+                                        Text(reminder.dateTime, fontWeight = FontWeight.Bold)
+                                    }
+                                    if (reminder.note.isNotBlank()) {
+                                        Spacer(Modifier.height(3.dp))
+                                        Text(reminder.note)
+                                    }
+                                    Text(
+                                        "Sil",
+                                        color = Color.Red,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier
+                                            .padding(top = 8.dp)
+                                            .clickable { crmManager.deleteGeneralReminder(index) }
+                                    )
+                                }
+                            }
+                        }
+
+                        items(customerReminders.size) { index ->
+                            val (client, reminder) = customerReminders[index]
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        showReminderListDialog = false
+                                        onClientClick(client)
+                                    },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                                )
+                            ) {
+                                Column(Modifier.padding(12.dp)) {
+                                    Text(
+                                        client.name,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (reminder.dateTime.isNotBlank()) {
+                                        Spacer(Modifier.height(3.dp))
+                                        Text(reminder.dateTime, fontWeight = FontWeight.Bold)
+                                    }
+                                    if (reminder.note.isNotBlank()) {
+                                        Spacer(Modifier.height(3.dp))
+                                        Text(reminder.note)
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        "Müşteri detayını aç",
+                                        color = Color.Gray,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showReminderListDialog = false }) {
+                    Text("Kapat")
+                }
+            }
+        )
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
@@ -140,7 +475,9 @@ fun CRMMainScreen(
             }.sortedBy { it.second.dateTime }
 
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showReminderListDialog = true },
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xFFFFF3E0)
                 ),
@@ -174,20 +511,43 @@ fun CRMMainScreen(
                         )
                     }
 
-                    Surface(
-                        color = Color(0xFFFF9800),
-                        shape = CircleShape
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            allReminders.size.toString(),
-                            modifier = Modifier.padding(
-                                horizontal = 8.dp,
-                                vertical = 3.dp
-                            ),
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Surface(
+                            color = Color(0xFFFF9800),
+                            shape = CircleShape
+                        ) {
+                            Text(
+                                (allReminders.size + generalReminders.size).toString(),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        Surface(
+                            modifier = Modifier.size(26.dp).clickable {
+                                showGeneralReminderDialog = true
+                            },
+                            color = Color(0xFFFF9800),
+                            shape = CircleShape
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "+",
+                                    color = Color.White,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }
