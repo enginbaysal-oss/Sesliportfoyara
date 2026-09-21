@@ -167,7 +167,7 @@ fun main() {
 
         Window(
             onCloseRequest = ::exitApplication,
-            title = "CeptEmlak",
+            title = "EmlakCep",
             icon = iconPainter
         ) {
             val crmManager = remember { LocalCRMManager(desktopSettings) }

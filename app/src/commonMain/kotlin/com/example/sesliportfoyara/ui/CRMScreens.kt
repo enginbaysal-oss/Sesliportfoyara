@@ -89,7 +89,7 @@ fun CRMMainScreen(
                     modifier = Modifier.fillMaxWidth().clickable {
                         val client = newMatches.firstOrNull()?.first
                         if (client != null) {
-                            crmManager.markMatchesSeen(newMatches.filter { it.first.id == client.id })
+                            crmManager.markMatchesSeen(newMatches)
                             newMatches = crmManager.getNewMatches(clients, allPortfolios)
                             onClientClick(client)
                         }
@@ -144,106 +144,50 @@ fun CRMMainScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xFFFFF3E0)
                 ),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 border = BorderStroke(1.dp, Color(0xFFFF9800))
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Notifications,
-                                contentDescription = null,
-                                tint = Color(0xFFE65100),
-                                modifier = Modifier.size(22.dp)
-                            )
+                        Icon(
+                            Icons.Default.Notifications,
+                            contentDescription = null,
+                            tint = Color(0xFFE65100),
+                            modifier = Modifier.size(18.dp)
+                        )
 
-                            Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(6.dp))
 
-                            Text(
-                                "HATIRLATMALAR",
-                                color = Color(0xFFE65100),
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-
-                        Surface(
-                            color = Color(0xFFFF9800),
-                            shape = CircleShape
-                        ) {
-                            Text(
-                                allReminders.size.toString(),
-                                modifier = Modifier.padding(
-                                    horizontal = 10.dp,
-                                    vertical = 5.dp
-                                ),
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Text(
+                            "HATIRLATMALAR",
+                            color = Color(0xFFE65100),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
 
-                    Spacer(Modifier.height(8.dp))
-
-                    if (allReminders.isEmpty()) {
+                    Surface(
+                        color = Color(0xFFFF9800),
+                        shape = CircleShape
+                    ) {
                         Text(
-                            "Henüz kayıtlı hatırlatma yok.",
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
-                            fontSize = 13.sp
+                            allReminders.size.toString(),
+                            modifier = Modifier.padding(
+                                horizontal = 8.dp,
+                                vertical = 3.dp
+                            ),
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                    } else {
-                        allReminders.forEach { (client, reminder) ->
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        onClientClick(client)
-                                    }
-                                    .padding(
-                                        horizontal = 6.dp,
-                                        vertical = 8.dp
-                                    )
-                            ) {
-                                Text(
-                                    client.name,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-
-                                if (reminder.dateTime.isNotBlank()) {
-                                    Text(
-                                        reminder.dateTime,
-                                        color = Color(0xFFE65100),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-
-                                if (reminder.note.isNotBlank()) {
-                                    Text(
-                                        reminder.note,
-                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f)
-                            )
-                        }
                     }
                 }
             }

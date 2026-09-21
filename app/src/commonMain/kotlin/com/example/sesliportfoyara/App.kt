@@ -1013,7 +1013,7 @@ fun HeaderSection() {
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "CeptEmlak v1.4.3",
+                    text = "EmlakCep v1.4.3",
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 14.sp, // Başlık küçültüldü
                     fontWeight = FontWeight.ExtraBold,
