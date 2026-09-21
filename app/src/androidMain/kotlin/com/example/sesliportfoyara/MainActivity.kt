@@ -547,7 +547,7 @@ class MainActivity : ComponentActivity() {
                             Spacer(Modifier.height(20.dp))
 
                             Text(
-                                "CeptEmlak",
+                                "EmlakCep",
                                 fontSize = 26.sp,
                                 fontWeight = FontWeight.Bold
                             )
