@@ -52,17 +52,31 @@ class FirebaseDatabaseManager : DatabaseManager {
     override suspend fun addPortfolio(portfolio: Portfolio): String? {
         return try {
             println("📤 Yeni portföy gönderiliyor: ${portfolio.title}")
-            val response = client.post("$baseUrl.json") {
-                contentType(ContentType.Application.Json)
-                setBody(portfolio)
-            }
-            if (response.status.isSuccess()) {
-                println("✅ Portföy başarıyla eklendi.")
-                val body: Map<String, String> = response.body()
-                body["name"] // Firebase REST API post sonucu oluşturulan ID'yi 'name' içinde döner
+            if (portfolio.id.startsWith("remax_")) {
+                val response = client.put("$baseUrl/${portfolio.id}.json") {
+                    contentType(ContentType.Application.Json)
+                    setBody(portfolio)
+                }
+                if (response.status.isSuccess()) {
+                    println("✅ RE/MAX portföyü eklendi/güncellendi: ${portfolio.id}")
+                    portfolio.id
+                } else {
+                    println("⚠️ RE/MAX portföyü ekleme/güncelleme başarısız: ${response.status}")
+                    null
+                }
             } else {
-                println("⚠️ Portföy ekleme başarısız: ${response.status}")
-                null
+                val response = client.post("$baseUrl.json") {
+                    contentType(ContentType.Application.Json)
+                    setBody(portfolio)
+                }
+                if (response.status.isSuccess()) {
+                    println("✅ Portföy başarıyla eklendi.")
+                    val body: Map<String, String> = response.body()
+                    body["name"]
+                } else {
+                    println("⚠️ Portföy ekleme başarısız: ${response.status}")
+                    null
+                }
             }
         } catch (e: Exception) {
             println("❌ Ekleme hatası: ${e.message}")
