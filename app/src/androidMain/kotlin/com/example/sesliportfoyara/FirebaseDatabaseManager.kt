@@ -45,11 +45,4 @@ class FirebaseDatabaseManager : DatabaseManager {
             true
         } catch (e: Exception) { false }
     }
-
-    override suspend fun clearAllPortfolios(): Boolean {
-        return try {
-            db.removeValue()
-            true
-        } catch (e: Exception) { false }
-    }
 }
