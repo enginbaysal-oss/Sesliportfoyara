@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arsa Takip 3D - Pro Drone</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+        #map { width: 100%; height: 100%; }
+        #status-bar {
+            position: fixed; top: 15px; left: 50%; transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.95); color: #00ff00; padding: 12px 25px;
+            border-radius: 25px; border: 1px solid #00ff00; z-index: 1000;
+            font-weight: bold; text-align: center; font-size: 13px; box-shadow: 0 0 20px rgba(0,255,0,0.5);
+            pointer-events: none; width: 85%;
+        }
+        #subtitle-overlay {
+            position: fixed; bottom: 150px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.75); color: white; padding: 12px 25px;
+            border-radius: 10px; font-size: 20px; font-weight: bold; text-align: center;
+            z-index: 2000; display: none; border-left: 5px solid #00ff00;
+            text-shadow: 2px 2px 4px rgba(0,0,0,1); min-width: 250px; width: 80%;
+        }
+        .controls { position: fixed; bottom: 30px; left: 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 1000; }
+        .script-panel {
+            background: rgba(15, 23, 42, 0.95); border: 1px solid #00ff00; border-radius: 15px;
+            padding: 15px; width: 85%; margin-bottom: 10px; display: none;
+        }
+        .script-row { display: flex; gap: 5px; margin-bottom: 5px; }
+        .script-sec { width: 50px; background: #000; color: #00ff00; border: 1px solid #333; padding: 8px; border-radius: 5px; text-align: center; font-size: 14px; }
+        .script-txt { flex: 1; background: #000; color: white; border: 1px solid #333; padding: 8px; border-radius: 5px; font-size: 14px; }
+        .btn { padding: 12px 25px; border-radius: 50px; border: 2px solid white; font-weight: bold; cursor: pointer; box-shadow: 0 5px 20px rgba(0,0,0,0.6); color: white; min-width: 200px; font-size: 14px; }
+        .start-btn { background: #28a745; display: none; }
+        .clear-btn { background: #dc3545; padding: 10px 20px; font-size: 11px; min-width: auto; opacity: 0.8; }
+        #web-menu, #record-menu { max-width: 46vw; }
+        #web-menu button, #record-menu button { white-space: nowrap; }
+        @media (max-width: 760px) {
+            #status-bar { top: 8px; width: calc(100% - 36px); padding: 9px 12px; font-size: 11px; }
+            #web-menu { top: 58px !important; left: 8px !important; }
+            #record-menu { top: 58px !important; right: 8px !important; }
+            #web-menu button, #record-menu button { padding: 8px 10px !important; font-size: 10px; }
+            .controls { bottom: 12px; max-height: 55vh; overflow-y: auto; }
+            .script-panel { width: calc(100% - 42px); padding: 10px; }
+            .btn { min-width: 170px; padding: 10px 18px; font-size: 12px; }
+            #subtitle-overlay { bottom: 125px; font-size: 16px; }
+        }
+    </style>
+</head>
+<body>
+<div id="status-bar">SİSTEM HAZIR. PARSEL BEKLENİYOR...</div>
+<div id="web-menu" style="position:fixed;top:80px;left:15px;z-index:1500;display:flex;flex-direction:column;gap:8px;">
+    <button onclick="window.open('https://parselsorgu.tkgm.gov.tr/','_blank')" style="background:#007BFF;color:white;border:2px solid white;border-radius:20px;padding:10px 15px;font-weight:bold;cursor:pointer;">TKGM PARSEL SORGU</button>
+    <button onclick="document.getElementById('parcel-file').click()" style="background:#22A447;color:white;border:2px solid white;border-radius:20px;padding:10px 15px;font-weight:bold;cursor:pointer;">PARSEL DOSYASI YÜKLE</button>
+    <button onclick="window.location.href='../index.html'" style="background:#0F141E;color:white;border:2px solid #22A447;border-radius:20px;padding:10px 15px;font-weight:bold;cursor:pointer;">ANA MENÜ</button>
+</div>
+<input id="parcel-file" type="file" accept=".json,.geojson,.kml,application/json,application/geo+json,application/vnd.google-earth.kml+xml" style="display:none">
+<div id="subtitle-overlay"></div>
+<div class="controls">
+    <div id="script-panel" class="script-panel">
+        <label style="color:#00ff00; font-size:11px; font-weight:bold; display:block; margin-bottom:8px;">SİNEMATİK SENARYO (Saniye : Yazı)</label>
+        <div id="script-container">
+            <div class="script-row"><input type="number" class="script-sec" value="2"><input type="text" class="script-txt" placeholder="İlk yazı..."></div>
+            <div class="script-row"><input type="number" class="script-sec" value="10"><input type="text" class="script-txt" placeholder="İkinci yazı..."></div>
+        </div>
+        <button onclick="addScriptRow()" style="width:100%; background:none; border:1px dashed #555; color:#888; font-size:11px; margin-top:5px; padding:5px;">+ Satır Ekle</button>
+    </div>
+    <button id="start-btn" class="btn start-btn" onclick="startFlight()">🚀 DRONE UÇUŞUNU BAŞLAT</button>
+    <button id="clear-btn" class="btn clear-btn" style="display:none" onclick="clearParcels()">🗑️ TÜMÜNÜ TEMİZLE</button>
+</div>
+<div id="record-menu" style="position:fixed;top:80px;right:15px;z-index:1500;display:flex;flex-direction:column;gap:8px;">
+    <button id="record-start" onclick="startRecording()" style="background:#dc3545;color:white;border:2px solid white;border-radius:20px;padding:10px 15px;font-weight:bold;cursor:pointer;">⏺ KAYDI BAŞLAT</button>
+    <button id="record-stop" onclick="stopRecording()" style="display:none;background:#0F141E;color:white;border:2px solid #dc3545;border-radius:20px;padding:10px 15px;font-weight:bold;cursor:pointer;">⏹ KAYDI DURDUR</button>
+    <button id="record-share" onclick="shareRecording()" style="display:none;background:#25D366;color:white;border:2px solid white;border-radius:20px;padding:10px 15px;font-weight:bold;cursor:pointer;">WHATSAPP / PAYLAŞ</button>
+    <button id="record-download" onclick="downloadRecording()" style="display:none;background:#2563EB;color:white;border:2px solid white;border-radius:20px;padding:10px 15px;font-weight:bold;cursor:pointer;">VİDEOYU İNDİR</button>
+</div>
+<div id="map"></div>
+<script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoiZW5naW5ieXNsNDUiLCJhIjoiY211NW5wbGd0MDI2OTJ4c2wwenV1ZTAxMCJ9.CJ72QMNX4NiVF9nBpVlVZg';
+    let map, target = null;
+    let mapReady = false, pendingQueue = [];
+    let parcelCount = 0;
+    let markerList = [];
+
+    map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        center: [35.0, 39.0], zoom: 5, pitch: 0, antialias: true
+    });
+
+    map.on('load', () => {
+        mapReady = true;
+        map.addSource('dem', { 'type': 'raster-dem', 'url': 'mapbox://mapbox.mapbox-terrain-dem-v1', 'tileSize': 512 });
+        map.setTerrain({ 'source': 'dem', 'exaggeration': 1.5 });
+
+        if (pendingQueue.length > 0) {
+            pendingQueue.forEach(data => processGeoJSON(data));
+            pendingQueue = [];
+        }
+    });
+
+    document.getElementById('parcel-file').addEventListener('change', function(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        document.getElementById('status-bar').innerText = "PARSEL DOSYASI OKUNUYOR...";
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = e.target.result;
+            if (!mapReady) {
+                pendingQueue.push(data);
+                document.getElementById('status-bar').innerText = "HARİTA HAZIRLANIYOR...";
+            } else {
+                processGeoJSON(data);
+            }
+            event.target.value = "";
+        };
+        reader.onerror = function() {
+            document.getElementById('status-bar').innerText = "HATA: DOSYA OKUNAMADI";
+            event.target.value = "";
+        };
+        reader.readAsText(file, "UTF-8");
+    });
+    function processGeoJSONBase64(base64Data) {
+        try {
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+            const decodedData = new TextDecoder("utf-8").decode(bytes);
+
+            if (!mapReady) {
+                pendingQueue.push(decodedData);
+                return;
+            }
+            processGeoJSON(decodedData);
+        } catch (e) { document.getElementById('status-bar').innerText = "HATA: VERİ AKTARIMI BAŞARISIZ"; }
+    }
+
+    function processGeoJSON(dataStr) {
+        try {
+            let geojson;
+            const trimmed = dataStr.trim();
+            if (trimmed.startsWith('<')) {
+                const parser = new DOMParser();
+                geojson = toGeoJSON.kml(parser.parseFromString(trimmed, "text/xml"));
+            } else {
+                geojson = JSON.parse(trimmed.replace(/[\u0000-\u001F\u007F-\u009F]/g, ""));
+                if (geojson.data) geojson = geojson.data;
+                if (geojson.feature) geojson = geojson.feature;
+            }
+
+            parcelCount++;
+            const id = "p_" + parcelCount;
+            map.addSource(id, { 'type': 'geojson', 'data': geojson });
+            map.addLayer({ 'id': id + '_f', 'type': 'fill', 'source': id, 'paint': { 'fill-color': '#00ff00', 'fill-opacity': 0.4 } });
+            map.addLayer({ 'id': id + '_l', 'type': 'line', 'source': id, 'paint': { 'line-color': '#ff0000', 'line-width': 4 } });
+
+            let coords = [];
+            function collect(c) { if (Array.isArray(c) && typeof c[0] === 'number') coords.push(c); else if (Array.isArray(c)) c.forEach(collect); }
+            if (geojson.type === "FeatureCollection") geojson.features.forEach(f => collect(f.geometry.coordinates));
+            else if (geojson.geometry) collect(geojson.geometry.coordinates);
+
+            if (coords.length > 0) {
+                // Güvenli min/max hesaplama (Beyaz ekranı engeller)
+                let minX = coords[0][0], maxX = coords[0][0], minY = coords[0][1], maxY = coords[0][1];
+                for(let i=1; i<coords.length; i++) {
+                    if(coords[i][0] < minX) minX = coords[i][0]; if(coords[i][0] > maxX) maxX = coords[i][0];
+                    if(coords[i][1] < minY) minY = coords[i][1]; if(coords[i][1] > maxY) maxY = coords[i][1];
+                }
+                target = [(minX + maxX) / 2, (minY + maxY) / 2];
+
+                // Konum İkonu Ekle (Android)
+                const el = document.createElement('div');
+                el.innerHTML = `
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z"
+                              fill="#FF5252" stroke="white" stroke-width="1.5"/>
+                        <circle cx="12" cy="9" r="3" fill="black"/>
+                    </svg>`;
+                const marker = new mapboxgl.Marker(el).setLngLat(target).addTo(map);
+                markerList.push(marker);
+
+                map.flyTo({ center: target, zoom: 15, speed: 0.8 });
+                document.getElementById('status-bar').innerText = parcelCount + ". PARSEL EKLENDİ";
+                document.getElementById('start-btn').style.display = 'block';
+                document.getElementById('clear-btn').style.display = 'block';
+                document.getElementById('script-panel').style.display = 'block';
+            }
+        } catch (e) { document.getElementById('status-bar').innerText = "HATA: " + e.message.toUpperCase(); }
+    }
+
+    function addScriptRow() {
+        const div = document.createElement('div');
+        div.className = 'script-row';
+        div.innerHTML = '<input type="number" class="script-sec" value=""><input type="text" class="script-txt" placeholder="Yeni yazı...">';
+        document.getElementById('script-container').appendChild(div);
+    }
+
+    function clearParcels() {
+        for(let i=1; i<=parcelCount; i++) {
+            const id = "p_" + i;
+            if (map.getSource(id)) { map.removeLayer(id+'_f'); map.removeLayer(id+'_l'); map.removeSource(id); }
+        }
+        markerList.forEach(m => m.remove());
+        markerList = [];
+        parcelCount = 0;
+        document.getElementById('clear-btn').style.display = 'none';
+        document.getElementById('start-btn').style.display = 'none';
+        document.getElementById('script-panel').style.display = 'none';
+        document.getElementById('status-bar').innerText = "HARİTA TEMİZLENDİ";
+        if (window.Android) window.Android.clearParcelList();
+    }
+
+    let screenRecorder = null;
+    let recordedChunks = [];
+    let recordingStream = null;
+    let lastRecordingBlob = null;
+    let lastRecordingFile = null;
+
+    function recordingFileName() {
+        return "EmlakCep_ArsaTakip_" + new Date().toISOString().replace(/[:.]/g,"-") + ".webm";
+    }
+
+    async function startRecording() {
+        try {
+            recordingStream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: true
+            });
+            recordedChunks = [];
+            lastRecordingBlob = null;
+            lastRecordingFile = null;
+            document.getElementById("record-share").style.display = "none";
+            document.getElementById("record-download").style.display = "none";
+            let options = {};
+            if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) {
+                options.mimeType = "video/webm;codecs=vp9,opus";
+            } else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) {
+                options.mimeType = "video/webm;codecs=vp8,opus";
+            }
+            screenRecorder = new MediaRecorder(recordingStream, options);
+            screenRecorder.ondataavailable = function(e) {
+                if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+            };
+            screenRecorder.onstop = function() {
+                lastRecordingBlob = new Blob(recordedChunks, { type: screenRecorder.mimeType || "video/webm" });
+                lastRecordingFile = new File([lastRecordingBlob], recordingFileName(), { type: lastRecordingBlob.type });
+                document.getElementById("status-bar").innerText = "EKRAN KAYDI HAZIR — PAYLAŞABİLİR VEYA İNDİREBİLİRSİNİZ";
+                document.getElementById("record-start").style.display = "block";
+                document.getElementById("record-stop").style.display = "none"; document.getElementById("web-menu").style.display="flex"; document.getElementById("record-menu").style.display="flex";
+                document.getElementById("record-share").style.display = "block";
+                document.getElementById("record-download").style.display = "block";
+            };
+            screenRecorder.start(); document.getElementById("web-menu").style.display="none"; document.getElementById("record-menu").style.display="flex";
+            document.getElementById("record-start").style.display = "none";
+            document.getElementById("record-stop").style.display = "block";
+            document.getElementById("status-bar").innerText = "🔴 EKRAN KAYDI DEVAM EDİYOR";
+            recordingStream.getVideoTracks()[0].addEventListener("ended", function() {
+                if (screenRecorder && screenRecorder.state !== "inactive") screenRecorder.stop();
+            });
+        } catch (e) {
+            document.getElementById("status-bar").innerText = "EKRAN KAYDI BAŞLATILAMADI";
+        }
+    }
+
+    document.addEventListener("keydown", function(e) {
+        if (e.key === "Escape" && screenRecorder && screenRecorder.state !== "inactive") {
+            stopRecording();
+        }
+    });
+    function stopRecording() {
+        if (screenRecorder && screenRecorder.state !== "inactive") {
+            screenRecorder.stop();
+        }
+        if (recordingStream) {
+            recordingStream.getTracks().forEach(track => track.stop());
+        }
+    }
+
+    async function shareRecording() {
+        if (!lastRecordingFile) {
+            document.getElementById("status-bar").innerText = "ÖNCE EKRAN KAYDI OLUŞTURUN";
+            return;
+        }
+        try {
+            if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [lastRecordingFile] }))) {
+                await navigator.share({
+                    title: "EmlakCep Arsa Takip",
+                    text: "Arsa drone tanıtım videosu",
+                    files: [lastRecordingFile]
+                });
+                document.getElementById("status-bar").innerText = "VİDEO PAYLAŞILDI";
+            } else {
+                downloadRecording();
+                window.open("https://wa.me/?text=" + encodeURIComponent("Arsa drone videosu hazır. İndirilen videoyu bu sohbete ekleyebilirsiniz."), "_blank");
+            }
+        } catch (e) {
+            if (e && e.name !== "AbortError") {
+                downloadRecording();
+                document.getElementById("status-bar").innerText = "PAYLAŞIM DESTEKLENMİYOR — VİDEO İNDİRİLDİ";
+            }
+        }
+    }
+
+    function downloadRecording() {
+        if (!lastRecordingBlob) return;
+        const url = URL.createObjectURL(lastRecordingBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = lastRecordingFile ? lastRecordingFile.name : recordingFileName();
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+
+    function startFlight() {
+        const scriptRows = document.querySelectorAll('.script-row');
+        const scripts = Array.from(scriptRows).map(row => ({
+            sec: parseInt(row.querySelector('.script-sec').value) || 0,
+            txt: row.querySelector('.script-txt').value.trim()
+        })).filter(s => s.txt !== "").sort((a,b) => a.sec - b.sec);
+
+        document.getElementById('start-btn').style.display = 'none';
+        document.getElementById('clear-btn').style.display = 'none';
+        document.getElementById('script-panel').style.display = 'none';
+        document.getElementById('status-bar').innerText = "YAVAŞ SARMAL İNİŞ BAŞLADI...";
+
+        const subOverlay = document.getElementById('subtitle-overlay');
+        subOverlay.innerText = "";
+        subOverlay.style.display = 'none';
+
+        let start = null;
+        const duration = 45000;
+        function spiral(t) {
+            if (!start) start = t;
+            const elapsed = (t - start) / 1000;
+            const p = Math.min((t - start) / duration, 1);
+            const e = 1 - (1 - p) * (1 - p);
+
+            // Akıllı altyazı kontrolü
+            if (scripts.length > 0) {
+                let currentTxt = "";
+                for (let s of scripts) {
+                    if (elapsed >= s.sec) currentTxt = s.txt;
+                }
+                if (currentTxt !== "") {
+                    subOverlay.innerText = currentTxt;
+                    subOverlay.style.display = 'block';
+                } else {
+                    subOverlay.style.display = 'none';
+                }
+            }
+
+            map.jumpTo({ center: target, zoom: 8 + (10.2 * e), pitch: 75 * e, bearing: (e * 540) % 360 });
+            if (p < 1) requestAnimationFrame(spiral);
+            else {
+                document.getElementById('status-bar').innerText = "SERBEST KEŞİF: PARSELİ İNCELEYEBİLİRSİNİZ";
+                document.getElementById('clear-btn').style.display = 'block';
+                subOverlay.style.display = 'none';
+                map.dragPan.enable();
+                map.scrollZoom.enable();
+                map.touchZoomRotate.enable();
+            }
+        }
+        requestAnimationFrame(spiral);
+    }
+
+    function startRotation() {
+        let b = map.getBearing();
+        const rot = () => { b = (b + 0.04) % 360; map.jumpTo({ center: target, bearing: b, pitch: 75, zoom: 18.2 }); requestAnimationFrame(rot); };
+        requestAnimationFrame(rot);
+    }
+</script>
+</body>
+</html>

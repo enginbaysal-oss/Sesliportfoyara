@@ -1,4 +1,9 @@
 package com.example.sesliportfoyara
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.boolean
+
 
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.CanvasBasedWindow
@@ -6,6 +11,7 @@ import com.russhwolf.settings.StorageSettings
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.browser.window
 
 @JsFun("(onResult, onError) => { " +
     "console.log('🎤 Web Speech API initiation...'); " +
@@ -111,13 +117,287 @@ external fun jsDownloadFile(content: JsString, fileName: JsString)
     "} " +
     "}")
 external fun jsOpenFilePicker(callback: (JsString?) -> Unit)
+@JsFun("(url, key, path, body, bearer, callback) => { fetch(url + path, { method: 'POST', headers: { 'apikey': key, 'Content-Type': 'application/json', ...(bearer ? {'Authorization':'Bearer ' + bearer} : {}) }, body: body }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, 'Baglanti hatasi: ' + e.message)); }")
+external fun jsSupabasePost(url: JsString, key: JsString, path: JsString, body: JsString, bearer: JsString, callback: (Boolean, JsString) -> Unit)
+
+@JsFun("(url, key, path, bearer, callback) => { fetch(url + path, { method: 'GET', headers: { 'apikey': key, ...(bearer ? {'Authorization':'Bearer ' + bearer} : {}) } }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, 'Bağlantı hatası: ' + e.message)); }")
+external fun jsSupabaseGet(url: JsString, key: JsString, path: JsString, bearer: JsString, callback: (Boolean, JsString) -> Unit)
+
+@JsFun("(text) => { try { const j=JSON.parse(text); return (j.access_token || '').toString(); } catch(e) { return ''; } }")
+external fun jsAccessToken(text: JsString): JsString
+
+@JsFun("(text) => { try { const j=JSON.parse(text); return (j.msg || j.message || j.error_description || j.error || text).toString(); } catch(e) { return text; } }")
+external fun jsApiMessage(text: JsString): JsString
+
+@JsFun("(url) => { " +
+    "if (document.getElementById('cepte_overlay')) return; " +
+    "const overlay = document.createElement('div'); " +
+    "overlay.id = 'cepte_overlay';" +
+    "overlay.style.position = 'fixed';" +
+    "overlay.style.top = '0';" +
+    "overlay.style.left = '0';" +
+    "overlay.style.width = '100vw';" +
+    "overlay.style.height = '100vh';" +
+    "overlay.style.zIndex = '999999';" +
+    "overlay.style.background = '#0F141E';" +
+    "overlay.style.display = 'flex';" +
+    "overlay.style.flexDirection = 'column';" +
+    "" +
+    "const topBar = document.createElement('div');" +
+    "topBar.style.height = '50px';" +
+    "topBar.style.background = '#1b1b1b';" +
+    "topBar.style.color = '#fff';" +
+    "topBar.style.display = 'flex';" +
+    "topBar.style.alignItems = 'center';" +
+    "topBar.style.justifyContent = 'space-between';" +
+    "topBar.style.padding = '0 16px';" +
+    "topBar.style.fontFamily = 'sans-serif';" +
+    "topBar.style.borderBottom = '1px solid #333';" +
+    "" +
+    "const title = document.createElement('span');" +
+    "title.innerText = 'Cepte Emlak Ara';" +
+    "title.style.fontWeight = 'bold';" +
+    "title.style.fontSize = '16px';" +
+    "topBar.appendChild(title);" +
+    "" +
+    "const btnGroup = document.createElement('div');" +
+    "btnGroup.style.display = 'flex';" +
+    "btnGroup.style.gap = '10px';" +
+    "" +
+    "const menuBtn = document.createElement('button');" +
+    "menuBtn.innerText = 'Ana Menü'; " +
+    "menuBtn.style.background = '#22A447';" +
+    "menuBtn.style.color = '#000';" +
+    "menuBtn.style.border = 'none';" +
+    "menuBtn.style.padding = '6px 14px';" +
+    "menuBtn.style.borderRadius = '6px';" +
+    "menuBtn.style.cursor = 'pointer';" +
+    "menuBtn.style.fontWeight = 'bold';" +
+    "menuBtn.onclick = () => { document.body.removeChild(overlay); };" +
+    "btnGroup.appendChild(menuBtn);" +
+    "" +
+    "const closeBtn = document.createElement('button');" +
+    "closeBtn.innerText = 'Geri'; " +
+    "closeBtn.style.background = '#333';" +
+    "closeBtn.style.color = '#fff';" +
+    "closeBtn.style.border = 'none';" +
+    "closeBtn.style.padding = '6px 14px';" +
+    "closeBtn.style.borderRadius = '6px';" +
+    "closeBtn.style.cursor = 'pointer';" +
+    "closeBtn.style.fontWeight = 'bold';" +
+    "closeBtn.onclick = () => { document.body.removeChild(overlay); };" +
+    "btnGroup.appendChild(closeBtn);" +
+    "" +
+    "topBar.appendChild(btnGroup);" +
+    "overlay.appendChild(topBar);" +
+    "" +
+    "const iframe = document.createElement('iframe');" +
+    "iframe.src = url;" +
+    "iframe.allow = 'display-capture; microphone; clipboard-write; fullscreen';" +
+    "iframe.style.width = '100%';" +
+    "iframe.style.height = 'calc(100vh - 50px)';" +
+    "iframe.style.border = 'none';" +
+    "overlay.appendChild(iframe);" +
+    "" +
+    "document.body.appendChild(overlay);" +
+    "}")
+external fun jsOpenOverlay(url: JsString)
+
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     CanvasBasedWindow(canvasElementId = "ComposeTarget") {
         val platformUtils = object : PlatformUtils {
+            val supabaseUrl = "https://jcjerwvibjetomqeelsy.supabase.co"
+            val publishableKey = "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig"
+            val accessTokenKey = "emlakcep_access_token"
+            val refreshTokenKey = "emlakcep_refresh_token"
+
+            fun clearSecureSession() {
+                window.localStorage.removeItem(accessTokenKey)
+                window.localStorage.removeItem(refreshTokenKey)
+                window.localStorage.removeItem("cepte_emlak_authorized")
+                window.sessionStorage.removeItem("cepte_emlak_authorized")
+            }
+
+            fun saveSecureSession(response: String): Boolean {
+                return try {
+                    val root = kotlinx.serialization.json.Json.parseToJsonElement(response).jsonObject
+                    val accessToken = root["access_token"]?.jsonPrimitive?.content.orEmpty()
+                    val refreshToken = root["refresh_token"]?.jsonPrimitive?.content.orEmpty()
+                    if (accessToken.isBlank() || refreshToken.isBlank()) return false
+                    window.localStorage.setItem(accessTokenKey, accessToken)
+                    window.localStorage.setItem(refreshTokenKey, refreshToken)
+                    window.localStorage.removeItem("cepte_emlak_authorized")
+                    window.sessionStorage.removeItem("cepte_emlak_authorized")
+                    true
+                } catch (_: Exception) {
+                    false
+                }
+            }
+
             override fun openUri(uri: String) {
                 kotlinx.browser.window.open(uri, "_blank")
+            }
+            override fun openEmlakAsistan() {
+                jsOpenOverlay("emlakasistan/index.html".toJsString())
+            }
+
+            override fun openArsaTakip() {
+                jsOpenOverlay("arsatakip/index.html".toJsString())
+            }
+
+            override fun supportsSecureUserAuth(): Boolean = true
+
+            override fun userSignUp(email: String, password: String, onResult: (Boolean, String) -> Unit) {
+                val body = """{"email":${kotlinx.serialization.json.JsonPrimitive(email.trim())},"password":${kotlinx.serialization.json.JsonPrimitive(password)}}"""
+                jsSupabasePost(
+                    supabaseUrl.toJsString(), publishableKey.toJsString(), "/auth/v1/signup".toJsString(),
+                    body.toJsString(), "".toJsString()
+                ) { ok, response ->
+                    val message = if (ok) {
+                        "Kayıt başarılı. E-posta doğrulaması gerekiyorsa gelen kutunuzu kontrol edin."
+                    } else jsApiMessage(response).toString()
+                    onResult(ok, message)
+                }
+            }
+
+            override fun userSignIn(email: String, password: String, onResult: (Boolean, String) -> Unit) {
+                val body = """{"email":${kotlinx.serialization.json.JsonPrimitive(email.trim())},"password":${kotlinx.serialization.json.JsonPrimitive(password)}}"""
+                jsSupabasePost(
+                    supabaseUrl.toJsString(), publishableKey.toJsString(), "/auth/v1/token?grant_type=password".toJsString(),
+                    body.toJsString(), "".toJsString()
+                ) { ok, response ->
+                    val success = ok && saveSecureSession(response.toString())
+                    if (!success) clearSecureSession()
+                    onResult(success, if (success) "Giriş başarılı." else jsApiMessage(response).toString())
+                }
+            }
+
+            override fun restoreUserSession(onResult: (Boolean, String) -> Unit) {
+                val accessToken = getUserAccessToken()
+                if (accessToken.isBlank()) {
+                    clearSecureSession()
+                    onResult(false, "Aktif oturum bulunamadı.")
+                    return
+                }
+                jsSupabaseGet(
+                    supabaseUrl.toJsString(), publishableKey.toJsString(), "/auth/v1/user".toJsString(),
+                    accessToken.toJsString()
+                ) { ok, _ ->
+                    if (ok) onResult(true, "Oturum doğrulandı.")
+                    else refreshUserSession(onResult)
+                }
+            }
+
+            override fun refreshUserSession(onResult: (Boolean, String) -> Unit) {
+                val refreshToken = window.localStorage.getItem(refreshTokenKey).orEmpty()
+                if (refreshToken.isBlank()) {
+                    clearSecureSession()
+                    onResult(false, "Oturum süresi doldu.")
+                    return
+                }
+                val body = """{"refresh_token":${kotlinx.serialization.json.JsonPrimitive(refreshToken)}}"""
+                jsSupabasePost(
+                    supabaseUrl.toJsString(), publishableKey.toJsString(), "/auth/v1/token?grant_type=refresh_token".toJsString(),
+                    body.toJsString(), "".toJsString()
+                ) { ok, response ->
+                    val success = ok && saveSecureSession(response.toString())
+                    if (!success) clearSecureSession()
+                    onResult(success, if (success) "Oturum yenilendi." else "Oturum süresi doldu. Lütfen yeniden giriş yapın.")
+                }
+            }
+
+            override fun userSignOut() {
+                val accessToken = getUserAccessToken()
+                if (accessToken.isNotBlank()) {
+                    jsSupabasePost(
+                        supabaseUrl.toJsString(), publishableKey.toJsString(), "/auth/v1/logout".toJsString(),
+                        "{}".toJsString(), accessToken.toJsString()
+                    ) { _, _ -> }
+                }
+                clearSecureSession()
+            }
+
+            override fun getUserAccessToken(): String = window.localStorage.getItem(accessTokenKey).orEmpty()
+
+            override fun hasActiveSession(): Boolean {
+                return getUserAccessToken().isNotBlank()
+            }
+
+            override fun setActiveSession(active: Boolean) {
+                if (!active) clearSecureSession()
+            }
+
+            override fun checkAppAuthorization(phone: String, onResult: (Boolean, String, Boolean, Boolean, String) -> Unit) {
+                val normalized = phone.filter { it.isDigit() }.let { if (it.length == 10 && it.startsWith("5")) "0$it" else it }
+                if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "", false, false, "Geçerli bir cep telefonu numarası giriniz."); return }
+                val body = """{"p_phone":${kotlinx.serialization.json.JsonPrimitive(normalized)}}"""
+                val accessToken = getUserAccessToken()
+                if (accessToken.isBlank()) {
+                    onResult(false, "", false, false, "Önce e-posta ve şifrenizle giriş yapın.")
+                    return
+                }
+                jsSupabasePost(supabaseUrl.toJsString(), publishableKey.toJsString(), "/rest/v1/rpc/check_app_authorization_secure".toJsString(), body.toJsString(), accessToken.toJsString()) { ok, response ->
+                    val text = response.toString(); try { val arr = kotlinx.serialization.json.Json.parseToJsonElement(text).jsonArray; if (ok && arr.isNotEmpty()) { val o=arr[0].jsonObject; onResult(o["authorized"]?.jsonPrimitive?.boolean ?: false, o["full_name"]?.jsonPrimitive?.content ?: "", o["is_admin"]?.jsonPrimitive?.boolean ?: false, o["can_use_tools"]?.jsonPrimitive?.boolean ?: false, "") } else onResult(false, "", false, false, if(ok) "Bu telefon numarası için kullanım yetkisi bulunmuyor." else jsApiMessage(response).toString()) } catch(e:Exception) { onResult(false, "", false, false, "Yetkilendirme cevabı okunamadı.") }
+                }
+            }
+
+            override fun adminSignUp(email: String, password: String, onResult: (Boolean, String) -> Unit) {
+                val body = """{"email":${kotlinx.serialization.json.JsonPrimitive(email.trim())},"password":${kotlinx.serialization.json.JsonPrimitive(password)}}"""
+                jsSupabasePost(
+                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                    "/auth/v1/signup".toJsString(),
+                    body.toJsString(),
+                    "".toJsString()
+                ) { ok, response ->
+                    val text = response.toString()
+                    val message = if (ok) "Kayıt işlemi başarılı. E-posta doğrulaması gerekiyorsa gelen kutunuzu kontrol edin." else jsApiMessage(response).toString()
+                    onResult(ok, message)
+                }
+            }
+
+            override fun adminSignIn(email: String, password: String, onResult: (Boolean, String, String) -> Unit) {
+                val body = """{"email":${kotlinx.serialization.json.JsonPrimitive(email.trim())},"password":${kotlinx.serialization.json.JsonPrimitive(password)}}"""
+                jsSupabasePost(
+                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                    "/auth/v1/token?grant_type=password".toJsString(),
+                    body.toJsString(),
+                    "".toJsString()
+                ) { ok, response ->
+                    val token = if (ok) jsAccessToken(response).toString() else ""
+                    val success = ok && token.isNotBlank()
+                    val message = if (success) "Yönetici doğrulaması başarılı." else jsApiMessage(response).toString()
+                    onResult(success, token, message)
+                }
+            }
+
+            override fun adminResendConfirmation(email: String, onResult: (Boolean, String) -> Unit) {
+                val body = """{"type":"signup","email":${kotlinx.serialization.json.JsonPrimitive(email.trim())}}"""
+                jsSupabasePost(
+                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                    "/auth/v1/resend".toJsString(),
+                    body.toJsString(),
+                    "".toJsString()
+                ) { ok, response ->
+                    val message = if (ok) "Doğrulama e-postası yeniden gönderildi." else jsApiMessage(response).toString()
+                    onResult(ok, message)
+                }
+            }
+
+            override fun adminUsersRequest(accessToken: String, requestJson: String, onResult: (Boolean, String) -> Unit) {
+                jsSupabasePost(
+                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                    "/functions/v1/admin-users".toJsString(),
+                    requestJson.toJsString(),
+                    accessToken.toJsString()
+                ) { ok, response ->
+                    onResult(ok, response.toString())
+                }
             }
             override fun startVoiceRecognition(onResult: (String) -> Unit, onError: (String) -> Unit) {
                 jsStartVoiceRecognition(

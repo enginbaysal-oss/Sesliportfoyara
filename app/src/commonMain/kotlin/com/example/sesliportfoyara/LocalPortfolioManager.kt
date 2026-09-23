@@ -67,16 +67,41 @@ class LocalPortfolioManager(private val settings: Settings) {
         savePortfolios(current)
     }
 
+    fun clearAllPortfolios() {
+        savePortfolios(emptyList())
+    }
+
     fun getAllPortfolios(): List<Portfolio> = _portfolios.value
 
     fun importLocalPortfolios(list: List<Portfolio>) {
+        mergeLocalPortfolios(list)
+    }
+
+    /**
+     * İçe aktarma yalnızca bu cihazın yerel alanında yapılır. Aynı ilan kimliği
+     * veya aynı ilan bağlantısı tekrar gelirse ikinci bir kayıt oluşturulmaz.
+     */
+    fun mergeLocalPortfolios(list: List<Portfolio>): Int {
         val current = _portfolios.value.toMutableList()
+        var addedCount = 0
         list.forEach { np ->
-            val index = current.indexOfFirst { it.id == np.id }
-            if (index != -1) current[index] = np else current.add(np)
+            val normalizedLink = np.link.normalizePortfolioLink()
+            val index = current.indexOfFirst {
+                it.id == np.id || (normalizedLink.isNotBlank() && it.link.normalizePortfolioLink() == normalizedLink)
+            }
+            if (index != -1) {
+                current[index] = np
+            } else {
+                current.add(np)
+                addedCount++
+            }
         }
         savePortfolios(current)
+        return addedCount
     }
+
+    private fun String.normalizePortfolioLink(): String =
+        trim().lowercase().removePrefix("https://").removePrefix("http://").removePrefix("www.").removeSuffix("/")
 }
 
 val LocalPortfolioManagerProvider = staticCompositionLocalOf<LocalPortfolioManager> {

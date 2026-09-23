@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 
@@ -15,7 +16,7 @@ kotlin {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
-    
+
     jvm("desktop") {
         compilerOptions {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
@@ -24,7 +25,7 @@ kotlin {
 
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
-        moduleName = "composeApp"
+        outputModuleName = "composeApp"
         browser {
             commonWebpackConfig {
                 outputFileName = "composeApp.js"
@@ -32,9 +33,9 @@ kotlin {
         }
         binaries.executable()
     }
-    
+
     jvmToolchain(17)
-    
+
     sourceSets {
         val commonMain by getting {
             dependencies {
@@ -51,6 +52,10 @@ kotlin {
                 implementation("io.ktor:ktor-client-core:$ktor_version")
                 implementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
                 implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
+
+                // Coil 3 Image Loading Dependencies
+                implementation("io.coil-kt.coil3:coil-compose:3.0.0-rc02")
+                implementation("io.coil-kt.coil3:coil-network-ktor3:3.0.0-rc02")
             }
         }
         val wasmJsMain by getting {
@@ -63,8 +68,10 @@ kotlin {
                 implementation(libs.androidx.activity.compose)
                 implementation(libs.androidx.core.ktx)
                 implementation(libs.androidx.lifecycle.runtime.ktx)
+                implementation("com.squareup.okhttp3:okhttp:4.12.0")
                 implementation("dev.gitlive:firebase-database:2.7.0")
                 implementation("io.ktor:ktor-client-android:3.0.0")
+                implementation("androidx.work:work-runtime-ktx:2.10.1")
             }
         }
         val desktopMain by getting {
@@ -83,13 +90,38 @@ android {
     sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
     sourceSets["main"].res.srcDirs("src/androidMain/res")
     sourceSets["main"].resources.srcDirs("src/androidMain/resources")
+    buildFeatures {
+        buildConfig = true
+    }
 
     defaultConfig {
         applicationId = "com.example.sesliportfoyara"
         minSdk = 24
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.2.1"
+        versionCode = 6
+        versionName = "1.2.4"
+
+        val mapboxTokenFile = rootProject.file("mapbox.local.txt")
+        val mapboxToken = if (mapboxTokenFile.exists()) {
+            mapboxTokenFile.readText().trim()
+        } else {
+            ""
+        }
+
+        buildConfigField(
+            "String",
+            "MAPBOX_TOKEN",
+            "\"${mapboxToken.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        )
+        val supabaseProperties = Properties()
+        val supabasePropertiesFile = rootProject.file("supabase.local.properties")
+        if (supabasePropertiesFile.exists()) {
+            supabasePropertiesFile.inputStream().use { supabaseProperties.load(it) }
+        }
+        val supabaseUrl = supabaseProperties.getProperty("SUPABASE_URL", "")
+        val supabaseKey = supabaseProperties.getProperty("SUPABASE_KEY", "")
+        buildConfigField("String", "SUPABASE_URL", "\"${supabaseUrl}\"")
+        buildConfigField("String", "SUPABASE_KEY", "\"${supabaseKey}\"")
     }
     packaging {
         resources {
@@ -120,7 +152,7 @@ compose.desktop {
                 iconFile.set(project.file("src/desktopMain/package/windows/Sesliportfoyara.ico"))
                 menu = true
                 shortcut = true
-                // Kurulumda eski dosyaları temizlemesi için
+                // Kurulumda eski dosyalarÄ± temizlemesi iÃ§in
                 upgradeUuid = "68c92a6b-c743-47e2-9b29-e85c2c77ae8b"
             }
         }

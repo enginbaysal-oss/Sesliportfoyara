@@ -9,6 +9,9 @@ import kotlinx.serialization.json.*
 
 class LocalCRMManager(private val settings: Settings) {
     private val CLIENTS_KEY = "crm_clients_v1"
+    private val SEEN_MATCHES_KEY = "crm_seen_matches_v1"
+    private val KNOWN_OFFICE_PORTFOLIOS_KEY = "crm_known_office_portfolios_v1"
+    private val GENERAL_REMINDERS_KEY = "crm_general_reminders_v1"
     private val json = Json { 
         ignoreUnknownKeys = true 
         coerceInputValues = true
@@ -17,6 +20,34 @@ class LocalCRMManager(private val settings: Settings) {
     
     private val _clients = MutableStateFlow<List<Client>>(loadClients())
     val clients: StateFlow<List<Client>> = _clients
+
+    private fun loadGeneralReminders(): List<CRMReminder> {
+        val jsonString = settings.getString(GENERAL_REMINDERS_KEY, "[]")
+        return try {
+            json.decodeFromString<List<CRMReminder>>(jsonString)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private val _generalReminders = MutableStateFlow<List<CRMReminder>>(loadGeneralReminders())
+    val generalReminders: StateFlow<List<CRMReminder>> = _generalReminders
+
+    private fun saveGeneralReminders(list: List<CRMReminder>) {
+        settings.putString(GENERAL_REMINDERS_KEY, json.encodeToString(list))
+        _generalReminders.value = list
+    }
+
+    fun addGeneralReminder(reminder: CRMReminder) {
+        saveGeneralReminders(_generalReminders.value + reminder)
+    }
+
+    fun deleteGeneralReminder(index: Int) {
+        if (index !in _generalReminders.value.indices) return
+        saveGeneralReminders(
+            _generalReminders.value.filterIndexed { i, _ -> i != index }
+        )
+    }
 
     private fun loadClients(): List<Client> {
         val jsonString = settings.getString(CLIENTS_KEY, "[]")
@@ -56,6 +87,85 @@ class LocalCRMManager(private val settings: Settings) {
         saveClients(current)
     }
 
+    private fun matchKey(clientId: String, portfolioId: String): String =
+        clientId + "|" + portfolioId
+
+    fun getNewOfficePortfolios(portfolios: List<Portfolio>): List<Portfolio> {
+        if (portfolios.isEmpty()) return emptyList()
+
+        val currentIds = portfolios
+            .map { it.id }
+            .filter { it.isNotBlank() }
+            .toSet()
+
+        val raw = settings.getString(KNOWN_OFFICE_PORTFOLIOS_KEY, "")
+
+        // Ilk calismada mevcut ofis portfoylerini baslangic kabul et.
+        // Boylece eski portfoyler yeni diye bildirilmez.
+        if (raw.isBlank()) {
+            settings.putString(
+                KNOWN_OFFICE_PORTFOLIOS_KEY,
+                currentIds.joinToString("\n")
+            )
+            return emptyList()
+        }
+
+        val knownIds = raw
+            .split("\n")
+            .filter { it.isNotBlank() }
+            .toSet()
+
+        return portfolios.filter {
+            it.id.isNotBlank() && it.id !in knownIds
+        }
+    }
+
+    fun markOfficePortfoliosKnown(portfolios: List<Portfolio>) {
+        if (portfolios.isEmpty()) return
+
+        val updated = settings
+            .getString(KNOWN_OFFICE_PORTFOLIOS_KEY, "")
+            .split("\n")
+            .filter { it.isNotBlank() }
+            .toMutableSet()
+
+        portfolios
+            .map { it.id }
+            .filter { it.isNotBlank() }
+            .forEach { updated.add(it) }
+
+        settings.putString(
+            KNOWN_OFFICE_PORTFOLIOS_KEY,
+            updated.joinToString("\n")
+        )
+    }
+    fun clearSeenMatches() {
+        settings.putString(SEEN_MATCHES_KEY, "")
+    }
+    fun getSeenMatches(): Set<String> {
+        val raw = settings.getString(SEEN_MATCHES_KEY, "")
+        return raw.split("\n").filter { it.isNotBlank() }.toSet()
+    }
+
+    fun getNewMatches(clients: List<Client>, portfolios: List<Portfolio>): List<Pair<Client, Portfolio>> {
+        val seen = getSeenMatches()
+        return clients
+            .filter { it.type == ClientType.BUYER }
+            .flatMap { client ->
+                MatchingEngine.findMatches(client, portfolios)
+                    .filter { portfolio -> matchKey(client.id, portfolio.id) !in seen }
+                    .map { portfolio -> client to portfolio }
+            }
+    }
+
+    fun markMatchesSeen(matches: List<Pair<Client, Portfolio>>) {
+        if (matches.isEmpty()) return
+        val updated = getSeenMatches().toMutableSet()
+        matches.forEach { (client, portfolio) ->
+            updated.add(matchKey(client.id, portfolio.id))
+        }
+        settings.putString(SEEN_MATCHES_KEY, updated.joinToString("\n"))
+    }
     fun exportFullBackup(localPortfolios: List<Portfolio>): String {
         // Müşterileri ve portföyleri içeren bir yapı oluşturuyoruz
         val backupJson = JsonObject(mapOf(

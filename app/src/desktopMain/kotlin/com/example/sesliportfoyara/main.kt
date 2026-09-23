@@ -27,17 +27,17 @@ fun createIcon(): BufferedImage {
     val size = 512
     val image = BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
     val g2d = image.createGraphics()
-    
+
     g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
     g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
-    
-    val gold = AwtColor(201, 161, 90)
+
+    val gold = AwtColor(34, 164, 71)
     val darkBg = AwtColor(15, 20, 30)
-    
+
     // 1. Dairesel Arka Plan
     g2d.color = darkBg
     g2d.fillOval(10, 10, size - 20, size - 20)
-    
+
     // 2. Kalkan (Shield) - Dolgulu ve Çerçeveli
     g2d.color = gold
     val shield = Path2D.Float()
@@ -48,10 +48,10 @@ fun createIcon(): BufferedImage {
     shield.quadTo(size * 0.8f, size * 0.85f, size * 0.5f, size * 0.92f)
     shield.quadTo(size * 0.2f, size * 0.85f, size * 0.2f, size * 0.6f)
     shield.closePath()
-    
+
     g2d.setStroke(BasicStroke(15f))
     g2d.draw(shield)
-    
+
     // 3. Ses Dalgası
     g2d.setStroke(BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND))
     val wave = Path2D.Float()
@@ -67,12 +67,12 @@ fun createIcon(): BufferedImage {
     g2d.font = Font("Georgia", Font.BOLD, 150)
     g2d.drawString("S", (size * 0.31f).toInt(), (size * 0.62f).toInt())
     g2d.drawString("P", (size * 0.55f).toInt(), (size * 0.68f).toInt())
-    
+
     // 5. CRM Yükseliş Çubukları
     g2d.fillRect((size * 0.42f).toInt(), (size * 0.78f).toInt(), 18, 32)
     g2d.fillRect((size * 0.49f).toInt(), (size * 0.72f).toInt(), 18, 48)
     g2d.fillRect((size * 0.56f).toInt(), (size * 0.67f).toInt(), 18, 64)
-    
+
     // Yükseliş Oku
     val arrow = Path2D.Float()
     arrow.moveTo(size * 0.36f, size * 0.84f)
@@ -83,7 +83,7 @@ fun createIcon(): BufferedImage {
     arrow.lineTo(size * 0.66f, size * 0.72f)
     g2d.setStroke(BasicStroke(6f))
     g2d.draw(arrow)
-    
+
     g2d.dispose()
     return image
 }
@@ -93,14 +93,14 @@ fun main() {
     if (!settingsFile.exists()) {
         try { settingsFile.createNewFile() } catch (e: Exception) {}
     }
-    
+
     val props = Properties()
     try {
         if (settingsFile.exists()) {
             props.load(settingsFile.inputStream())
         }
     } catch (e: Exception) { e.printStackTrace() }
-    
+
     val desktopSettings = PropertiesSettings(props) {
         try {
             props.store(settingsFile.outputStream(), "Sesli Portfoy Settings")
@@ -108,7 +108,7 @@ fun main() {
     }
 
     try {
-        val oldSettings = Settings() 
+        val oldSettings = Settings()
         val oldPortfolioKey = "local_portfolios_v1"
         val oldCrmKey = "crm_clients_v1"
         if (oldSettings.hasKey(oldPortfolioKey) && !desktopSettings.hasKey("local_portfolios_v2")) {
@@ -167,7 +167,7 @@ fun main() {
 
         Window(
             onCloseRequest = ::exitApplication,
-            title = "Sesli Portföy CRM Asistanı",
+            title = "EmlakCep",
             icon = iconPainter
         ) {
             val crmManager = remember { LocalCRMManager(desktopSettings) }
