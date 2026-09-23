@@ -212,11 +212,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
     importNotice: null,
     importError: null,
     confirmDeleteId: null,
-    unlocked: false,
-    lockError: null,
-    changingPassword: false,
-    pwChangeError: null,
-    pwChangeNotice: null,
+    unlocked: true,
 
     section: 'templates',      // templates | calc | company
     installPromptEvent: null,
@@ -577,31 +573,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 
   }
 
-  var DEFAULT_APP_PASSWORD = 'ilyada2026';
-  function getAppPassword(){
-    try{
-      var custom = localStorage.getItem('app-password');
-      return custom || DEFAULT_APP_PASSWORD;
-    }catch(e){ return DEFAULT_APP_PASSWORD; }
-  }
-
-  function renderLockScreen(){
-    topnavEl.innerHTML = '';
-    root.innerHTML =
-      '<div class="lock-screen"><div class="lock-card">' +
-        '<div class="mark">B</div>' +
-        '<h2>Emlak Asistanı</h2>' +
-        '<p>Devam etmek için şifreyi girin.</p>' +
-        (state.lockError ? '<div class="lock-error">'+escapeHtml(state.lockError)+'</div>' : '') +
-        '<input type="password" id="lockInput" inputmode="text" placeholder="Şifre" autofocus onkeydown="if(event.key===\'Enter\'){app.tryUnlock()}"/>' +
-        '<button class="btn btn-primary" style="width:100%;" onclick="app.tryUnlock()">Giriş Yap</button>' +
-      '</div></div>';
-    var inp = document.getElementById('lockInput');
-    if(inp) inp.focus();
-  }
-
   function render(){
-    if(!state.unlocked){ return renderLockScreen(); }
     renderTopNav();
     if(state.section === 'company') return renderCompany();
     if(state.section === 'calc') return renderCalcSection();
@@ -616,19 +588,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
   function renderCalcSection(){
     if(state.calcScreen === 'menu') return renderCalcMenu();
     if(CALC_DEFS[state.calcScreen]) return renderCalcGeneric(state.calcScreen);
-  }
-
-  function renderPasswordChangeForm(){
-    return '<div class="pending-form">' +
-      (state.pwChangeError ? ('<div class="lock-error" style="margin-bottom:0;">'+escapeHtml(state.pwChangeError)+'</div>') : '') +
-      '<input class="answer-input" id="pwCurrent" type="password" placeholder="Mevcut şifre"/>' +
-      '<input class="answer-input" id="pwNew1" type="password" placeholder="Yeni şifre"/>' +
-      '<input class="answer-input" id="pwNew2" type="password" placeholder="Yeni şifre (tekrar)"/>' +
-      '<div class="btn-row">' +
-        '<button class="btn btn-primary btn-sm" onclick="app.submitPasswordChange()">Kaydet</button>' +
-        '<button class="btn btn-ghost btn-sm" onclick="app.togglePasswordChange()">Vazgeç</button>' +
-      '</div>' +
-    '</div>';
   }
 
   function templateCategoryOf(t){
@@ -1060,13 +1019,11 @@ function renderDone(){
         '</label>' +
         (state.companyNotice ? '<div class="sub" style="color:var(--gold);margin-top:8px;">'+escapeHtml(state.companyNotice)+'</div>' : '') +
         '<div style="flex:1"></div>' +
-        '<button class="btn btn-ghost" onclick="app.togglePasswordChange()">Şifreyi Değiştir</button>' +
         '<button class="btn btn-primary" onclick="app.saveCompanyProfile()">Değişiklikleri Kaydet</button>' +
         '<button class="btn btn-ghost" onclick="app.goLibrary()">Kütüphaneye Dön</button>' +
       '</div>' +
       '<div class="stage"><div style="width:100%;max-width:640px;">' +
         '<h1 class="page-title">Şirket Profili</h1>' +
-        (state.changingPassword ? renderPasswordChangeForm() : '') +
         '<div class="calc-card">' +
           '<div class="calc-input-group"><label>Şirket / Ofis Adı</label><input class="answer-input" value="'+escapeHtml(c.name)+'" oninput="app.setCompanyField(\'name\', this.value)"/></div>' +
           '<div class="calc-input-group"><label>Telefon</label><input class="answer-input" value="'+escapeHtml(c.phone)+'" oninput="app.setCompanyField(\'phone\', this.value)"/></div>' +
@@ -1495,34 +1452,6 @@ function renderDone(){
   // ---------- actions ----------
   var app = {};
 
-  app.tryUnlock = function(){
-    var inp = document.getElementById('lockInput');
-    var val = inp ? inp.value : '';
-    if(val === getAppPassword()){
-      try{ state.unlocked = localStorage.getItem('app-unlocked') === 'true'; }catch(e){ state.unlocked = false; }
-  window.addEventListener('beforeinstallprompt', function(e){
-    e.preventDefault();
-    state.installPromptEvent = e;
-    if(state.unlocked){ render(); }
-  });
-  window.addEventListener('appinstalled', function(){
-    state.installPromptEvent = null;
-    state.installNotice = 'Uygulama ana ekranınıza eklendi.';
-    if(state.unlocked){ render(); }
-  });
-  state.lockError = null;
-      try{ localStorage.setItem('app-unlocked', 'true'); }catch(e){}
-      render();
-    } else {
-      state.lockError = 'Şifre yanlış, tekrar deneyin.';
-      render();
-    }
-  };
-  app.lockApp = function(){
-    state.unlocked = false;
-    try{ localStorage.removeItem('app-unlocked'); }catch(e){}
-    render();
-  };
   app.installApp = async function(){
     if(!state.installPromptEvent) return;
     var evt = state.installPromptEvent;
@@ -1537,30 +1466,6 @@ function renderDone(){
     }catch(e){}
     render();
   };
-  app.togglePasswordChange = function(){
-    state.changingPassword = !state.changingPassword;
-    state.pwChangeError = null;
-    state.pwChangeNotice = null;
-    render();
-  };
-  app.submitPasswordChange = function(){
-    var cur = document.getElementById('pwCurrent'), n1 = document.getElementById('pwNew1'), n2 = document.getElementById('pwNew2');
-    if(!cur || cur.value !== getAppPassword()){
-      state.pwChangeError = 'Mevcut şifre yanlış.'; render(); return;
-    }
-    if(!n1.value || n1.value.length < 4){
-      state.pwChangeError = 'Yeni şifre en az 4 karakter olmalı.'; render(); return;
-    }
-    if(n1.value !== n2.value){
-      state.pwChangeError = 'Yeni şifreler eşleşmiyor.'; render(); return;
-    }
-    try{ localStorage.setItem('app-password', n1.value); }catch(e){}
-    state.pwChangeError = null;
-    state.pwChangeNotice = 'Şifre değiştirildi.';
-    state.changingPassword = false;
-    render();
-  };
-
   app.switchSection = function(section){
     // Ekran değiştirirken belge üzerindeki aktif dokunma/çizim
     // durumlarını temizle. Android WebView'da takılı kalmalarını önler.
@@ -2460,7 +2365,11 @@ function renderDone(){
   document.addEventListener('touchend', onDrawEnd);
 
   // ---------- init ----------
-  try{ state.unlocked = localStorage.getItem('app-unlocked') === 'true'; }catch(e){ state.unlocked = false; }
+  state.unlocked = true;
+  try{
+    localStorage.removeItem('app-password');
+    localStorage.setItem('app-unlocked', 'true');
+  }catch(e){}
   window.addEventListener('beforeinstallprompt', function(e){
     e.preventDefault();
     state.installPromptEvent = e;
