@@ -11,6 +11,7 @@ import com.russhwolf.settings.StorageSettings
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.browser.window
 
 @JsFun("(onResult, onError) => { " +
     "console.log('🎤 Web Speech API initiation...'); " +
@@ -125,6 +126,79 @@ external fun jsAccessToken(text: JsString): JsString
 @JsFun("(text) => { try { const j=JSON.parse(text); return (j.msg || j.message || j.error_description || j.error || text).toString(); } catch(e) { return text; } }")
 external fun jsApiMessage(text: JsString): JsString
 
+@JsFun("(url) => { " +
+    "if (document.getElementById('cepte_overlay')) return; " +
+    "const overlay = document.createElement('div'); " +
+    "overlay.id = 'cepte_overlay';" +
+    "overlay.style.position = 'fixed';" +
+    "overlay.style.top = '0';" +
+    "overlay.style.left = '0';" +
+    "overlay.style.width = '100vw';" +
+    "overlay.style.height = '100vh';" +
+    "overlay.style.zIndex = '999999';" +
+    "overlay.style.background = '#0F141E';" +
+    "overlay.style.display = 'flex';" +
+    "overlay.style.flexDirection = 'column';" +
+    "" +
+    "const topBar = document.createElement('div');" +
+    "topBar.style.height = '50px';" +
+    "topBar.style.background = '#1b1b1b';" +
+    "topBar.style.color = '#fff';" +
+    "topBar.style.display = 'flex';" +
+    "topBar.style.alignItems = 'center';" +
+    "topBar.style.justifyContent = 'space-between';" +
+    "topBar.style.padding = '0 16px';" +
+    "topBar.style.fontFamily = 'sans-serif';" +
+    "topBar.style.borderBottom = '1px solid #333';" +
+    "" +
+    "const title = document.createElement('span');" +
+    "title.innerText = 'Cepte Emlak Ara';" +
+    "title.style.fontWeight = 'bold';" +
+    "title.style.fontSize = '16px';" +
+    "topBar.appendChild(title);" +
+    "" +
+    "const btnGroup = document.createElement('div');" +
+    "btnGroup.style.display = 'flex';" +
+    "btnGroup.style.gap = '10px';" +
+    "" +
+    "const menuBtn = document.createElement('button');" +
+    "menuBtn.innerText = 'Ana Menü'; " +
+    "menuBtn.style.background = '#22A447';" +
+    "menuBtn.style.color = '#000';" +
+    "menuBtn.style.border = 'none';" +
+    "menuBtn.style.padding = '6px 14px';" +
+    "menuBtn.style.borderRadius = '6px';" +
+    "menuBtn.style.cursor = 'pointer';" +
+    "menuBtn.style.fontWeight = 'bold';" +
+    "menuBtn.onclick = () => { document.body.removeChild(overlay); };" +
+    "btnGroup.appendChild(menuBtn);" +
+    "" +
+    "const closeBtn = document.createElement('button');" +
+    "closeBtn.innerText = 'Geri'; " +
+    "closeBtn.style.background = '#333';" +
+    "closeBtn.style.color = '#fff';" +
+    "closeBtn.style.border = 'none';" +
+    "closeBtn.style.padding = '6px 14px';" +
+    "closeBtn.style.borderRadius = '6px';" +
+    "closeBtn.style.cursor = 'pointer';" +
+    "closeBtn.style.fontWeight = 'bold';" +
+    "closeBtn.onclick = () => { document.body.removeChild(overlay); };" +
+    "btnGroup.appendChild(closeBtn);" +
+    "" +
+    "topBar.appendChild(btnGroup);" +
+    "overlay.appendChild(topBar);" +
+    "" +
+    "const iframe = document.createElement('iframe');" +
+    "iframe.src = url;" +
+    "iframe.style.width = '100%';" +
+    "iframe.style.height = 'calc(100vh - 50px)';" +
+    "iframe.style.border = 'none';" +
+    "overlay.appendChild(iframe);" +
+    "" +
+    "document.body.appendChild(overlay);" +
+    "}")
+external fun jsOpenOverlay(url: JsString)
+
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
@@ -134,18 +208,27 @@ fun main() {
                 kotlinx.browser.window.open(uri, "_blank")
             }
             override fun openEmlakAsistan() {
-                kotlinx.browser.window.location.href = "emlakasistan/index.html"
+                jsOpenOverlay("emlakasistan/index.html".toJsString())
             }
 
             override fun openArsaTakip() {
-                kotlinx.browser.window.location.href = "arsatakip/index.html"
+                jsOpenOverlay("arsatakip/index.html".toJsString())
             }
 
-            override fun hasActiveSession(): Boolean = kotlinx.browser.window.sessionStorage.getItem("cepte_emlak_authorized") == "true"
+            override fun hasActiveSession(): Boolean {
+                val s1 = window.localStorage.getItem("cepte_emlak_authorized")
+                val s2 = window.sessionStorage.getItem("cepte_emlak_authorized")
+                return s1 == "true" || s2 == "true"
+            }
 
             override fun setActiveSession(active: Boolean) {
-                if (active) kotlinx.browser.window.sessionStorage.setItem("cepte_emlak_authorized", "true")
-                else kotlinx.browser.window.sessionStorage.removeItem("cepte_emlak_authorized")
+                if (active) {
+                    window.localStorage.setItem("cepte_emlak_authorized", "true")
+                    window.sessionStorage.setItem("cepte_emlak_authorized", "true")
+                } else {
+                    window.localStorage.removeItem("cepte_emlak_authorized")
+                    window.sessionStorage.removeItem("cepte_emlak_authorized")
+                }
             }
 
             override fun checkAppAuthorization(phone: String, onResult: (Boolean, String, Boolean, Boolean, String) -> Unit) {

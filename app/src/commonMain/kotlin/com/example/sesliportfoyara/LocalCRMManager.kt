@@ -11,6 +11,7 @@ class LocalCRMManager(private val settings: Settings) {
     private val CLIENTS_KEY = "crm_clients_v1"
     private val SEEN_MATCHES_KEY = "crm_seen_matches_v1"
     private val KNOWN_OFFICE_PORTFOLIOS_KEY = "crm_known_office_portfolios_v1"
+    private val GENERAL_REMINDERS_KEY = "crm_general_reminders_v1"
     private val json = Json { 
         ignoreUnknownKeys = true 
         coerceInputValues = true
@@ -19,6 +20,34 @@ class LocalCRMManager(private val settings: Settings) {
     
     private val _clients = MutableStateFlow<List<Client>>(loadClients())
     val clients: StateFlow<List<Client>> = _clients
+
+    private fun loadGeneralReminders(): List<CRMReminder> {
+        val jsonString = settings.getString(GENERAL_REMINDERS_KEY, "[]")
+        return try {
+            json.decodeFromString<List<CRMReminder>>(jsonString)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private val _generalReminders = MutableStateFlow<List<CRMReminder>>(loadGeneralReminders())
+    val generalReminders: StateFlow<List<CRMReminder>> = _generalReminders
+
+    private fun saveGeneralReminders(list: List<CRMReminder>) {
+        settings.putString(GENERAL_REMINDERS_KEY, json.encodeToString(list))
+        _generalReminders.value = list
+    }
+
+    fun addGeneralReminder(reminder: CRMReminder) {
+        saveGeneralReminders(_generalReminders.value + reminder)
+    }
+
+    fun deleteGeneralReminder(index: Int) {
+        if (index !in _generalReminders.value.indices) return
+        saveGeneralReminders(
+            _generalReminders.value.filterIndexed { i, _ -> i != index }
+        )
+    }
 
     private fun loadClients(): List<Client> {
         val jsonString = settings.getString(CLIENTS_KEY, "[]")

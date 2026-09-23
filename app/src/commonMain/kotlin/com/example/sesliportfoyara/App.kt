@@ -124,9 +124,15 @@ fun App() {
     var isAdmin by remember { mutableStateOf(settings.getBoolean("is_admin", false)) }
     var canUseTools by remember { mutableStateOf(settings.getBoolean("can_use_tools", false)) }
 
-    // Eğer bilgiler boşsa, başlangıç ekranını profil kurulumu yapıyoruz
+    // Oturum ve başlangıç ekranı kontrolü
     var currentScreen by remember {
-        mutableStateOf<Screen>(Screen.VoiceSearch)
+        mutableStateOf<Screen>(
+            if (platformUtils.hasActiveSession() && myName.isNotBlank() && myPhone.isNotBlank()) {
+                Screen.VoiceSearch
+            } else {
+                Screen.ProfileSetup
+            }
+        )
     }
 
     CompositionLocalProvider(
@@ -146,6 +152,29 @@ fun App() {
             val scope = rememberCoroutineScope()
 
             LaunchedEffect(Unit) {
+                if (platformUtils.hasActiveSession() && myPhone.isNotBlank()) {
+                    platformUtils.checkAppAuthorization(myPhone) { authorized, serverName, serverIsAdmin, serverCanUseTools, _ ->
+                        if (authorized) {
+                            val finalName = serverName.ifBlank { myName }
+                            if (finalName != myName) {
+                                myName = finalName
+                                settings.putString("my_consultant_name", finalName)
+                            }
+                            isAdmin = serverIsAdmin
+                            canUseTools = serverCanUseTools
+                            settings.putBoolean("is_admin", serverIsAdmin)
+                            settings.putBoolean("can_use_tools", serverCanUseTools)
+                            platformUtils.setActiveSession(true)
+                        } else {
+                            platformUtils.setActiveSession(false)
+                            currentScreen = Screen.ProfileSetup
+                        }
+                    }
+                } else {
+                    platformUtils.setActiveSession(false)
+                    currentScreen = Screen.ProfileSetup
+                }
+
                 dbManager.getPortfolios().collectLatest { list ->
                     officePortfolios.clear()
                     officePortfolios.addAll(list.sortedByDescending { it.createdAt })
@@ -173,7 +202,7 @@ fun App() {
                 },
                 bottomBar = {
                     if (currentScreen != Screen.ProfileSetup && currentScreen != Screen.AddClient && currentScreen != Screen.ClientDetails) {
-                        TabNavigation(currentScreen) {
+                        TabNavigation(currentScreen, canUseTools, isAdmin) {
                             currentScreen = it
                             if (it != Screen.AddPortfolio) {
                                 editingPortfolio = null
@@ -1069,13 +1098,13 @@ fun HeaderSection() {
 }
 
 @Composable
-fun TabNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
-    val items = listOf(
+fun TabNavigation(currentScreen: Screen, canUseTools: Boolean, isAdmin: Boolean, onNavigate: (Screen) -> Unit) {
+    val items = listOfNotNull(
         Triple(Screen.VoiceSearch, Icons.Default.Mic, Color(0xFF22A447)),
         Triple(Screen.AddPortfolio, Icons.Default.AddCircle, Color(0xFF4CAF50)),
         Triple(Screen.CRM, Icons.Default.Groups, Color(0xFF2196F3)),
         Triple(Screen.MyPortfolio, Icons.Default.Inventory, Color(0xFFFF9800)),
-        Triple(Screen.Tools, Icons.Default.Keyboard, Color(0xFF9C27B0))
+        if (canUseTools || isAdmin) Triple(Screen.Tools, Icons.Default.Keyboard, Color(0xFF9C27B0)) else null
     )
 
     Row(
