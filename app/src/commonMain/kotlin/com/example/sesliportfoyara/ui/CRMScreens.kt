@@ -394,7 +394,10 @@ fun CRMMainScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
-        contentColor = MaterialTheme.colorScheme.onBackground
+        contentColor = MaterialTheme.colorScheme.onBackground,
+        // Ana uygulamadaki Scaffold alt menü ve sistem çubuğu boşluğunu zaten ayırıyor.
+        // Burada tekrar inset uygulanması mobilde alt menünün üstünde kullanılamayan alan bırakıyordu.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
             Row(
