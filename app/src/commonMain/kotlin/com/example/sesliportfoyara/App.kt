@@ -88,10 +88,22 @@ sealed class Screen(val title: String) {
     object CRM : Screen("Müşterilerim")
     object AddClient : Screen("Müşteri Ekle")
     object ClientDetails : Screen("Müşteri Detayı")
+    object OfficeAdmin : Screen("Ofis Yönetimi")
 }
 
 @Composable
 fun App() {
+    OfficeAccessGate { membership, officeManager, accessToken ->
+        EmlakCepApp(membership, officeManager, accessToken)
+    }
+}
+
+@Composable
+private fun EmlakCepApp(
+    officeMembership: OfficeMembership,
+    officeManager: OfficeAccessManager,
+    officeAccessToken: String
+) {
     val dbManager = LocalDatabaseManager.current
     val settings = remember { Settings() }
     val crmManager = LocalCRMManagerProvider.current
@@ -103,7 +115,7 @@ fun App() {
     var myName by remember { mutableStateOf(settings.getString("my_consultant_name", "")) }
     var myPhone by remember { mutableStateOf(settings.getString("my_consultant_phone", "")) }
     var remaxUrl by remember { mutableStateOf(settings.getString("remax_office_url", "")) }
-    var isAdmin by remember { mutableStateOf(settings.getBoolean("is_admin", false)) }
+    val isAdmin = officeMembership.role == "admin" && officeMembership.status == "active"
 
     // Eğer bilgiler boşsa, başlangıç ekranını profil kurulumu yapıyoruz
     var currentScreen by remember {
@@ -173,7 +185,7 @@ fun App() {
                 },
                 bottomBar = {
                     if (currentScreen != Screen.ProfileSetup && currentScreen != Screen.AddClient && currentScreen != Screen.ClientDetails) {
-                        TabNavigation(currentScreen) {
+                        TabNavigation(currentScreen, isAdmin) {
                             currentScreen = it
                             if (it != Screen.AddPortfolio) {
                                 editingPortfolio = null
@@ -196,19 +208,14 @@ fun App() {
                             initialName = myName,
                             initialPhone = myPhone,
                             initialUrl = remaxUrl
-                        ) { name, phone, url, adminSecret ->
+                        ) { name, phone, url ->
                             settings.putString("my_consultant_name", name)
                             settings.putString("my_consultant_phone", phone)
                             settings.putString("remax_office_url", url)
 
-                            // Gizli şifreyi kontrol et (Şifre: adminengin)
-                            val adminStatus = adminSecret == "adminengin"
-                            settings.putBoolean("is_admin", adminStatus)
-
                             myName = name
                             myPhone = phone
                             remaxUrl = url
-                            isAdmin = adminStatus
                             currentScreen = Screen.VoiceSearch
                         }
                         Screen.VoiceSearch -> VoiceSearchScreen(officePortfolios) { p ->
@@ -384,6 +391,11 @@ fun App() {
                                 }
                             )
                         }
+                        Screen.OfficeAdmin -> OfficeAdminScreen(
+                            manager = officeManager,
+                            token = officeAccessToken,
+                            officeId = officeMembership.officeId
+                        )
                     }
                 }
             }
@@ -396,12 +408,11 @@ fun ProfileSetupScreen(
     initialName: String = "",
     initialPhone: String = "",
     initialUrl: String = "",
-    onComplete: (String, String, String, String) -> Unit
+    onComplete: (String, String, String) -> Unit
 ) {
     var nameValue by remember { mutableStateOf(TextFieldValue(initialName)) }
     var phoneValue by remember { mutableStateOf(TextFieldValue(initialPhone)) }
     var remaxUrl by remember { mutableStateOf(initialUrl) }
-    var adminSecret by remember { mutableStateOf("") }
 
     val scrollState = rememberScrollState()
 
@@ -436,14 +447,13 @@ fun ProfileSetupScreen(
         CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
         CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
         CustomInputField("RE/MAX Ofis Linki (Otomatik Çekme İçin)", remaxUrl) { remaxUrl = it }
-        CustomInputField("Admin Şifresi (Opsiyonel)", adminSecret) { adminSecret = it }
 
         Spacer(modifier = Modifier.height(40.dp))
 
         Button(
             onClick = {
                 if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
-                    onComplete(nameValue.text.trim(), phoneValue.text.trim(), remaxUrl.trim(), adminSecret.trim())
+                    onComplete(nameValue.text.trim(), phoneValue.text.trim(), remaxUrl.trim())
                 }
             },
             modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -623,13 +633,14 @@ fun HeaderSection() {
 }
 
 @Composable
-fun TabNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
-    val items = listOf(
-        Triple(Screen.VoiceSearch, Icons.Default.Mic, Color(0xFFFFC107)),
-        Triple(Screen.AddPortfolio, Icons.Default.AddCircle, Color(0xFF4CAF50)),
-        Triple(Screen.CRM, Icons.Default.Groups, Color(0xFF2196F3)),
-        Triple(Screen.MyPortfolio, Icons.Default.Inventory, Color(0xFFFF9800))
-    )
+fun TabNavigation(currentScreen: Screen, isAdmin: Boolean, onNavigate: (Screen) -> Unit) {
+    val items = buildList {
+        add(Triple(Screen.VoiceSearch, Icons.Default.Mic, Color(0xFFFFC107)))
+        add(Triple(Screen.AddPortfolio, Icons.Default.AddCircle, Color(0xFF4CAF50)))
+        add(Triple(Screen.CRM, Icons.Default.Groups, Color(0xFF2196F3)))
+        add(Triple(Screen.MyPortfolio, Icons.Default.Inventory, Color(0xFFFF9800)))
+        if (isAdmin) add(Triple(Screen.OfficeAdmin, Icons.Default.AdminPanelSettings, Color(0xFF168A45)))
+    }
 
     Row(
         modifier = Modifier
