@@ -30,7 +30,7 @@ jobs:
       - name: Build debug APK
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleDebug --console=plain
+          ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" :app:assembleDebug --console=plain
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
