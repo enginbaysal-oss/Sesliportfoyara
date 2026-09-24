@@ -175,7 +175,7 @@
 </style>
 </head>
 <body>
-<div id="topnav"></div><button onclick="window.location.href='../index.html'" style="position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:9999;background:#1f2d3d;color:white;border:1px solid #d39a00;border-radius:24px;padding:11px 22px;font-size:12px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.35);">← ANA MENÜ</button>
+<div id="topnav"></div><button onclick="if(window.parent && window.parent.document.getElementById('cepte_overlay')) { window.parent.document.getElementById('cepte_overlay').remove(); } else { window.location.href='../index.html'; }" style="position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:9999;background:#1f2d3d;color:white;border:1px solid #d39a00;border-radius:24px;padding:11px 22px;font-size:12px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.35);">← ANA MENÜ</button>
 <div id="app"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
