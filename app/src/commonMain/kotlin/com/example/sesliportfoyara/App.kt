@@ -446,100 +446,131 @@ fun App() {
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                        .verticalScroll(rememberScrollState())
+                                    .verticalScroll(rememberScrollState())
                                     .padding(24.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
-                                Icon(
-                                    Icons.Default.Lock,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(64.dp)
-                                )
+                                if (!adminAuthenticated) {
+                                    Icon(
+                                        Icons.Default.Lock,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(64.dp)
+                                    )
 
-                                Spacer(Modifier.height(16.dp))
+                                    Spacer(Modifier.height(16.dp))
 
-                                Text(
-                                    "Kullanıcı Yönetimi",
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                    Text(
+                                        "Kullanıcı Yönetimi",
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
 
-                                Spacer(Modifier.height(8.dp))
+                                    Spacer(Modifier.height(8.dp))
 
-                                Text(
-                                    "Güvenli yönetici doğrulaması",
-                                    textAlign = TextAlign.Center
-                                )
+                                    Text(
+                                        "Güvenli yönetici doğrulaması",
+                                        textAlign = TextAlign.Center
+                                    )
 
-                                Spacer(Modifier.height(24.dp))
+                                    Spacer(Modifier.height(24.dp))
 
-                                OutlinedTextField(
-                                    value = adminEmail,
-                                    onValueChange = { adminEmail = it },
-                                    label = { Text("Yönetici E-posta") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                                    OutlinedTextField(
+                                        value = adminEmail,
+                                        onValueChange = { adminEmail = it },
+                                        label = { Text("Yönetici E-posta") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
 
-                                Spacer(Modifier.height(12.dp))
+                                    Spacer(Modifier.height(12.dp))
 
-                                OutlinedTextField(
-                                    value = adminPassword,
-                                    onValueChange = { adminPassword = it },
-                                    label = { Text("Şifre") },
-                                    singleLine = true,
-                                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                                    OutlinedTextField(
+                                        value = adminPassword,
+                                        onValueChange = { adminPassword = it },
+                                        label = { Text("Şifre") },
+                                        singleLine = true,
+                                        visualTransformation = PasswordVisualTransformation(),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
 
-                                Spacer(Modifier.height(20.dp))
+                                    Spacer(Modifier.height(20.dp))
 
-                                Button(
-                                    onClick = {
-                                        if (adminEmail.isBlank() || adminPassword.isBlank()) {
-                                            adminMessage = "E-posta ve şifreyi giriniz."
-                                        } else {
-                                            adminLoading = true
-                                            adminMessage = "Sunucu ile bağlantı kuruluyor, giriş yapılıyor..."
-                                            platformUtils.adminSignIn(
-                                                adminEmail.trim().lowercase(),
-                                                adminPassword
-                                            ) { success, token, message ->
-                                                if (success) {
-                                                    adminLoading = false
-                                                    adminSessionToken = token
-                                                    adminPassword = ""
-                                                    adminAuthenticated = true
-                                                    canUseTools = true
-                                                    adminMessage = "Giriş başarılı! Kullanıcılar yükleniyor..."
-                                                    platformUtils.adminUsersRequest(token, """{"action":"list"}""") { listSuccess, listResponse ->
-                                                        adminMessage = if (listSuccess) {
-                                                            adminUsers = parseAdminUsers(listResponse)
-                                                            platformUtils.getRegistrationRequests { reqResp ->
-                                                                pendingRequests = parsePendingRequests(reqResp)
+                                    Button(
+                                        onClick = {
+                                            if (adminEmail.isBlank() || adminPassword.isBlank()) {
+                                                adminMessage = "E-posta ve şifreyi giriniz."
+                                            } else {
+                                                adminLoading = true
+                                                adminMessage = "Sunucu ile bağlantı kuruluyor, giriş yapılıyor..."
+                                                platformUtils.adminSignIn(
+                                                    adminEmail.trim().lowercase(),
+                                                    adminPassword
+                                                ) { success, token, message ->
+                                                    if (success) {
+                                                        adminLoading = false
+                                                        adminSessionToken = token
+                                                        adminPassword = ""
+                                                        adminAuthenticated = true
+                                                        canUseTools = true
+                                                        adminMessage = "Yönetici girişi başarılı."
+                                                        platformUtils.adminUsersRequest(token, """{"action":"list"}""") { listSuccess, listResponse ->
+                                                            adminMessage = if (listSuccess) {
+                                                                adminUsers = parseAdminUsers(listResponse)
+                                                                platformUtils.getRegistrationRequests { reqResp ->
+                                                                    pendingRequests = parsePendingRequests(reqResp)
+                                                                }
+                                                                "Yönetici girişi başarılı."
+                                                            } else {
+                                                                "Kullanıcı listesi alınamadı: " + listResponse
                                                             }
-                                                            "Yönetici girişi başarılı."
-                                                        } else {
-                                                            "Kullanıcı listesi alınamadı: " + listResponse
                                                         }
+                                                    } else {
+                                                        adminLoading = false
+                                                        adminMessage = message.ifBlank { "Giriş başarısız. Lütfen bilgilerinizi kontrol edin." }
                                                     }
-                                                } else {
-                                                    adminLoading = false
-                                                    adminMessage = message.ifBlank { "Giriş başarısız. Lütfen bilgilerinizi kontrol edin." }
                                                 }
                                             }
+                                        },
+                                        enabled = !adminLoading,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(if (adminLoading) "GİRİŞ YAPILIYOR... LÜTFEN BEKLEYİN" else "YÖNETİCİ GİRİŞİ")
+                                    }
+
+                                    if (adminMessage.isNotBlank()) {
+                                        Spacer(Modifier.height(12.dp))
+                                        Text(adminMessage, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            "Yönetici Paneli",
+                                            fontSize = 22.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+
+                                        OutlinedButton(
+                                            onClick = {
+                                                adminAuthenticated = false
+                                                adminSessionToken = ""
+                                                adminPassword = ""
+                                                adminMessage = "Çıkış yapıldı."
+                                            }
+                                        ) {
+                                            Text("Çıkış Yap")
                                         }
-                                    },
-                                    enabled = !adminLoading,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(if (adminLoading) "GİRİŞ YAPILIYOR... LÜTFEN BEKLEYİN" else "YÖNETİCİ GİRİŞİ")
-                                }
+                                    }
 
-                                Spacer(Modifier.height(10.dp))
+                                    if (adminMessage.isNotBlank()) {
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(adminMessage, color = Color(0xFF22A447), textAlign = TextAlign.Center)
+                                    }
 
-                                if (adminAuthenticated) {
                                     if (pendingRequests.isNotEmpty()) {
                                         Spacer(Modifier.height(16.dp))
                                         HorizontalDivider()
