@@ -922,7 +922,7 @@ fun ProfileSetupScreen(
         if (!showAdminLogin) {
             CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
             CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
-            CustomInputField("RE/MAX Ofis Linki (Opsiyonel)", remaxUrl) { remaxUrl = it }
+            CustomInputField("Ofis / Web Sitesi Linki (Opsiyonel)", remaxUrl) { remaxUrl = it }
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -1761,7 +1761,7 @@ fun MyPortfolioScreen(
     if (showImportDialog) {
         AlertDialog(
             onDismissRequest = { showImportDialog = false },
-            title = { Text("RE/MAX'tan İçe Aktar", color = MaterialTheme.colorScheme.onSurface) },
+            title = { Text("Ofis İlanlarını İçe Aktar", color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 Column {
                     Text("Ofis veya arama sayfası linkini girin:", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp)
