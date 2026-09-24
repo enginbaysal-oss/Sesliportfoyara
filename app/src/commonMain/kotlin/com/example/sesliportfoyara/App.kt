@@ -225,20 +225,16 @@ fun App() {
                         Screen.ProfileSetup -> ProfileSetupScreen(
                             initialName = myName,
                             initialPhone = myPhone,
-                            initialUrl = remaxUrl,
-                            onComplete = { name, phone, url ->
+                            onComplete = { name, phone ->
                             platformUtils.checkAppAuthorization(phone) { authorized, serverName, serverIsAdmin, serverCanUseTools, error ->
                                 if (authorized) {
                                     val finalName = serverName.ifBlank { name }
                                     settings.putString("my_consultant_name", finalName)
                                     settings.putString("my_consultant_phone", phone)
-                                    settings.putString("remax_office_url", url)
-                                    platformUtils.saveRemaxUrl(url)
                                     settings.putBoolean("is_admin", serverIsAdmin)
                                     settings.putBoolean("can_use_tools", serverCanUseTools)
                                     myName = finalName
                                     myPhone = phone
-                                    remaxUrl = url
                                     isAdmin = serverIsAdmin
                                     canUseTools = serverCanUseTools
                                     platformUtils.setActiveSession(true)
@@ -875,13 +871,11 @@ fun parseAdminUsers(response: String): List<AdminUser> {
 fun ProfileSetupScreen(
     initialName: String = "",
     initialPhone: String = "",
-    initialUrl: String = "",
-    onComplete: (String, String, String) -> Unit,
+    onComplete: (String, String) -> Unit,
     onAdminLogin: (String, String, (Boolean, String, String) -> Unit) -> Unit
 ) {
     var nameValue by remember { mutableStateOf(TextFieldValue(initialName)) }
     var phoneValue by remember { mutableStateOf(TextFieldValue(initialPhone)) }
-    var remaxUrl by remember { mutableStateOf(initialUrl) }
 
     var showAdminLogin by remember { mutableStateOf(false) }
     var adminEmail by remember { mutableStateOf("engin.baysal@remax-ilyada.com") }
@@ -922,14 +916,13 @@ fun ProfileSetupScreen(
         if (!showAdminLogin) {
             CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
             CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
-            CustomInputField("Ofis / Web Sitesi Linki (Opsiyonel)", remaxUrl) { remaxUrl = it }
 
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
                 onClick = {
                     if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
-                        onComplete(nameValue.text.trim(), phoneValue.text.trim(), remaxUrl.trim())
+                        onComplete(nameValue.text.trim(), phoneValue.text.trim())
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -1841,34 +1834,36 @@ fun MyPortfolioScreen(
 
         Spacer(modifier = Modifier.height(10.dp)) // Boşluk daraltıldı
 
-        // İŞLEM BUTONLARI
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = { showImportDialog = true },
-                modifier = Modifier.weight(1f).height(36.dp), // Yükseklik 44'ten 36'ya düşürüldü
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 4.dp)
-            ) {
-                Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("İçe Aktar", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        // İŞLEM BUTONLARI (Yalnızca Admin / Ofis Yetkilisi görebilir)
+        if (isAdmin) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { showImportDialog = true },
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("İçe Aktar", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = { showClearDialog = true },
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B)),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Icon(Icons.Default.DeleteSweep, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Temizle", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
 
-            Button(
-                onClick = { showClearDialog = true },
-                modifier = Modifier.weight(1f).height(36.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B)),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 4.dp)
-            ) {
-                Icon(Icons.Default.DeleteSweep, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Temizle", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
+            Spacer(modifier = Modifier.height(10.dp))
         }
-
-        Spacer(modifier = Modifier.height(10.dp))
 
         // TABLAR
         Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp)) {
