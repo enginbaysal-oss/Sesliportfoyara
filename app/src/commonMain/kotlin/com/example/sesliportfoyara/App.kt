@@ -501,13 +501,13 @@ fun App() {
                                             adminMessage = "E-posta ve şifreyi giriniz."
                                         } else {
                                             adminLoading = true
-                                            adminMessage = ""
+                                            adminMessage = "Sunucu ile bağlantı kuruluyor, giriş yapılıyor..."
                                             platformUtils.adminSignIn(
                                                 adminEmail,
                                                 adminPassword
                                             ) { success, token, message ->
-                                                adminLoading = false
                                                 if (success) {
+                                                    adminLoading = false
                                                     adminSessionToken = token
                                                     adminPassword = ""
                                                     adminAuthenticated = true
@@ -525,6 +525,7 @@ fun App() {
                                                         }
                                                     }
                                                 } else {
+                                                    adminLoading = false
                                                     adminMessage = message
                                                 }
                                             }
@@ -533,7 +534,7 @@ fun App() {
                                     enabled = !adminLoading,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text(if (adminLoading) "GİRİŞ YAPILIYOR..." else "YÖNETİCİ GİRİŞİ")
+                                    Text(if (adminLoading) "GİRİŞ YAPILIYOR... LÜTFEN BEKLEYİN" else "YÖNETİCİ GİRİŞİ")
                                 }
 
                                 Spacer(Modifier.height(10.dp))
@@ -560,35 +561,57 @@ fun App() {
                                                     Text(req.name, fontWeight = FontWeight.Bold)
                                                     Text(req.phone)
                                                     Spacer(Modifier.height(8.dp))
-                                                    Button(
-                                                        onClick = {
-                                                            val token = adminSessionToken
-                                                            adminLoading = true
-                                                            val addJson = """{"action":"add","full_name":${JsonPrimitive(req.name).toString()},"phone":${JsonPrimitive(req.phone).toString()},"can_use_tools":false,"is_admin":false}"""
-                                                            platformUtils.adminUsersRequest(token, addJson) { addOk, addResp ->
-                                                                if (addOk) {
-                                                                    platformUtils.deleteRegistrationRequest(req.id) { _ ->
-                                                                        platformUtils.getRegistrationRequests { resp2 ->
-                                                                            pendingRequests = parsePendingRequests(resp2)
-                                                                            platformUtils.adminUsersRequest(token, """{"action":"list"}""") { listOk, listResp ->
-                                                                                adminLoading = false
-                                                                                if (listOk) {
-                                                                                    adminUsers = parseAdminUsers(listResp)
-                                                                                    adminMessage = "Kullanıcı onaylandı ve sisteme eklendi."
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                    ) {
+                                                        Button(
+                                                            onClick = {
+                                                                val token = adminSessionToken
+                                                                adminLoading = true
+                                                                val addJson = """{"action":"add","full_name":${JsonPrimitive(req.name).toString()},"phone":${JsonPrimitive(req.phone).toString()},"can_use_tools":false,"is_admin":false}"""
+                                                                platformUtils.adminUsersRequest(token, addJson) { addOk, addResp ->
+                                                                    if (addOk) {
+                                                                        platformUtils.deleteRegistrationRequest(req.id) { _ ->
+                                                                            platformUtils.getRegistrationRequests { resp2 ->
+                                                                                pendingRequests = parsePendingRequests(resp2)
+                                                                                platformUtils.adminUsersRequest(token, """{"action":"list"}""") { listOk, listResp ->
+                                                                                    adminLoading = false
+                                                                                    if (listOk) {
+                                                                                        adminUsers = parseAdminUsers(listResp)
+                                                                                        adminMessage = "Kullanıcı onaylandı ve sisteme eklendi."
+                                                                                    }
                                                                                 }
                                                                             }
                                                                         }
+                                                                    } else {
+                                                                        adminLoading = false
+                                                                        adminMessage = "Onaylama başarısız: $addResp"
                                                                     }
-                                                                } else {
-                                                                    adminLoading = false
-                                                                    adminMessage = "Onaylama başarısız: $addResp"
                                                                 }
-                                                            }
-                                                        },
-                                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) {
-                                                        Text("ONAYLA", fontWeight = FontWeight.Bold, color = Color.White)
+                                                            },
+                                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
+                                                            modifier = Modifier.weight(1f)
+                                                        ) {
+                                                            Text("ONAYLA", fontWeight = FontWeight.Bold, color = Color.White)
+                                                        }
+
+                                                        Button(
+                                                            onClick = {
+                                                                adminLoading = true
+                                                                platformUtils.deleteRegistrationRequest(req.id) { _ ->
+                                                                    platformUtils.getRegistrationRequests { resp2 ->
+                                                                        adminLoading = false
+                                                                        pendingRequests = parsePendingRequests(resp2)
+                                                                        adminMessage = "Kayıt talebi reddedildi."
+                                                                    }
+                                                                }
+                                                            },
+                                                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                                                            modifier = Modifier.weight(1f)
+                                                        ) {
+                                                            Text("REDDET", fontWeight = FontWeight.Bold, color = Color.White)
+                                                        }
                                                     }
                                                 }
                                             }
