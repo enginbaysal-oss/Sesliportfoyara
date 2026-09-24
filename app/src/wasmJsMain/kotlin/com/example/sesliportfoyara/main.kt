@@ -118,7 +118,17 @@ external fun jsDownloadFile(content: JsString, fileName: JsString)
     "} " +
     "}")
 external fun jsOpenFilePicker(callback: (JsString?) -> Unit)
-@JsFun("(url, key, path, body, bearer, callback) => { fetch(url + path, { method: 'POST', headers: { 'apikey': key, 'Content-Type': 'application/json', ...(bearer ? {'Authorization':'Bearer ' + bearer} : {}) }, body: body }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, 'Baglanti hatasi: ' + e.message)); }")
+@JsFun("(url, key, path, body, bearer, callback) => { " +
+    "const doFetch = (retry) => { " +
+    "  fetch(url + path, { method: 'POST', headers: { 'apikey': key, 'Content-Type': 'application/json', ...(bearer ? {'Authorization':'Bearer ' + bearer} : {}) }, body: body })" +
+    "    .then(async r => { const t = await r.text(); callback(r.ok, t); })" +
+    "    .catch(e => { " +
+    "      if (retry) { setTimeout(() => doFetch(false), 300); } " +
+    "      else { callback(false, 'Baglanti hatasi: ' + e.message); } " +
+    "    }); " +
+    "}; " +
+    "doFetch(true); " +
+    "}")
 external fun jsSupabasePost(url: JsString, key: JsString, path: JsString, body: JsString, bearer: JsString, callback: (Boolean, JsString) -> Unit)
 
 @JsFun("(url, path, body, callback) => { fetch(url + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, 'Baglanti hatasi: ' + e.message)); }")
