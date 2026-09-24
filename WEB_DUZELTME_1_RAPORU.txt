@@ -1,0 +1,35 @@
+================================================================================
+SESLİ PORTFÖY ARA - WEB / WASM DÜZELTME RAPORU (WEB_DUZELTME_1_RAPORU.txt)
+================================================================================
+
+1. YAPILAN DEĞİŞİKLİKLERİN ÖZETİ
+--------------------------------------------------------------------------------
+- Oturum ve Giriş Kontrolü: Web uygulaması ilk açıldığında oturum yoksa kullanıcı doğrudan Giriş / Profil Kurulum ekranına (`Screen.ProfileSetup`) yönlendirilecek şekilde ayarlandı.
+- Oturum Saklama & Yenileme: Başarılı giriş sonrasında oturum bilgisi güvenli biçimde hem `localStorage` hem de `sessionStorage` içerisinde saklandı (`platformUtils.hasActiveSession()` ve `setActiveSession()`).
+- Sayfa Yenileme & Yetki Yükleme: Sayfa yenilendiğinde mevcut oturum kontrol edilerek kullanıcı tekrar girişe gönderilmedi; `checkAppAuthorization` ile kullanıcının rolü (`isAdmin`) ve `can_use_tools` yetkisi yeniden yüklendi.
+- Yetkisiz Menü Koruması: Yetkisi olmayan kullanıcılara Araçlar sekmesi ve yetkili menüler gizlendi.
+- Sayfa Geçişleri & İframe Modal Desteği (`openArsaTakip`, `openEmlakAsistan`): `window.location.href` kullanılarak ana Wasm uygulamasının kapatılması önlendi. Bunun yerine DOM tabanlı tam ekran bir `iframe` modal overlay mekanizması (`jsOpenOverlay`) geliştirildi.
+- Geri ve Ana Menü Düğmeleri: Açılan araç pencerelerine (Arsa Takip ve Emlak Asistanı) "Ana Menü" ve "Geri" düğmeleri eklendi.
+- Çift Tıklama / Çoklu Sayfa Engeli: Aynı butona art arda basıldığında birden fazla overlay/sayfa açılması engellendi (`if (document.getElementById('cepte_overlay')) return;`).
+- URL Parametre Güvenliği: Supabase access token, telefon veya kullanıcı bilgileri URL parametreleri olarak gönderilmedi.
+- Konsol Hataları Temizliği: Yönlendirme ve oturum hataları giderildi.
+- Android Uyumluluğu: Android'e özel Activity, Intent ve MediaProjection kodlarına kesinlikle dokunulmadı; Android kodları korundu.
+
+2. DEĞİŞTİRİLEN DOSYALAR
+--------------------------------------------------------------------------------
+1. [App.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/commonMain/kotlin/com/example/sesliportfoyara/App.kt)
+   - Başlangıç ekranı oturum kontrolü eklendi (`hasActiveSession()`).
+   - `LaunchedEffect` içerisinde telefon numarası ile yetki ve rol (`isAdmin`, `canUseTools`) tazeleme mantığı kuruldu.
+   - `TabNavigation` bileşenine yetki parametreleri eklenerek yetkisiz kullanıcılara araçlar sekmesinin gizlenmesi sağlandı.
+2. [main.kt (wasmJsMain)](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/wasmJsMain/kotlin/com/example/sesliportfoyara/main.kt)
+   - `jsOpenOverlay` fonksiyonu ile `iframe` tabanlı modal overlay sistemi eklendi (`openArsaTakip` ve `openEmlakAsistan`).
+   - `hasActiveSession` ve `setActiveSession` fonksiyonları `localStorage` ve `sessionStorage` destekleyecek şekilde güncellendi.
+
+3. DERLEME (BUILD) SONUÇLARI
+--------------------------------------------------------------------------------
+- Wasm/Web Derlemesi (`app:compileKotlinWasmJs`): BAŞARILI (0 hata)
+- Android Derlemesi (`app:assembleDebug`): BAŞARILI (0 hata)
+
+================================================================================
+RAPOR SONU
+================================================================================

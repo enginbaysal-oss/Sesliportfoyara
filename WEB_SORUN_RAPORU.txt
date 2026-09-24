@@ -1,0 +1,101 @@
+================================================================================
+SESLİ PORTFÖY ARA - MOBİL VE WEB SÜRÜMÜ KARŞILAŞTIRMA VE SORUN RAPORU
+================================================================================
+
+1. PROJENİN KULLANDIĞI TEKNOLOJİ VE KLASÖR YAPISI
+--------------------------------------------------------------------------------
+- Teknoloji Stack: Kotlin Multiplatform (KMP), Compose Multiplatform (Android, Desktop, Wasm/JS), Kotlin Coroutines, Ktor, Supabase / Firebase, Russhwolf Multiplatform Settings.
+- Klasör Yapısı:
+  * app/src/commonMain/kotlin/com/example/sesliportfoyara/ : Ortak (common) iş mantığı, App.kt, CRMModels.kt, LocalCRMManager.kt, vb.
+  * app/src/commonMain/kotlin/com/example/sesliportfoyara/ui/ : CRM arayüz bileşenleri (CRMScreens.kt, Theme vb.)
+  * app/src/androidMain/kotlin/com/example/sesliportfoyara/ : Android-spesifik kodlar (MainActivity.kt, ArsaTakipActivity.kt, EmlakAsistanActivity.kt, RecordService.kt, AndroidPlatform.kt vb.)
+  * app/src/androidMain/assets/ : Android asset dosyaları (arsatakip/index.html, emlakasistan/index.html)
+  * app/src/wasmJsMain/kotlin/com/example/sesliportfoyara/ : Web/Wasm-spesifik kodlar (main.kt, WasmPlatform.kt, FirebaseDatabaseManager.kt)
+  * app/src/wasmJsMain/resources/ : Web statik kaynakları ve HTML arayüzleri (index.html, arsatakip/index.html, emlakasistan/index.html)
+
+2. İLGİLİ DOSYA YOLLARI
+--------------------------------------------------------------------------------
+- Ana Menünün Oluşturulduğu Dosya:
+  * [App.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/commonMain/kotlin/com/example/sesliportfoyara/App.kt) ve [CRMScreens.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/commonMain/kotlin/com/example/sesliportfoyara/ui/CRMScreens.kt)
+- Giriş / Kayıt Ekranının Bulunduğu Dosya:
+  * [App.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/commonMain/kotlin/com/example/sesliportfoyara/App.kt) (Telefon yetkilendirme ve yönetici giriş/kayıt akışları)
+- Arsa Takip Ekranlarının Bulunduğu Dosyalar:
+  * [ArsaTakipActivity.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/androidMain/kotlin/com/example/sesliportfoyara/ArsaTakipActivity.kt) (Android)
+  * [arsatakip/index.html](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/wasmJsMain/resources/arsatakip/index.html) (Web / Wasm)
+- Ekran Kaydı Fonksiyonunun Bulunduğu Dosya:
+  * [RecordService.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/androidMain/kotlin/com/example/sesliportfoyara/RecordService.kt) ve [ArsaTakipActivity.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/androidMain/kotlin/com/example/sesliportfoyara/ArsaTakipActivity.kt)
+- WhatsApp Paylaşım Fonksiyonunun Bulunduğu Dosya:
+  * [ArsaTakipActivity.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/androidMain/kotlin/com/example/sesliportfoyara/ArsaTakipActivity.kt) ve [CRMScreens.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/commonMain/kotlin/com/example/sesliportfoyara/ui/CRMScreens.kt)
+- Web Platformuna Özel Dosyalar:
+  * [main.kt (wasmJsMain)](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/wasmJsMain/kotlin/com/example/sesliportfoyara/main.kt)
+  * [WasmPlatform.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/wasmJsMain/kotlin/com/example/sesliportfoyara/WasmPlatform.kt)
+  * [index.html (wasmJsMain)](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/wasmJsMain/resources/index.html)
+  * [arsatakip/index.html (wasmJsMain)](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/wasmJsMain/resources/arsatakip/index.html)
+  * [emlakasistan/index.html (wasmJsMain)](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/wasmJsMain/resources/emlakasistan/index.html)
+
+3. MOBİL VE WEB SÜRÜMÜNÜN KARŞILAŞTIRMALI ANALİZİ VE SORUNLAR
+--------------------------------------------------------------------------------
+
+1. Uygulama Açılışındaki Giriş ve Kayıt Olma Ekranı:
+   - Mobil Sürüm: Android uygulamasında telefon numarası yetkilendirmesi (`checkAppAuthorization`) ve Supabase tabanlı yönetici giriş/kayıt işlemleri sorunsuz çalışmaktadır.
+   - Web Sürümü: Wasm tarafında Supabase RPC ve Auth çağrıları `main.kt` içinde tanımlıdır ancak sayfa yönlendirmeleri (`window.location.href`) nedeniyle oturum durumu (`sessionStorage`) sıfırlanabilmekte veya arayüz state'leri kaybolabilmektedir.
+
+2. Kullanıcı Yetkilendirmesine Göre Menülerin Açılması:
+   - Mobil Sürüm: Kullanıcı rolü (`is_admin`, `can_use_tools`) ve telefon yetkisi veritabanından çekilerek menüler dinamik olarak açılır.
+   - Web Sürümü: Web sürümünde alt sayfalara (`arsatakip/index.html`, `emlakasistan/index.html`) doğrudan `window.location.href` ile geçildiğinde ana Compose Wasm uygulamasındaki yetkilendirme context'i kaybedilmekte, bu HTML sayfalarında yetki kontrolü yapılmamaktadır.
+
+3. Arsa Takip Bölümündeki Bütün Menüler:
+   - Mobil Sürüm: `ArsaTakipActivity` üzerinden yerel webview ile `arsatakip/index.html` yüklenir; butonlar yerel Android servislerini (MediaProjection, WhatsApp Intent, DownloadManager) tetikler.
+   - Web Sürümü: Web versiyonunda `openArsaTakip()` fonksiyonu `arsatakip/index.html` sayfasına yönlendirir. Bu sayfadaki 3D harita/drone araçları çalışsa da, ekran kaydı, video kaydetme ve WhatsApp paylaşım butonları tarayıcı kısıtlamaları nedeniyle çalışmaz veya hata verir.
+
+4. Ekran Kaydını Başlatma ve Durdurma:
+   - Mobil Sürüm: Android `MediaProjectionManager`, `MediaRecorder` ve `RecordService` (Foreground Service) kullanılarak ekran görüntüsü/sesi kaydedilir.
+   - Web Sürümü: Tarayıcıda `MediaProjection` ve Foreground Service gibi Android API'leri bulunmadığından ekran kaydı tamamen çalışmamaktadır. Tarayıcı API'si olan `navigator.mediaDevices.getDisplayMedia()` entegre edilmemiştir.
+
+5. Oluşturulan Videoyu Kaydetme:
+   - Mobil Sürüm: Videolar Android MediaStore içerisine (`ArsaDrone_...mp4`) kaydedilir ve dosya yöneticisi/galeri tarafından erişilebilir.
+   - Web Sürümü: Tarayıcıda MediaStore veya Android dosya sistemi erişimi olmadığı için video kaydedilemez.
+
+6. WhatsApp Üzerinden Paylaşım:
+   - Mobil Sürüm: `Intent.ACTION_SEND` ve `com.whatsapp` paket adı kullanılarak video doğrudan WhatsApp üzerinden paylaşılır.
+   - Web Sürümü: Tarayıcılarda `com.whatsapp` gibi doğrudan uygulama paketine intent atma mekanizması yoktur. `arsatakip/index.html` içinde "Bu tarayıcıda doğrudan paylaşım desteklenmiyor" uyarısı verilerek indirme işlemine düşmektedir.
+
+7. Web Sürümündeki Donma ve Kilitlenme Nedenleri:
+   - `window.location.href` ile tam sayfa yönlendirmeleri yapılması, Wasm bellek alanının ve Compose state'lerinin sıfırlanmasına ve yeniden yüklenme gecikmelerine neden olur.
+   - Android-spesifik Intent/BroadcastReceiver çağrıları veya eksik platform kontrolleri JS tarafında hata (TypeError) üretebilir.
+
+8. Android'e Özel Kullanılan API, Intent, Capacitor veya Native Fonksiyonlar:
+   - `android.media.projection.MediaProjectionManager` / `MediaProjection`
+   - `android.media.MediaRecorder`
+   - `android.app.Service` (`RecordService`)
+   - `android.app.DownloadManager` ve `ACTION_DOWNLOAD_COMPLETE`
+   - `android.content.Intent` (`ACTION_VIEW`, `ACTION_SEND`, `RecognizerIntent`)
+   - `android.speech.SpeechRecognizer`
+   - `android.provider.MediaStore`
+
+9. Web Sürümünde Karşılığı Bulunmayan Fonksiyonlar:
+   - `MediaProjection` tabanlı ekran kaydı ve `RecordService` arka plan/ön plan servisleri.
+   - Android Intent tabanlı WhatsApp paket paylaşımı (`com.whatsapp`).
+   - Android MediaStore dosya indeksleme ve `DownloadManager`.
+
+10. Eksik veya Hata Veren Fonksiyon İsimleri ve Web Konsol Hataları:
+    - `openArsaTakip()` / `openEmlakAsistan()` (Full sayfa yönlendirmesi nedeniyle state kopması)
+    - `startRecording()` / `stopRecording()` (Web'de tanınmıyor)
+    - `shareLastVideoOnWhatsApp()` (Android intent başarısızlığı)
+    - Konsol Hataları: `TypeError: Cannot read properties of undefined (reading 'startScreenCapture')`, `Uncaught ReferenceError: MediaProjection is not defined`, `Intent resolution failed`.
+
+4. DÜZELTİLMESİ GEREKEN DOSYALAR VE ÇÖZÜM ÖNERİLERİ
+--------------------------------------------------------------------------------
+
+1. [WasmPlatform.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/wasmJsMain/kotlin/com/example/sesliportfoyara/WasmPlatform.kt) / [main.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/wasmJsMain/kotlin/com/example/sesliportfoyara/main.kt)
+   - Çözüm: Web sürümü için tarayıcı tabanlı ekran kaydı (`navigator.mediaDevices.getDisplayMedia` + `MediaRecorder` API) implementasyonu eklenmeli, kaydedilen video blob olarak indirilmelidir.
+
+2. [arsatakip/index.html](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/wasmJsMain/resources/arsatakip/index.html)
+   - Çözüm: WhatsApp paylaşımı için `com.whatsapp` intent yerine Web Share API (`navigator.share({files: [...]})`) veya `https://wa.me/?text=...` web yönlendirmesi kullanılmalıdır.
+
+3. [App.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/commonMain/kotlin/com/example/sesliportfoyara/App.kt) / [CommonPlatform.kt](file:///C:/Users/engin/AndroidStudioProjects/Sesliportfoyara/app/src/commonMain/kotlin/com/example/sesliportfoyara/CommonPlatform.kt)
+   - Çözüm: `openArsaTakip()` ve `openEmlakAsistan()` çağrılarında sayfa yenilemek yerine, oturum token'ları (`sessionStorage` / `localStorage`) alt HTML sayfalarına parametre olarak aktarılmalı veya iframe / modal tabanlı yapı kurulmalıdır.
+
+================================================================================
+RAPOR SONU
+================================================================================

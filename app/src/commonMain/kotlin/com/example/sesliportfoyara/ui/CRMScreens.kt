@@ -419,133 +419,75 @@ fun CRMMainScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            if (newMatches.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable {
-                        val client = newMatches.firstOrNull()?.first
-                        if (client != null) {
-                            crmManager.markMatchesSeen(newMatches.filter { it.first.id == client.id })
-                            newMatches = crmManager.getNewMatches(clients, allPortfolios)
-                            onClientClick(client)
-                        }
-                    },
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5EC)),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(2.dp, Color(0xFF22A447))
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "🔔 YENİ PORTFÖY EŞLEŞMELERİ",
-                                color = Color(0xFF137A34),
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "${newMatches.size} yeni müşteri-portföy eşleşmesi sizi bekliyor.",
-                                color = Color(0xFF333333),
-                                fontSize = 13.sp
-                            )
-                        }
-                        Surface(
-                            color = Color(0xFF22A447),
-                            shape = CircleShape
-                        ) {
-                            Text(
-                                newMatches.size.toString(),
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                color = Color.White,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 16.sp
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
             val allReminders = clients.flatMap { client ->
                 client.reminders.map { reminder -> client to reminder }
             }.sortedBy { it.second.dateTime }
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showReminderListDialog = true },
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFF3E0)
-                ),
-                shape = RoundedCornerShape(10.dp),
-                border = BorderStroke(1.dp, Color(0xFFFF9800))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                if (newMatches.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier.weight(1f).clickable {
+                            val client = newMatches.firstOrNull()?.first
+                            if (client != null) {
+                                crmManager.markMatchesSeen(newMatches.filter { it.first.id == client.id })
+                                newMatches = crmManager.getNewMatches(clients, allPortfolios)
+                                onClientClick(client)
+                            }
+                        },
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5EC)),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Color(0xFF22A447))
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Star, null, tint = Color(0xFF22A447), modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Eşleşme", color = Color(0xFF137A34), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Surface(color = Color(0xFF22A447), shape = CircleShape) {
+                                Text(newMatches.size.toString(), modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                Card(
+                    modifier = Modifier.weight(1f).clickable { showReminderListDialog = true },
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFF9800))
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(
-                            Icons.Default.Notifications,
-                            contentDescription = null,
-                            tint = Color(0xFFE65100),
-                            modifier = Modifier.size(18.dp)
-                        )
-
-                        Spacer(Modifier.width(6.dp))
-
-                        Text(
-                            "HATIRLATMALAR",
-                            color = Color(0xFFE65100),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            color = Color(0xFFFF9800),
-                            shape = CircleShape
-                        ) {
-                            Text(
-                                (allReminders.size + generalReminders.size).toString(),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Notifications, null, tint = Color(0xFFE65100), modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Hatırlat", color = Color(0xFFE65100), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
-
-                        Spacer(Modifier.width(8.dp))
-
-                        Surface(
-                            modifier = Modifier.size(26.dp).clickable {
-                                showGeneralReminderDialog = true
-                            },
-                            color = Color(0xFFFF9800),
-                            shape = CircleShape
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(color = Color(0xFFFF9800), shape = CircleShape) {
+                                Text((allReminders.size + generalReminders.size).toString(), modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.width(4.dp))
+                            Surface(
+                                modifier = Modifier.size(20.dp).clickable { showGeneralReminderDialog = true },
+                                color = Color(0xFFFF9800),
+                                shape = CircleShape
                             ) {
-                                Text(
-                                    "+",
-                                    color = Color.White,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text("+", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }

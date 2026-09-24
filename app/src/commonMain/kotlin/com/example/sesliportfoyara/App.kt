@@ -52,6 +52,7 @@ import com.example.sesliportfoyara.ui.ClientDetailScreen
 import com.example.sesliportfoyara.ui.theme.SesliportfoyaraTheme
 import coil3.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -124,10 +125,10 @@ fun App() {
     var isAdmin by remember { mutableStateOf(settings.getBoolean("is_admin", false)) }
     var canUseTools by remember { mutableStateOf(settings.getBoolean("can_use_tools", false)) }
 
-    // Oturum ve başlangıç ekranı kontrolü
+    // Oturum ve başlangıç ekranı kontrolü (Oturum yoksa ilk kayıt/giriş ekranını göster)
     var currentScreen by remember {
         mutableStateOf<Screen>(
-            if (platformUtils.hasActiveSession() && myName.isNotBlank() && myPhone.isNotBlank()) {
+            if (platformUtils.hasActiveSession() && myPhone.isNotBlank() && myName.isNotBlank()) {
                 Screen.VoiceSearch
             } else {
                 Screen.ProfileSetup
@@ -247,8 +248,18 @@ fun App() {
                                 }
                             }
                             },
-                            onAdminLogin = {
-                                currentScreen = Screen.UserManagement
+                            onAdminLogin = { email, password, callback ->
+                                platformUtils.adminSignIn(email, password) { success, token, message ->
+                                    if (success) {
+                                        settings.putBoolean("is_admin", true)
+                                        settings.putBoolean("can_use_tools", true)
+                                        isAdmin = true
+                                        canUseTools = true
+                                        platformUtils.setActiveSession(true)
+                                        currentScreen = Screen.UserManagement
+                                    }
+                                    callback(success, token, message)
+                                }
                             }
                         )
                         Screen.VoiceSearch -> VoiceSearchScreen(officePortfolios, localPortfolios) { p ->
@@ -866,11 +877,17 @@ fun ProfileSetupScreen(
     initialPhone: String = "",
     initialUrl: String = "",
     onComplete: (String, String, String) -> Unit,
-    onAdminLogin: () -> Unit
+    onAdminLogin: (String, String, (Boolean, String, String) -> Unit) -> Unit
 ) {
     var nameValue by remember { mutableStateOf(TextFieldValue(initialName)) }
     var phoneValue by remember { mutableStateOf(TextFieldValue(initialPhone)) }
     var remaxUrl by remember { mutableStateOf(initialUrl) }
+
+    var showAdminLogin by remember { mutableStateOf(false) }
+    var adminEmail by remember { mutableStateOf("engin.baysal@remax-ilyada.com") }
+    var adminPassword by remember { mutableStateOf("") }
+    var adminMessage by remember { mutableStateOf("") }
+    var adminLoading by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
 
@@ -893,40 +910,103 @@ fun ProfileSetupScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text("Danışman Profili", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("Giriş ve Profil", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Otomatik portföy çekme için RE/MAX ofis linkinizi girebilirsiniz.",
+            "Telefon numaranızla giriş yapın veya yönetici hesabınızla bağlanın.",
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 14.sp, textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp)
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
-        CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
-        CustomInputField("RE/MAX Ofis Linki (Otomatik Çekme İçin)", remaxUrl) { remaxUrl = it }
+        if (!showAdminLogin) {
+            CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
+            CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
+            CustomInputField("RE/MAX Ofis Linki (Opsiyonel)", remaxUrl) { remaxUrl = it }
 
-        Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-        Button(
-            onClick = {
-                if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
-                    onComplete(nameValue.text.trim(), phoneValue.text.trim(), remaxUrl.trim())
-                }
-            },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
-            enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()
-        ) {
-            Text("Bilgileri Kaydet", color = Color.Black, fontWeight = FontWeight.Bold)
-        }
+            Button(
+                onClick = {
+                    if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
+                        onComplete(nameValue.text.trim(), phoneValue.text.trim(), remaxUrl.trim())
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
+                enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()
+            ) {
+                Text("Giriş Yap / Kaydet", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
 
-        Spacer(modifier = Modifier.height(14.dp))
-        OutlinedButton(onClick = onAdminLogin, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(12.dp)) {
-            Icon(Icons.Default.Lock, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("YÖNETİCİ GİRİŞİ", fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(14.dp))
+
+            OutlinedButton(
+                onClick = { showAdminLogin = true },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Lock, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("YÖNETİCİ GİRİŞİ", fontWeight = FontWeight.Bold)
+            }
+        } else {
+            OutlinedTextField(
+                value = adminEmail,
+                onValueChange = { adminEmail = it },
+                label = { Text("Yönetici E-posta") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = adminPassword,
+                onValueChange = { adminPassword = it },
+                label = { Text("Şifre") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    if (adminEmail.isNotBlank() && adminPassword.isNotBlank()) {
+                        adminLoading = true
+                        adminMessage = ""
+                        onAdminLogin(adminEmail, adminPassword) { success, _, msg ->
+                            adminLoading = false
+                            adminMessage = msg
+                        }
+                    } else {
+                        adminMessage = "E-posta ve şifreyi giriniz."
+                    }
+                },
+                enabled = !adminLoading,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
+            ) {
+                Text(if (adminLoading) "GİRİŞ YAPILIYOR..." else "YÖNETİCİ OLARAK GİRİŞ YAP", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+
+            if (adminMessage.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(adminMessage, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            TextButton(
+                onClick = { showAdminLogin = false },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("← Danışman Girişine Dön")
+            }
         }
     }
 }
