@@ -238,23 +238,27 @@ fun App() {
                             initialName = myName,
                             initialPhone = myPhone,
                             onComplete = { name, phone ->
-                            platformUtils.checkAppAuthorization(phone) { authorized, serverName, serverIsAdmin, serverCanUseTools, error ->
-                                if (authorized) {
-                                    val finalName = serverName.ifBlank { name }
-                                    settings.putString("my_consultant_name", finalName)
-                                    settings.putString("my_consultant_phone", phone)
-                                    settings.putBoolean("is_admin", serverIsAdmin)
-                                    settings.putBoolean("can_use_tools", serverCanUseTools)
-                                    myName = finalName
-                                    myPhone = phone
-                                    isAdmin = serverIsAdmin
-                                    canUseTools = serverCanUseTools
-                                    platformUtils.setActiveSession(true)
-                                    currentScreen = Screen.VoiceSearch
-                                } else {
-                                    scope.launch { snackbarHostState.showSnackbar(error.ifBlank { "Kullanım yetkiniz bulunmuyor." }) }
+                                platformUtils.checkAppAuthorization(phone) { authorized, serverName, serverIsAdmin, serverCanUseTools, error ->
+                                    if (authorized) {
+                                        val finalName = serverName.ifBlank { name }
+                                        settings.putString("my_consultant_name", finalName)
+                                        settings.putString("my_consultant_phone", phone)
+                                        settings.putBoolean("is_admin", serverIsAdmin)
+                                        settings.putBoolean("can_use_tools", serverCanUseTools)
+                                        myName = finalName
+                                        myPhone = phone
+                                        isAdmin = serverIsAdmin
+                                        canUseTools = serverCanUseTools
+                                        platformUtils.setActiveSession(true)
+                                        currentScreen = Screen.VoiceSearch
+                                    } else {
+                                        platformUtils.requestRegistration(name, phone) { _, _ ->
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("✅ Kayıt talebiniz başarıyla gönderildi! Yönetici onayından sonra giriş yapabileceksiniz.")
+                                            }
+                                        }
+                                    }
                                 }
-                            }
                             },
                             onAdminLogin = { email, password, callback ->
                                 platformUtils.adminSignIn(email, password) { success, token, message ->

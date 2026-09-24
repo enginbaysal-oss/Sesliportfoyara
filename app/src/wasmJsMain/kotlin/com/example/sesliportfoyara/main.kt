@@ -12,6 +12,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.browser.window
+import kotlinx.serialization.json.JsonPrimitive
 
 @JsFun("(onResult, onError) => { " +
     "console.log('🎤 Web Speech API initiation...'); " +
@@ -237,6 +238,21 @@ fun main() {
                 val body = """{"p_phone":${kotlinx.serialization.json.JsonPrimitive(normalized)}}"""
                 jsSupabasePost("https://jcjerwvibjetomqeelsy.supabase.co".toJsString(), "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(), "/rest/v1/rpc/check_app_authorization".toJsString(), body.toJsString(), "".toJsString()) { ok, response ->
                     val text = response.toString(); try { val arr = kotlinx.serialization.json.Json.parseToJsonElement(text).jsonArray; if (ok && arr.isNotEmpty()) { val o=arr[0].jsonObject; onResult(o["authorized"]?.jsonPrimitive?.boolean ?: false, o["full_name"]?.jsonPrimitive?.content ?: "", o["is_admin"]?.jsonPrimitive?.boolean ?: false, o["can_use_tools"]?.jsonPrimitive?.boolean ?: false, "") } else onResult(false, "", false, false, if(ok) "Bu telefon numarası için kullanım yetkisi bulunmuyor." else jsApiMessage(response).toString()) } catch(e:Exception) { onResult(false, "", false, false, "Yetkilendirme cevabı okunamadı.") }
+                }
+            }
+
+            override fun requestRegistration(name: String, phone: String, onResult: (Boolean, String) -> Unit) {
+                val normalized = phone.filter { it.isDigit() }.let { if (it.length == 10 && it.startsWith("5")) "0$it" else it }
+                if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "Geçerli bir cep telefonu numarası giriniz."); return }
+                val body = """{"full_name":${JsonPrimitive(name.trim())},"phone":${kotlinx.serialization.json.JsonPrimitive(normalized)},"is_active":false,"is_admin":false,"can_use_tools":false}"""
+                jsSupabasePost(
+                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                    "/rest/v1/users".toJsString(),
+                    body.toJsString(),
+                    "".toJsString()
+                ) { ok, response ->
+                    onResult(ok, if (ok) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else jsApiMessage(response).toString())
                 }
             }
 

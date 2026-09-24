@@ -22,6 +22,7 @@ interface PlatformUtils {
     fun adminResendConfirmation(email: String, onResult: (Boolean, String) -> Unit)
     fun adminUsersRequest(accessToken: String, requestJson: String, onResult: (Boolean, String) -> Unit)
     fun pickFile(onResult: (String?) -> Unit)
+    fun requestRegistration(name: String, phone: String, onResult: (Boolean, String) -> Unit) { onResult(false, "Bu platformda kayıt talebi desteklenmiyor.") }
 }
 
 val LocalPlatformUtils = staticCompositionLocalOf<PlatformUtils> {
