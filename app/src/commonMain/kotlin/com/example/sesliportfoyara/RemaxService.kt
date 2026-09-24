@@ -222,13 +222,26 @@ class RemaxService {
             if (flight.isEmpty()) return emptyList()
 
             val rows = parseFlightRows(flight)
-            val rawJson = extractObjectStringByKey(flight, "officeDetailPropertyListingData")
+            var rawJson: String? = null
+            for (key in listOf("officeDetailPropertyListingData", "searchPropertyListingData", "propertyListingData", "listingData")) {
+                rawJson = extractObjectStringByKey(flight, key)
+                if (rawJson != null) break
+            }
             if (rawJson == null) return emptyList()
 
             val root = json.parseToJsonElement(rawJson)
             val resolved = resolveRefs(root, rows)
 
-            val listingsArray = resolved.jsonObject["data"]?.jsonObject?.get("data")?.jsonArray
+            val listingsArray = when {
+                resolved is JsonArray -> resolved
+                resolved is JsonObject -> {
+                    resolved.jsonObject["data"]?.jsonObject?.get("data")?.jsonArray
+                        ?: resolved.jsonObject["data"]?.jsonArray
+                        ?: resolved.jsonObject["listings"]?.jsonArray
+                        ?: resolved.values.firstOrNull { it is JsonArray }?.jsonArray
+                }
+                else -> null
+            }
             if (listingsArray == null) return emptyList()
 
             listingsArray.mapNotNull { element ->
