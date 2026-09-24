@@ -108,6 +108,28 @@ data class AdminUser(
     val isAdmin: Boolean,
     val canUseTools: Boolean
 )
+
+data class PendingRequest(
+    val id: String,
+    val name: String,
+    val phone: String
+)
+
+fun parsePendingRequests(response: String): List<PendingRequest> {
+    return try {
+        val root = Json.parseToJsonElement(response).jsonObject
+        root.entries.map { (key, element) ->
+            val obj = element.jsonObject
+            PendingRequest(
+                id = key,
+                name = obj["name"]?.jsonPrimitive?.content ?: "",
+                phone = obj["phone"]?.jsonPrimitive?.content ?: ""
+            )
+        }
+    } catch (_: Exception) {
+        emptyList()
+    }
+}
 @Composable
 fun App() {
     val dbManager = LocalDatabaseManager.current
@@ -390,9 +412,6 @@ fun App() {
                                     }
                                 }
                             },
-                            onEditProfile = {
-                                currentScreen = Screen.ProfileSetup
-                            },
                             onImportRemax = { url ->
                                 scope.launch {
                                     snackbarHostState.showSnackbar("⌛ Portföyler ofise aktarılıyor...")
@@ -418,6 +437,7 @@ fun App() {
                             var adminAuthenticated by remember { mutableStateOf(false) }
                             var adminSessionToken by remember { mutableStateOf("") }
                             var adminUsers by remember { mutableStateOf<List<AdminUser>>(emptyList()) }
+                            var pendingRequests by remember { mutableStateOf<List<PendingRequest>>(emptyList()) }
                             var newUserName by remember { mutableStateOf("") }
                             var newUserPhone by remember { mutableStateOf("") }
                             var newUserTools by remember { mutableStateOf(false) }
@@ -496,7 +516,10 @@ fun App() {
                                                     platformUtils.adminUsersRequest(token, """{"action":"list"}""") { listSuccess, listResponse ->
                                                         adminMessage = if (listSuccess) {
                                                             adminUsers = parseAdminUsers(listResponse)
-                                                            "Kullanıcılar yüklendi."
+                                                            platformUtils.getRegistrationRequests { reqResp ->
+                                                                pendingRequests = parsePendingRequests(reqResp)
+                                                            }
+                                                            "Kullanıcılar ve başvurular yüklendi."
                                                         } else {
                                                             "Kullanıcı listesi alınamadı: " + listResponse
                                                         }
@@ -516,6 +539,62 @@ fun App() {
                                 Spacer(Modifier.height(10.dp))
 
                                 if (adminAuthenticated) {
+                                    if (pendingRequests.isNotEmpty()) {
+                                        Spacer(Modifier.height(16.dp))
+                                        HorizontalDivider()
+                                        Spacer(Modifier.height(16.dp))
+                                        Text(
+                                            "Bekleyen Kayıt Başvuruları",
+                                            fontSize = 20.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFFF9800)
+                                        )
+                                        Spacer(Modifier.height(12.dp))
+
+                                        pendingRequests.forEach { req ->
+                                            Card(
+                                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
+                                            ) {
+                                                Column(modifier = Modifier.padding(12.dp)) {
+                                                    Text(req.name, fontWeight = FontWeight.Bold)
+                                                    Text(req.phone)
+                                                    Spacer(Modifier.height(8.dp))
+                                                    Button(
+                                                        onClick = {
+                                                            val token = adminSessionToken
+                                                            adminLoading = true
+                                                            val addJson = """{"action":"add","full_name":${JsonPrimitive(req.name).toString()},"phone":${JsonPrimitive(req.phone).toString()},"can_use_tools":false,"is_admin":false}"""
+                                                            platformUtils.adminUsersRequest(token, addJson) { addOk, addResp ->
+                                                                if (addOk) {
+                                                                    platformUtils.deleteRegistrationRequest(req.id) { _ ->
+                                                                        platformUtils.getRegistrationRequests { resp2 ->
+                                                                            pendingRequests = parsePendingRequests(resp2)
+                                                                            platformUtils.adminUsersRequest(token, """{"action":"list"}""") { listOk, listResp ->
+                                                                                adminLoading = false
+                                                                                if (listOk) {
+                                                                                    adminUsers = parseAdminUsers(listResp)
+                                                                                    adminMessage = "Kullanıcı onaylandı ve sisteme eklendi."
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                } else {
+                                                                    adminLoading = false
+                                                                    adminMessage = "Onaylama başarısız: $addResp"
+                                                                }
+                                                            }
+                                                        },
+                                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) {
+                                                        Text("ONAYLA", fontWeight = FontWeight.Bold, color = Color.White)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
                                     Spacer(Modifier.height(16.dp))
 
                                     HorizontalDivider()
@@ -1783,7 +1862,6 @@ fun MyPortfolioScreen(
     onEditOffice: (Portfolio) -> Unit,
     onEditLocal: (Portfolio) -> Unit,
     onPublishLocal: (Portfolio) -> Unit,
-    onEditProfile: () -> Unit,
     onImportRemax: (String) -> Unit,
     currentName: String,
     currentPhone: String,
@@ -1886,18 +1964,13 @@ fun MyPortfolioScreen(
             .padding(horizontal = 16.dp) // Kenar boşlukları daraltıldı
             .padding(top = 4.dp) // Üst boşluk daraltıldı
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Portföylerim", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold) // Font küçültüldü
-                if (isAdmin) {
-                    Spacer(Modifier.width(6.dp))
-                    Box(modifier = Modifier.background(Color(0xFFFF5252), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 1.dp)) {
-                        Text("ADMIN", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                    }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text("Portföylerim", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            if (isAdmin) {
+                Spacer(Modifier.width(6.dp))
+                Box(modifier = Modifier.background(Color(0xFFFF5252), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 1.dp)) {
+                    Text("ADMIN", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 }
-            }
-            IconButton(onClick = onEditProfile, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
             }
         }
 

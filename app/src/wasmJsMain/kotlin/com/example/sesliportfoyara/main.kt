@@ -121,6 +121,15 @@ external fun jsOpenFilePicker(callback: (JsString?) -> Unit)
 @JsFun("(url, key, path, body, bearer, callback) => { fetch(url + path, { method: 'POST', headers: { 'apikey': key, 'Content-Type': 'application/json', ...(bearer ? {'Authorization':'Bearer ' + bearer} : {}) }, body: body }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, 'Baglanti hatasi: ' + e.message)); }")
 external fun jsSupabasePost(url: JsString, key: JsString, path: JsString, body: JsString, bearer: JsString, callback: (Boolean, JsString) -> Unit)
 
+@JsFun("(url, path, body, callback) => { fetch(url + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, 'Baglanti hatasi: ' + e.message)); }")
+external fun jsFirebasePost(url: JsString, path: JsString, body: JsString, callback: (Boolean, JsString) -> Unit)
+
+@JsFun("(url, path, callback) => { fetch(url + path, { method: 'GET' }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, '{}')); }")
+external fun jsFirebaseGet(url: JsString, path: JsString, callback: (Boolean, JsString) -> Unit)
+
+@JsFun("(url, path, callback) => { fetch(url + path, { method: 'DELETE' }).then(async r => { callback(r.ok); }).catch(e => callback(false)); }")
+external fun jsFirebaseDelete(url: JsString, path: JsString, callback: (Boolean) -> Unit)
+
 @JsFun("(text) => { try { const j=JSON.parse(text); return (j.access_token || '').toString(); } catch(e) { return ''; } }")
 external fun jsAccessToken(text: JsString): JsString
 
@@ -244,15 +253,31 @@ fun main() {
             override fun requestRegistration(name: String, phone: String, onResult: (Boolean, String) -> Unit) {
                 val normalized = phone.filter { it.isDigit() }.let { if (it.length == 10 && it.startsWith("5")) "0$it" else it }
                 if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "Geçerli bir cep telefonu numarası giriniz."); return }
-                val body = """{"full_name":${JsonPrimitive(name.trim())},"phone":${kotlinx.serialization.json.JsonPrimitive(normalized)},"is_active":false,"is_admin":false,"can_use_tools":false}"""
-                jsSupabasePost(
-                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                    "/rest/v1/users".toJsString(),
-                    body.toJsString(),
-                    "".toJsString()
+                val body = """{"name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"createdAt":${getCurrentTimeMillis()}}"""
+                jsFirebasePost(
+                    "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                    "/registration_requests.json".toJsString(),
+                    body.toJsString()
                 ) { ok, response ->
-                    onResult(ok, if (ok) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else jsApiMessage(response).toString())
+                    onResult(ok, if (ok) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else "Kayıt talebi gönderilemedi.")
+                }
+            }
+
+            override fun getRegistrationRequests(onResult: (String) -> Unit) {
+                jsFirebaseGet(
+                    "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                    "/registration_requests.json".toJsString()
+                ) { ok, response ->
+                    if (ok) onResult(response.toString()) else onResult("{}")
+                }
+            }
+
+            override fun deleteRegistrationRequest(id: String, onResult: (Boolean) -> Unit) {
+                jsFirebaseDelete(
+                    "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                    "/registration_requests/$id.json".toJsString()
+                ) { ok ->
+                    onResult(ok)
                 }
             }
 
