@@ -14,17 +14,17 @@ object MatchingEngine {
             val cType = normalizePropertyType(client.propertyType)
             if (pType != cType) return@filter false
 
-            // 3. KONUM KONTROLÜ (Kesin Mahalle Filtresi)
-            val pLoc = normalizeForSearch(portfolio.location)
+            // 3. KONUM KONTROLÜ (İlçe ve Mahalle - Konum ve Başlık taranır)
+            val pText = normalizeForSearch("${portfolio.location} ${portfolio.title}")
             val cIlce = normalizeForSearch(client.ilce)
             val cMahalle = normalizeForSearch(client.mahalle)
             
-            // İlçe kontrolü: Eğer ilçe girilmişse, ilanda mutlaka geçmeli.
-            if (cIlce.isNotEmpty() && !pLoc.contains(cIlce)) return@filter false
+            // İlçe kontrolü: Eğer ilçe girilmişse, ilan konumunda veya başlığında geçmeli.
+            if (cIlce.isNotEmpty() && !pText.contains(cIlce)) return@filter false
             
-            // Mahalle kontrolü: Eğer müşteri mahalle belirtmişse (Örn: Muradiye), 
-            // ilanda bu mahalle adı geçmiyorsa kesinlikle elensin.
-            if (cMahalle.isNotEmpty() && !pLoc.contains(cMahalle)) return@filter false
+            // Mahalle kontrolü: Eğer müşteri mahalle belirtmişse, 
+            // ilanda (konum veya başlıkta) bu mahalle adı mutlaka geçmeli.
+            if (cMahalle.isNotEmpty() && !pText.contains(cMahalle)) return@filter false
             
             // 4. PUANLAMA VE FİLTRELEME
             scoreMatch(client, portfolio) >= 0.15f
@@ -42,32 +42,30 @@ object MatchingEngine {
     }
 
     private fun normalizeForSearch(text: String): String {
-        // Türkçe karakterleri daha agresif ve temiz bir şekilde normalize edelim
         return text.trim().lowercase()
             .replace("ç", "c")
             .replace("ğ", "g")
             .replace("ı", "i")
-            .replace("i̇", "i") // Özel birleşim karakteri
+            .replace("i̇", "i")
             .replace("ö", "o")
             .replace("ş", "s")
             .replace("ü", "u")
-            .replace("merkez", "") // "Yunusemre Merkez" gibi durumlar için merkez kelimesini görmezden gelelim
             .replace(",", " ")
             .replace(".", " ")
-            .replace(Regex("\\s+"), " ") // Fazla boşlukları temizle
+            .replace(Regex("\\s+"), " ")
             .trim()
     }
     
     private fun scoreMatch(client: Client, portfolio: Portfolio): Float {
         var score = 0f
         
-        val pLoc = normalizeForSearch(portfolio.location)
+        val pText = normalizeForSearch("${portfolio.location} ${portfolio.title}")
         val cIlce = normalizeForSearch(client.ilce)
         val cMahalle = normalizeForSearch(client.mahalle)
         
         // --- KONUM PUANLAMASI ---
-        if (cIlce.isNotEmpty() && pLoc.contains(cIlce)) score += 0.5f
-        if (cMahalle.isNotEmpty() && pLoc.contains(cMahalle)) score += 0.4f
+        if (cIlce.isNotEmpty() && pText.contains(cIlce)) score += 0.4f
+        if (cMahalle.isNotEmpty() && pText.contains(cMahalle)) score += 0.5f
         
         // --- ODA SAYISI PUANLAMASI ---
         val cRooms = client.preferredRooms.replace(" ", "").lowercase()
