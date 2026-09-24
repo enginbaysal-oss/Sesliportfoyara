@@ -12,6 +12,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.browser.window
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 
 @JsFun("(onResult, onError) => { " +
@@ -130,6 +131,19 @@ external fun jsOpenFilePicker(callback: (JsString?) -> Unit)
     "doFetch(true); " +
     "}")
 external fun jsSupabasePost(url: JsString, key: JsString, path: JsString, body: JsString, bearer: JsString, callback: (Boolean, JsString) -> Unit)
+
+@JsFun("(url, key, path, body, bearer, callback) => { " +
+    "const doFetch = (retry) => { " +
+    "  fetch(url + path, { method: 'PATCH', headers: { 'apikey': key, 'Content-Type': 'application/json', 'Prefer': 'return=minimal', ...(bearer ? {'Authorization':'Bearer ' + bearer} : {}) }, body: body })" +
+    "    .then(async r => { const t = await r.text(); callback(r.ok, t); })" +
+    "    .catch(e => { " +
+    "      if (retry) { setTimeout(() => doFetch(false), 300); } " +
+    "      else { callback(false, 'Baglanti hatasi: ' + e.message); } " +
+    "    }); " +
+    "}; " +
+    "doFetch(true); " +
+    "}")
+external fun jsSupabasePatch(url: JsString, key: JsString, path: JsString, body: JsString, bearer: JsString, callback: (Boolean, JsString) -> Unit)
 
 @JsFun("(url, path, body, callback) => { fetch(url + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, 'Baglanti hatasi: ' + e.message)); }")
 external fun jsFirebasePost(url: JsString, path: JsString, body: JsString, callback: (Boolean, JsString) -> Unit)
@@ -337,6 +351,43 @@ fun main() {
             }
 
             override fun adminUsersRequest(accessToken: String, requestJson: String, onResult: (Boolean, String) -> Unit) {
+                try {
+                    val obj = Json.parseToJsonElement(requestJson).jsonObject
+                    if (obj["action"]?.jsonPrimitive?.content == "update") {
+                        val id = obj["id"]?.jsonPrimitive?.content?.toLongOrNull()
+                        if (id != null) {
+                            val patchBodyMap = mutableMapOf<String, String>()
+                            obj["is_active"]?.let { patchBodyMap["is_active"] = it.toString() }
+                            obj["can_use_tools"]?.let { patchBodyMap["can_use_tools"] = it.toString() }
+                            obj["is_admin"]?.let { 
+                                patchBodyMap["is_admin"] = it.toString()
+                                patchBodyMap["admin"] = it.toString()
+                            }
+                            val patchJson = patchBodyMap.entries.joinToString(prefix = "{", postfix = "}") { "\"${it.key}\":${it.value}" }
+                            if (patchBodyMap.isNotEmpty()) {
+                                jsSupabasePatch(
+                                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                                    "/rest/v1/users?id=eq.$id".toJsString(),
+                                    patchJson.toJsString(),
+                                    accessToken.toJsString()
+                                ) { patchOk, _ ->
+                                    jsSupabasePost(
+                                        "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                                        "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                                        "/functions/v1/admin-users".toJsString(),
+                                        requestJson.toJsString(),
+                                        accessToken.toJsString()
+                                    ) { ok, response ->
+                                        onResult(patchOk || ok, if (patchOk) "{}" else response.toString())
+                                    }
+                                }
+                                return
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+
                 jsSupabasePost(
                     "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
                     "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
