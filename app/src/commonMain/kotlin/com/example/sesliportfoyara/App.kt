@@ -151,6 +151,18 @@ fun App() {
             var selectedClient by remember { mutableStateOf<Client?>(null) }
 
             val scope = rememberCoroutineScope()
+            val onLogout = {
+                platformUtils.setActiveSession(false)
+                settings.putString("my_consultant_name", "")
+                settings.putString("my_consultant_phone", "")
+                settings.putBoolean("is_admin", false)
+                settings.putBoolean("can_use_tools", false)
+                myName = ""
+                myPhone = ""
+                isAdmin = false
+                canUseTools = false
+                currentScreen = Screen.ProfileSetup
+            }
 
             LaunchedEffect(Unit) {
                 if (platformUtils.hasActiveSession() && myPhone.isNotBlank()) {
@@ -186,7 +198,7 @@ fun App() {
                 topBar = {
                     if (currentScreen != Screen.ProfileSetup && currentScreen != Screen.AddClient && currentScreen != Screen.ClientDetails) {
                         Column {
-                            HeaderSection()
+                            HeaderSection(onLogout = onLogout)
 
                             if (isAdmin && currentScreen != Screen.UserManagement) {
                                 Button(
@@ -405,6 +417,7 @@ fun App() {
                             var newUserName by remember { mutableStateOf("") }
                             var newUserPhone by remember { mutableStateOf("") }
                             var newUserTools by remember { mutableStateOf(false) }
+                            var newUserAdmin by remember { mutableStateOf(false) }
 
                             Column(
                                 modifier = Modifier
@@ -532,10 +545,47 @@ fun App() {
                                                 Spacer(Modifier.height(6.dp))
 
                                                 if (user.isAdmin) {
-                                                    Text(
-                                                        "Yönetici • Aktif • Araçlar Yetkili",
-                                                        fontWeight = FontWeight.Bold
-                                                    )
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Yönetici (Admin)", fontWeight = FontWeight.Bold)
+
+                                                        Switch(
+                                                            checked = user.isAdmin,
+                                                            onCheckedChange = { checked ->
+                                                                val token = adminSessionToken
+                                                                adminLoading = true
+
+                                                                val requestJson =
+                                                                    """{"action":"update","id":${user.id},"is_admin":$checked}"""
+
+                                                                platformUtils.adminUsersRequest(
+                                                                    token,
+                                                                    requestJson
+                                                                ) { success, response ->
+                                                                    if (success) {
+                                                                        platformUtils.adminUsersRequest(
+                                                                            token,
+                                                                            """{"action":"list"}"""
+                                                                        ) { listSuccess, listResponse ->
+                                                                            adminLoading = false
+                                                                            if (listSuccess) {
+                                                                                adminUsers = parseAdminUsers(listResponse)
+                                                                                adminMessage = "Yönetici yetkisi güncellendi."
+                                                                            } else {
+                                                                                adminMessage = "Liste yenilenemedi: $listResponse"
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        adminLoading = false
+                                                                        adminMessage = "Güncelleme başarısız: $response"
+                                                                    }
+                                                                }
+                                                            }
+                                                        )
+                                                    }
                                                 } else {
                                                     Row(
                                                         modifier = Modifier.fillMaxWidth(),
@@ -703,6 +753,18 @@ fun App() {
                                         Text("Araçlar bölümüne erişebilsin")
                                     }
 
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Checkbox(
+                                            checked = newUserAdmin,
+                                            onCheckedChange = { newUserAdmin = it }
+                                        )
+
+                                        Text("Yönetici (Admin) yetkisi ver")
+                                    }
+
                                     Button(
                                         onClick = {
                                             val token = adminSessionToken
@@ -713,7 +775,7 @@ fun App() {
                                                 adminLoading = true
 
                                                 val requestJson =
-                                                    """{"action":"add","full_name":${JsonPrimitive(newUserName.trim()).toString()},"phone":${JsonPrimitive(newUserPhone).toString()},"can_use_tools":$newUserTools}"""
+                                                    """{"action":"add","full_name":${JsonPrimitive(newUserName.trim()).toString()},"phone":${JsonPrimitive(newUserPhone).toString()},"can_use_tools":$newUserTools,"is_admin":$newUserAdmin}"""
 
                                                 platformUtils.adminUsersRequest(
                                                     token,
@@ -1094,7 +1156,7 @@ fun PremiumLogo(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun HeaderSection() {
+fun HeaderSection(onLogout: () -> Unit) {
     val crmManager = LocalCRMManagerProvider.current
     val localPortfolioManager = LocalPortfolioManagerProvider.current
     val remaxService = LocalRemaxServiceProvider.current
@@ -1165,6 +1227,9 @@ fun HeaderSection() {
                 }
             }, modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Default.Upload, "Yükle", tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+            }
+            IconButton(onClick = onLogout, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.ExitToApp, "Oturumu Kapat", tint = Color.Red.copy(0.8f), modifier = Modifier.size(18.dp))
             }
         }
     }
