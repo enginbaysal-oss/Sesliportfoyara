@@ -503,7 +503,7 @@ fun App() {
                                             adminLoading = true
                                             adminMessage = "Sunucu ile bağlantı kuruluyor, giriş yapılıyor..."
                                             platformUtils.adminSignIn(
-                                                adminEmail,
+                                                adminEmail.trim().lowercase(),
                                                 adminPassword
                                             ) { success, token, message ->
                                                 if (success) {
@@ -512,21 +512,21 @@ fun App() {
                                                     adminPassword = ""
                                                     adminAuthenticated = true
                                                     canUseTools = true
-                                                    adminMessage = "Kullanıcılar yükleniyor..."
+                                                    adminMessage = "Giriş başarılı! Kullanıcılar yükleniyor..."
                                                     platformUtils.adminUsersRequest(token, """{"action":"list"}""") { listSuccess, listResponse ->
                                                         adminMessage = if (listSuccess) {
                                                             adminUsers = parseAdminUsers(listResponse)
                                                             platformUtils.getRegistrationRequests { reqResp ->
                                                                 pendingRequests = parsePendingRequests(reqResp)
                                                             }
-                                                            "Kullanıcılar ve başvurular yüklendi."
+                                                            "Yönetici girişi başarılı."
                                                         } else {
                                                             "Kullanıcı listesi alınamadı: " + listResponse
                                                         }
                                                     }
                                                 } else {
                                                     adminLoading = false
-                                                    adminMessage = message
+                                                    adminMessage = message.ifBlank { "Giriş başarısız. Lütfen bilgilerinizi kontrol edin." }
                                                 }
                                             }
                                         }
@@ -692,6 +692,90 @@ fun App() {
                                                             }
                                                         )
                                                     }
+
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Aktif")
+
+                                                        Switch(
+                                                            checked = user.isActive,
+                                                            onCheckedChange = { checked ->
+                                                                val token = adminSessionToken
+                                                                adminLoading = true
+
+                                                                val requestJson =
+                                                                    """{"action":"update","id":${user.id},"is_active":$checked}"""
+
+                                                                platformUtils.adminUsersRequest(
+                                                                    token,
+                                                                    requestJson
+                                                                ) { success, response ->
+                                                                    if (success) {
+                                                                        platformUtils.adminUsersRequest(
+                                                                            token,
+                                                                            """{"action":"list"}"""
+                                                                        ) { listSuccess, listResponse ->
+                                                                            adminLoading = false
+                                                                            if (listSuccess) {
+                                                                                adminUsers = parseAdminUsers(listResponse)
+                                                                                adminMessage = "Kullanıcı durumu güncellendi."
+                                                                            } else {
+                                                                                adminMessage = "Liste yenilenemedi: $listResponse"
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        adminLoading = false
+                                                                        adminMessage = "Güncelleme başarısız: $response"
+                                                                    }
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Araçlar Yetkisi")
+
+                                                        Switch(
+                                                            checked = user.canUseTools,
+                                                            onCheckedChange = { checked ->
+                                                                val token = adminSessionToken
+                                                                adminLoading = true
+
+                                                                val requestJson =
+                                                                    """{"action":"update","id":${user.id},"can_use_tools":$checked}"""
+
+                                                                platformUtils.adminUsersRequest(
+                                                                    token,
+                                                                    requestJson
+                                                                ) { success, response ->
+                                                                    if (success) {
+                                                                        platformUtils.adminUsersRequest(
+                                                                            token,
+                                                                            """{"action":"list"}"""
+                                                                        ) { listSuccess, listResponse ->
+                                                                            adminLoading = false
+                                                                            if (listSuccess) {
+                                                                                adminUsers = parseAdminUsers(listResponse)
+                                                                                adminMessage = "Araçlar yetkisi güncellendi."
+                                                                            } else {
+                                                                                adminMessage = "Liste yenilenemedi: $listResponse"
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        adminLoading = false
+                                                                        adminMessage = "Güncelleme başarısız: $response"
+                                                                    }
+                                                                }
+                                                            }
+                                                        )
+                                                    }
                                                 } else {
                                                     Row(
                                                         modifier = Modifier.fillMaxWidth(),
@@ -764,6 +848,48 @@ fun App() {
                                                                             if (listSuccess) {
                                                                                 adminUsers = parseAdminUsers(listResponse)
                                                                                 adminMessage = "Araçlar yetkisi güncellendi."
+                                                                            } else {
+                                                                                adminMessage = "Liste yenilenemedi: $listResponse"
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        adminLoading = false
+                                                                        adminMessage = "Güncelleme başarısız: $response"
+                                                                    }
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Yönetici (Admin)")
+
+                                                        Switch(
+                                                            checked = user.isAdmin,
+                                                            onCheckedChange = { checked ->
+                                                                val token = adminSessionToken
+                                                                adminLoading = true
+
+                                                                val requestJson =
+                                                                    """{"action":"update","id":${user.id},"is_admin":$checked}"""
+
+                                                                platformUtils.adminUsersRequest(
+                                                                    token,
+                                                                    requestJson
+                                                                ) { success, response ->
+                                                                    if (success) {
+                                                                        platformUtils.adminUsersRequest(
+                                                                            token,
+                                                                            """{"action":"list"}"""
+                                                                        ) { listSuccess, listResponse ->
+                                                                            adminLoading = false
+                                                                            if (listSuccess) {
+                                                                                adminUsers = parseAdminUsers(listResponse)
+                                                                                adminMessage = "Yönetici yetkisi güncellendi."
                                                                             } else {
                                                                                 adminMessage = "Liste yenilenemedi: $listResponse"
                                                                             }
