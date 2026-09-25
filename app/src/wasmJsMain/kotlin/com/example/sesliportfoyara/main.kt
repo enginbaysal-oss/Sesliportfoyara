@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.browser.window
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -411,58 +412,37 @@ fun main() {
                         jsFirebaseGet(
                             "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
                             "/authorized_users.json".toJsString()
-                        ) { fbOk, fbResp ->
-                            val fbUsers = mutableMapOf<String, JsonObject>()
-                            if (fbOk) {
+                        ) { ok, resp ->
+                            if (ok) {
+                                val text = resp.toString()
+                                val usersList = mutableListOf<String>()
                                 try {
-                                    val text = fbResp.toString()
                                     if (text != "null" && text.isNotBlank()) {
                                         val map = Json.parseToJsonElement(text).jsonObject
                                         for ((_, value) in map) {
-                                            val uObj = value.jsonObject
-                                            val phone = uObj["phone"]?.jsonPrimitive?.content?.filter { it.isDigit() } ?: ""
-                                            if (phone.isNotBlank()) {
-                                                fbUsers[phone] = uObj
-                                            }
+                                            usersList.add(value.toString())
                                         }
                                     }
                                 } catch (_: Exception) {}
-                            }
-
-                            jsSupabasePost(
-                                "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                                "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                                "/functions/v1/admin-users".toJsString(),
-                                requestJson.toJsString(),
-                                accessToken.toJsString()
-                            ) { supOk, supResp ->
-                                if (supOk) {
-                                    try {
-                                        val supText = supResp.toString()
-                                        val supRoot = Json.parseToJsonElement(supText).jsonObject
-                                        supRoot["users"]?.jsonArray?.forEach { el ->
-                                            val uObj = el.jsonObject
-                                            val phone = uObj["phone"]?.jsonPrimitive?.content?.filter { it.isDigit() } ?: ""
-                                            if (phone.isNotBlank() && !fbUsers.containsKey(phone)) {
-                                                fbUsers[phone] = uObj
-                                            }
-                                        }
-                                    } catch (_: Exception) {}
-                                }
-                                val resultJson = """{"users":[${fbUsers.values.joinToString(",")}]}"""
+                                val resultJson = """{"users":[${usersList.joinToString(",")}]}"""
                                 onResult(true, resultJson)
+                            } else {
+                                onResult(false, "{\"users\":[]}")
                             }
                         }
                         return
                     } else if (action == "add") {
-                        val fullName = obj["full_name"]?.jsonPrimitive?.content ?: ""
+                        val fullName = obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: ""
                         val phone = obj["phone"]?.jsonPrimitive?.content ?: ""
-                        val officeName = obj["office_name"]?.jsonPrimitive?.content ?: obj["officeName"]?.jsonPrimitive?.content ?: "RE/MAX"
-                        val canUseTools = obj["can_use_tools"]?.jsonPrimitive?.boolean ?: false
-                        val isAdmin = obj["is_admin"]?.jsonPrimitive?.boolean ?: false
+                        val canUseTools = obj["can_use_tools"]?.jsonPrimitive?.boolean ?: obj["canUseTools"]?.jsonPrimitive?.boolean ?: false
+                        val isAdmin = obj["is_admin"]?.jsonPrimitive?.boolean ?: obj["isAdmin"]?.jsonPrimitive?.boolean ?: false
                         val id = getCurrentTimeMillis()
-                        val userJson = """{"id":$id,"full_name":${JsonPrimitive(fullName)},"phone":${JsonPrimitive(phone)},"office_name":${JsonPrimitive(officeName)},"is_active":true,"can_use_tools":$canUseTools,"is_admin":$isAdmin}"""
+                        val userJson = """{"id":$id,"full_name":${JsonPrimitive(fullName)},"phone":${JsonPrimitive(phone)},"is_active":true,"can_use_tools":$canUseTools,"is_admin":$isAdmin}"""
                         val sanitizedPhone = phone.filter { it.isDigit() }
+                        if (sanitizedPhone.isBlank() || sanitizedPhone.length < 10) {
+                            onResult(false, "Geçerli bir telefon numarası giriniz.")
+                            return
+                        }
                         jsFirebasePost(
                             "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
                             "/authorized_users/$sanitizedPhone.json".toJsString(),
@@ -473,69 +453,81 @@ fun main() {
                         return
                     } else if (action == "update") {
                         val id = obj["id"]?.jsonPrimitive?.content?.toLongOrNull()
+                        val phone = obj["phone"]?.jsonPrimitive?.content ?: ""
+                        val sanitizedPhone = phone.filter { it.isDigit() }
+
                         jsFirebaseGet(
                             "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
                             "/authorized_users.json".toJsString()
                         ) { ok, resp ->
-                            var updatedFirebase = false
                             if (ok) {
                                 try {
                                     val text = resp.toString()
-                                    if (text != "null" && text.isNotBlank()) {
-                                        val map = Json.parseToJsonElement(text).jsonObject
-                                        var targetKey = ""
-                                        var targetVal: JsonObject? = null
-                                        for ((key, value) in map) {
-                                            val uObj = value.jsonObject
-                                            if (uObj["id"]?.jsonPrimitive?.content?.toLongOrNull() == id) {
-                                                targetKey = key
-                                                targetVal = uObj
-                                                break
-                                            }
-                                        }
-                                        if (targetKey.isNotBlank() && targetVal != null) {
-                                            val mutableObj = targetVal.toMutableMap()
-                                            obj["is_active"]?.jsonPrimitive?.boolean?.let { mutableObj["is_active"] = JsonPrimitive(it) }
-                                            obj["can_use_tools"]?.jsonPrimitive?.boolean?.let { mutableObj["can_use_tools"] = JsonPrimitive(it) }
-                                            obj["is_admin"]?.jsonPrimitive?.boolean?.let { mutableObj["is_admin"] = JsonPrimitive(it) }
-                                            obj["office_name"]?.jsonPrimitive?.content?.let { mutableObj["office_name"] = JsonPrimitive(it) }
-                                            val updatedJson = JsonObject(mutableObj).toString()
-                                            updatedFirebase = true
-                                            jsFirebasePost(
-                                                "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
-                                                "/authorized_users/$targetKey.json".toJsString(),
-                                                updatedJson.toJsString()
-                                            ) { updateOk, updateResp ->
-                                                jsSupabasePost(
-                                                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                                                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                                                    "/functions/v1/admin-users".toJsString(),
-                                                    requestJson.toJsString(),
-                                                    accessToken.toJsString()
-                                                ) { _, _ ->
-                                                    onResult(updateOk, updateResp.toString())
-                                                }
-                                            }
+                                    if (text == "null" || text.isBlank()) {
+                                        onResult(false, "Kullanıcı bulunamadı")
+                                        return@jsFirebaseGet
+                                    }
+                                    val map = Json.parseToJsonElement(text).jsonObject
+                                    var targetKey = ""
+                                    var targetVal: JsonObject? = null
+                                    for ((key, value) in map) {
+                                        val uObj = value.jsonObject
+                                        val uPhone = uObj["phone"]?.jsonPrimitive?.content?.filter { it.isDigit() } ?: ""
+                                        val uId = uObj["id"]?.jsonPrimitive?.content?.toLongOrNull()
+                                        if ((sanitizedPhone.isNotBlank() && uPhone == sanitizedPhone) || (id != null && uId == id) || (key == sanitizedPhone)) {
+                                            targetKey = key
+                                            targetVal = uObj
+                                            break
                                         }
                                     }
-                                } catch (_: Exception) {}
-                            }
-
-                            if (!updatedFirebase) {
-                                jsSupabasePost(
-                                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                                    "/functions/v1/admin-users".toJsString(),
-                                    requestJson.toJsString(),
-                                    accessToken.toJsString()
-                                ) { supOk, supResp ->
-                                    onResult(supOk, supResp.toString())
+                                    if (targetKey.isNotBlank() && targetVal != null) {
+                                        val mutableObj = targetVal.toMutableMap()
+                                        obj["is_active"]?.jsonPrimitive?.boolean?.let { mutableObj["is_active"] = JsonPrimitive(it) }
+                                        obj["can_use_tools"]?.jsonPrimitive?.boolean?.let { mutableObj["can_use_tools"] = JsonPrimitive(it) }
+                                        obj["is_admin"]?.jsonPrimitive?.boolean?.let { mutableObj["is_admin"] = JsonPrimitive(it) }
+                                        val updatedJson = JsonObject(mutableObj).toString()
+                                        val saveKey = if (targetKey.isNotBlank()) targetKey else sanitizedPhone
+                                        jsFirebasePost(
+                                            "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                                            "/authorized_users/$saveKey.json".toJsString(),
+                                            updatedJson.toJsString()
+                                        ) { updateOk, updateResp ->
+                                            onResult(updateOk, updateResp.toString())
+                                        }
+                                    } else {
+                                        // If not found in map, save directly by sanitizedPhone if available
+                                        if (sanitizedPhone.isNotBlank()) {
+                                            val newUserMap = mutableMapOf<String, JsonElement>()
+                                            id?.let { newUserMap["id"] = JsonPrimitive(it) }
+                                            newUserMap["phone"] = JsonPrimitive(phone)
+                                            obj["is_active"]?.jsonPrimitive?.boolean?.let { newUserMap["is_active"] = JsonPrimitive(it) } ?: run { newUserMap["is_active"] = JsonPrimitive(true) }
+                                            obj["can_use_tools"]?.jsonPrimitive?.boolean?.let { newUserMap["can_use_tools"] = JsonPrimitive(it) } ?: run { newUserMap["can_use_tools"] = JsonPrimitive(false) }
+                                            obj["is_admin"]?.jsonPrimitive?.boolean?.let { newUserMap["is_admin"] = JsonPrimitive(it) } ?: run { newUserMap["is_admin"] = JsonPrimitive(false) }
+                                            val updatedJson = JsonObject(newUserMap).toString()
+                                            jsFirebasePost(
+                                                "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                                                "/authorized_users/$sanitizedPhone.json".toJsString(),
+                                                updatedJson.toJsString()
+                                            ) { updateOk, updateResp ->
+                                                onResult(updateOk, updateResp.toString())
+                                            }
+                                        } else {
+                                            onResult(false, "Kullanıcı bulunamadı")
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    onResult(false, e.message ?: "Güncelleme hatası")
                                 }
+                            } else {
+                                onResult(false, "Yetkili kullanıcılar okunamadı")
                             }
                         }
                         return
                     } else if (action == "delete") {
                         val id = obj["id"]?.jsonPrimitive?.content?.toLongOrNull()
+                        val phone = obj["phone"]?.jsonPrimitive?.content ?: ""
+                        val sanitizedPhone = phone.filter { it.isDigit() }
+
                         jsFirebaseGet(
                             "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
                             "/authorized_users.json".toJsString()
@@ -551,7 +543,9 @@ fun main() {
                                     var targetKey = ""
                                     for ((key, value) in map) {
                                         val uObj = value.jsonObject
-                                        if (uObj["id"]?.jsonPrimitive?.content?.toLongOrNull() == id) {
+                                        val uPhone = uObj["phone"]?.jsonPrimitive?.content?.filter { it.isDigit() } ?: ""
+                                        val uId = uObj["id"]?.jsonPrimitive?.content?.toLongOrNull()
+                                        if ((sanitizedPhone.isNotBlank() && uPhone == sanitizedPhone) || (id != null && uId == id) || (key == sanitizedPhone)) {
                                             targetKey = key
                                             break
                                         }
@@ -570,7 +564,7 @@ fun main() {
                                     onResult(false, e.message ?: "Silme hatası")
                                 }
                             } else {
-                                onResult(false, "Kullanıcılar okunamadı")
+                                onResult(false, "Yetkili kullanıcılar okunamadı")
                             }
                         }
                         return
