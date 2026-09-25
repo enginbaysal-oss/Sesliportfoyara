@@ -411,22 +411,46 @@ fun main() {
                         jsFirebaseGet(
                             "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
                             "/authorized_users.json".toJsString()
-                        ) { ok, resp ->
-                            if (ok) {
-                                val text = resp.toString()
-                                val usersList = mutableListOf<String>()
+                        ) { fbOk, fbResp ->
+                            val fbUsers = mutableMapOf<String, JsonObject>()
+                            if (fbOk) {
                                 try {
+                                    val text = fbResp.toString()
                                     if (text != "null" && text.isNotBlank()) {
                                         val map = Json.parseToJsonElement(text).jsonObject
                                         for ((_, value) in map) {
-                                            usersList.add(value.toString())
+                                            val uObj = value.jsonObject
+                                            val phone = uObj["phone"]?.jsonPrimitive?.content?.filter { it.isDigit() } ?: ""
+                                            if (phone.isNotBlank()) {
+                                                fbUsers[phone] = uObj
+                                            }
                                         }
                                     }
                                 } catch (_: Exception) {}
-                                val resultJson = """{"users":[${usersList.joinToString(",")}]}"""
+                            }
+
+                            jsSupabasePost(
+                                "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                                "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                                "/functions/v1/admin-users".toJsString(),
+                                requestJson.toJsString(),
+                                accessToken.toJsString()
+                            ) { supOk, supResp ->
+                                if (supOk) {
+                                    try {
+                                        val supText = supResp.toString()
+                                        val supRoot = Json.parseToJsonElement(supText).jsonObject
+                                        supRoot["users"]?.jsonArray?.forEach { el ->
+                                            val uObj = el.jsonObject
+                                            val phone = uObj["phone"]?.jsonPrimitive?.content?.filter { it.isDigit() } ?: ""
+                                            if (phone.isNotBlank() && !fbUsers.containsKey(phone)) {
+                                                fbUsers[phone] = uObj
+                                            }
+                                        }
+                                    } catch (_: Exception) {}
+                                }
+                                val resultJson = """{"users":[${fbUsers.values.joinToString(",")}]}"""
                                 onResult(true, resultJson)
-                            } else {
-                                onResult(false, "{\"users\":[]}")
                             }
                         }
                         return
