@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.browser.window
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 @JsFun("(onResult, onError) => { " +
@@ -268,16 +269,53 @@ fun main() {
             override fun checkAppAuthorization(phone: String, onResult: (Boolean, String, Boolean, Boolean, String) -> Unit) {
                 val normalized = phone.filter { it.isDigit() }.let { if (it.length == 10 && it.startsWith("5")) "0$it" else it }
                 if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "", false, false, "Geçerli bir cep telefonu numarası giriniz."); return }
-                val body = """{"p_phone":${kotlinx.serialization.json.JsonPrimitive(normalized)}}"""
-                jsSupabasePost("https://jcjerwvibjetomqeelsy.supabase.co".toJsString(), "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(), "/rest/v1/rpc/check_app_authorization".toJsString(), body.toJsString(), "".toJsString()) { ok, response ->
-                    val text = response.toString(); try { val arr = kotlinx.serialization.json.Json.parseToJsonElement(text).jsonArray; if (ok && arr.isNotEmpty()) { val o=arr[0].jsonObject; onResult(o["authorized"]?.jsonPrimitive?.boolean ?: false, o["full_name"]?.jsonPrimitive?.content ?: "", o["is_admin"]?.jsonPrimitive?.boolean ?: false, o["can_use_tools"]?.jsonPrimitive?.boolean ?: false, "") } else onResult(false, "", false, false, if(ok) "Bu telefon numarası için kullanım yetkisi bulunmuyor." else jsApiMessage(response).toString()) } catch(e:Exception) { onResult(false, "", false, false, "Yetkilendirme cevabı okunamadı.") }
+                jsFirebaseGet(
+                    "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                    "/authorized_users.json".toJsString()
+                ) { ok, response ->
+                    if (ok) {
+                        try {
+                            val text = response.toString()
+                            if (text == "null" || text.isBlank()) {
+                                onResult(false, "", false, false, "Bu telefon numarası için kullanım yetkisi bulunmuyor.")
+                                return@jsFirebaseGet
+                            }
+                            val map = Json.parseToJsonElement(text).jsonObject
+                            var foundUser: JsonObject? = null
+                            for ((_, value) in map) {
+                                val uObj = value.jsonObject
+                                val uPhone = uObj["phone"]?.jsonPrimitive?.content?.filter { it.isDigit() }
+                                if (uPhone == normalized) {
+                                    foundUser = uObj
+                                    break
+                                }
+                            }
+                            if (foundUser != null) {
+                                val isActive = foundUser["is_active"]?.jsonPrimitive?.boolean ?: true
+                                val fullName = foundUser["full_name"]?.jsonPrimitive?.content ?: ""
+                                val isAdmin = foundUser["is_admin"]?.jsonPrimitive?.boolean ?: false
+                                val canUseTools = foundUser["can_use_tools"]?.jsonPrimitive?.boolean ?: false
+                                if (isActive) {
+                                    onResult(true, fullName, isAdmin, canUseTools, "")
+                                } else {
+                                    onResult(false, "", false, false, "Hesabınız yönetici tarafından pasif duruma getirilmiştir.")
+                                }
+                            } else {
+                                onResult(false, "", false, false, "Bu telefon numarası için kullanım yetkisi bulunmuyor.")
+                            }
+                        } catch (e: Exception) {
+                            onResult(false, "", false, false, "Yetkilendirme verisi okunamadı.")
+                        }
+                    } else {
+                        onResult(false, "", false, false, "Yetkilendirme sunucusuna bağlanılamadı.")
+                    }
                 }
             }
 
-            override fun requestRegistration(name: String, phone: String, onResult: (Boolean, String) -> Unit) {
+            override fun requestRegistration(name: String, phone: String, officeName: String, onResult: (Boolean, String) -> Unit) {
                 val normalized = phone.filter { it.isDigit() }.let { if (it.length == 10 && it.startsWith("5")) "0$it" else it }
                 if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "Geçerli bir cep telefonu numarası giriniz."); return }
-                val body = """{"name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"createdAt":${getCurrentTimeMillis()}}"""
+                val body = """{"name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"officeName":${JsonPrimitive(officeName.trim())},"createdAt":${getCurrentTimeMillis()}}"""
                 jsFirebasePost(
                     "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
                     "/registration_requests.json".toJsString(),
@@ -315,7 +353,7 @@ fun main() {
                     "".toJsString()
                 ) { ok, response ->
                     val text = response.toString()
-                    val message = if (ok) "KayÄ±t iÅŸlemi baÅŸarÄ±lÄ±. E-posta doÄŸrulamasÄ± gerekiyorsa gelen kutunuzu kontrol edin." else jsApiMessage(response).toString()
+                    val message = if (ok) "Kayıt işlemi başarılı. E-posta doğrulaması gerekiyorsa gelen kutunuzu kontrol edin." else jsApiMessage(response).toString()
                     onResult(ok, message)
                 }
             }
@@ -331,7 +369,7 @@ fun main() {
                 ) { ok, response ->
                     val token = if (ok) jsAccessToken(response).toString() else ""
                     val success = ok && token.isNotBlank()
-                    val message = if (success) "YÃ¶netici doÄŸrulamasÄ± baÅŸarÄ±lÄ±." else jsApiMessage(response).toString()
+                    val message = if (success) "Yönetici doğrulaması başarılı." else jsApiMessage(response).toString()
                     onResult(success, token, message)
                 }
             }
@@ -345,7 +383,7 @@ fun main() {
                     body.toJsString(),
                     "".toJsString()
                 ) { ok, response ->
-                    val message = if (ok) "DoÄŸrulama e-postasÄ± yeniden gÃ¶nderildi." else jsApiMessage(response).toString()
+                    val message = if (ok) "Doğrulama e-postası yeniden gönderildi." else jsApiMessage(response).toString()
                     onResult(ok, message)
                 }
             }
@@ -353,54 +391,140 @@ fun main() {
             override fun adminUsersRequest(accessToken: String, requestJson: String, onResult: (Boolean, String) -> Unit) {
                 try {
                     val obj = Json.parseToJsonElement(requestJson).jsonObject
-                    if (obj["action"]?.jsonPrimitive?.content == "update") {
-                        val id = obj["id"]?.jsonPrimitive?.content?.toLongOrNull()
-                        if (id != null) {
-                            val patchBodyMap = mutableMapOf<String, String>()
-                            obj["is_active"]?.let { patchBodyMap["is_active"] = it.toString() }
-                            obj["can_use_tools"]?.let { patchBodyMap["can_use_tools"] = it.toString() }
-                            obj["is_admin"]?.let { 
-                                patchBodyMap["is_admin"] = it.toString()
-                                patchBodyMap["admin"] = it.toString()
-                            }
-                            val patchJson = patchBodyMap.entries.joinToString(prefix = "{", postfix = "}") { "\"${it.key}\":${it.value}" }
-                            if (patchBodyMap.isNotEmpty()) {
-                                jsSupabasePatch(
-                                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                                    "/rest/v1/users?id=eq.$id".toJsString(),
-                                    patchJson.toJsString(),
-                                    accessToken.toJsString()
-                                ) { patchOk, patchResp ->
-                                    if (patchOk) {
-                                        onResult(true, "{}")
-                                    } else {
-                                        jsSupabasePost(
-                                            "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                                            "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                                            "/functions/v1/admin-users".toJsString(),
-                                            requestJson.toJsString(),
-                                            accessToken.toJsString()
-                                        ) { ok, response ->
-                                            onResult(ok, if (ok) "{}" else "PATCH: $patchResp | Edge: $response")
+                    val action = obj["action"]?.jsonPrimitive?.content
+                    if (action == "list") {
+                        jsFirebaseGet(
+                            "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                            "/authorized_users.json".toJsString()
+                        ) { ok, resp ->
+                            if (ok) {
+                                val text = resp.toString()
+                                val usersList = mutableListOf<String>()
+                                try {
+                                    if (text != "null" && text.isNotBlank()) {
+                                        val map = Json.parseToJsonElement(text).jsonObject
+                                        for ((_, value) in map) {
+                                            usersList.add(value.toString())
                                         }
                                     }
-                                }
-                                return
+                                } catch (_: Exception) {}
+                                val resultJson = """{"users":[${usersList.joinToString(",")}]}"""
+                                onResult(true, resultJson)
+                            } else {
+                                onResult(false, "{\"users\":[]}")
                             }
                         }
+                        return
+                    } else if (action == "add") {
+                        val fullName = obj["full_name"]?.jsonPrimitive?.content ?: ""
+                        val phone = obj["phone"]?.jsonPrimitive?.content ?: ""
+                        val officeName = obj["office_name"]?.jsonPrimitive?.content ?: obj["officeName"]?.jsonPrimitive?.content ?: "RE/MAX"
+                        val canUseTools = obj["can_use_tools"]?.jsonPrimitive?.boolean ?: false
+                        val isAdmin = obj["is_admin"]?.jsonPrimitive?.boolean ?: false
+                        val id = getCurrentTimeMillis()
+                        val userJson = """{"id":$id,"full_name":${JsonPrimitive(fullName)},"phone":${JsonPrimitive(phone)},"office_name":${JsonPrimitive(officeName)},"is_active":true,"can_use_tools":$canUseTools,"is_admin":$isAdmin}"""
+                        val sanitizedPhone = phone.filter { it.isDigit() }
+                        jsFirebasePost(
+                            "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                            "/authorized_users/$sanitizedPhone.json".toJsString(),
+                            userJson.toJsString()
+                        ) { ok, resp ->
+                            onResult(ok, resp.toString())
+                        }
+                        return
+                    } else if (action == "update") {
+                        val id = obj["id"]?.jsonPrimitive?.content?.toLongOrNull()
+                        jsFirebaseGet(
+                            "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                            "/authorized_users.json".toJsString()
+                        ) { ok, resp ->
+                            if (ok) {
+                                try {
+                                    val text = resp.toString()
+                                    if (text == "null" || text.isBlank()) {
+                                        onResult(false, "Kullanıcı bulunamadı")
+                                        return@jsFirebaseGet
+                                    }
+                                    val map = Json.parseToJsonElement(text).jsonObject
+                                    var targetKey = ""
+                                    var targetVal = JsonObject(emptyMap())
+                                    for ((key, value) in map) {
+                                        val uObj = value.jsonObject
+                                        if (uObj["id"]?.jsonPrimitive?.content?.toLongOrNull() == id) {
+                                            targetKey = key
+                                            targetVal = uObj
+                                            break
+                                        }
+                                    }
+                                    if (targetKey.isNotBlank()) {
+                                        val mutableObj = targetVal.toMutableMap()
+                                        obj["is_active"]?.let { mutableObj["is_active"] = it }
+                                        obj["can_use_tools"]?.let { mutableObj["can_use_tools"] = it }
+                                        obj["is_admin"]?.let { mutableObj["is_admin"] = it }
+                                        obj["office_name"]?.let { mutableObj["office_name"] = it }
+                                        val updatedJson = JsonObject(mutableObj).toString()
+                                        jsFirebasePost(
+                                            "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                                            "/authorized_users/$targetKey.json".toJsString(),
+                                            updatedJson.toJsString()
+                                        ) { updateOk, updateResp ->
+                                            onResult(updateOk, updateResp.toString())
+                                        }
+                                    } else {
+                                        onResult(false, "Kullanıcı bulunamadı")
+                                    }
+                                } catch (e: Exception) {
+                                    onResult(false, e.message ?: "Güncelleme hatası")
+                                }
+                            } else {
+                                onResult(false, "Yetkili kullanıcılar okunamadı")
+                            }
+                        }
+                        return
+                    } else if (action == "delete") {
+                        val id = obj["id"]?.jsonPrimitive?.content?.toLongOrNull()
+                        jsFirebaseGet(
+                            "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                            "/authorized_users.json".toJsString()
+                        ) { ok, resp ->
+                            if (ok) {
+                                try {
+                                    val text = resp.toString()
+                                    if (text == "null" || text.isBlank()) {
+                                        onResult(false, "Kullanıcı bulunamadı")
+                                        return@jsFirebaseGet
+                                    }
+                                    val map = Json.parseToJsonElement(text).jsonObject
+                                    var targetKey = ""
+                                    for ((key, value) in map) {
+                                        val uObj = value.jsonObject
+                                        if (uObj["id"]?.jsonPrimitive?.content?.toLongOrNull() == id) {
+                                            targetKey = key
+                                            break
+                                        }
+                                    }
+                                    if (targetKey.isNotBlank()) {
+                                        jsFirebaseDelete(
+                                            "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                                            "/authorized_users/$targetKey.json".toJsString()
+                                        ) { deleteOk ->
+                                            onResult(deleteOk, if (deleteOk) "{}" else "Silme başarısız")
+                                        }
+                                    } else {
+                                        onResult(false, "Kullanıcı bulunamadı")
+                                    }
+                                } catch (e: Exception) {
+                                    onResult(false, e.message ?: "Silme hatası")
+                                }
+                            } else {
+                                onResult(false, "Kullanıcılar okunamadı")
+                            }
+                        }
+                        return
                     }
                 } catch (_: Exception) {}
 
-                jsSupabasePost(
-                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                    "/functions/v1/admin-users".toJsString(),
-                    requestJson.toJsString(),
-                    accessToken.toJsString()
-                ) { ok, response ->
-                    onResult(ok, response.toString())
-                }
+                onResult(false, "Geçersiz işlem")
             }
             override fun startVoiceRecognition(onResult: (String) -> Unit, onError: (String) -> Unit) {
                 jsStartVoiceRecognition(
