@@ -696,7 +696,7 @@ fun App() {
                                                                 adminLoading = true
 
                                                                 val requestJson =
-                                                                    """{"action":"update","id":${user.id},"is_admin":$checked}"""
+                                                                    """{"action":"update","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)},"is_admin":$checked}"""
 
                                                                 platformUtils.adminUsersRequest(
                                                                     token,
@@ -738,7 +738,7 @@ fun App() {
                                                                 adminLoading = true
 
                                                                 val requestJson =
-                                                                    """{"action":"update","id":${user.id},"is_active":$checked}"""
+                                                                    """{"action":"update","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)},"is_active":$checked}"""
 
                                                                 platformUtils.adminUsersRequest(
                                                                     token,
@@ -780,7 +780,7 @@ fun App() {
                                                                 adminLoading = true
 
                                                                 val requestJson =
-                                                                    """{"action":"update","id":${user.id},"can_use_tools":$checked}"""
+                                                                    """{"action":"update","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)},"can_use_tools":$checked}"""
 
                                                                 platformUtils.adminUsersRequest(
                                                                     token,
@@ -822,7 +822,7 @@ fun App() {
                                                                 adminLoading = true
 
                                                                 val requestJson =
-                                                                    """{"action":"update","id":${user.id},"is_active":$checked}"""
+                                                                    """{"action":"update","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)},"is_active":$checked}"""
 
                                                                 platformUtils.adminUsersRequest(
                                                                     token,
@@ -864,7 +864,7 @@ fun App() {
                                                                 adminLoading = true
 
                                                                 val requestJson =
-                                                                    """{"action":"update","id":${user.id},"can_use_tools":$checked}"""
+                                                                    """{"action":"update","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)},"can_use_tools":$checked}"""
 
                                                                 platformUtils.adminUsersRequest(
                                                                     token,
@@ -906,7 +906,7 @@ fun App() {
                                                                 adminLoading = true
 
                                                                 val requestJson =
-                                                                    """{"action":"update","id":${user.id},"is_admin":$checked}"""
+                                                                    """{"action":"update","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)},"is_admin":$checked}"""
 
                                                                 platformUtils.adminUsersRequest(
                                                                     token,
@@ -942,7 +942,7 @@ fun App() {
                                                             adminLoading = true
 
                                                             val requestJson =
-                                                                """{"action":"delete","id":${user.id}}"""
+                                                                """{"action":"delete","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)}}"""
 
                                                             platformUtils.adminUsersRequest(
                                                                 token,
@@ -1178,10 +1178,12 @@ fun parseAdminUsers(response: String): List<AdminUser> {
         val root = Json.parseToJsonElement(response).jsonObject
         root["users"]?.jsonArray?.map { element ->
             val obj = element.jsonObject
+            val name = obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: obj["name"]?.jsonPrimitive?.content ?: ""
+            val phone = obj["phone"]?.jsonPrimitive?.content ?: ""
             AdminUser(
                 id = obj["id"]?.jsonPrimitive?.content?.toLongOrNull() ?: getCurrentTimeMillis(),
-                fullName = obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: obj["name"]?.jsonPrimitive?.content ?: "İsimsiz Kullanıcı",
-                phone = obj["phone"]?.jsonPrimitive?.content ?: "",
+                fullName = name.ifBlank { phone.ifBlank { "Yetkili Kullanıcı" } },
+                phone = phone,
                 isActive = obj["is_active"]?.jsonPrimitive?.boolean ?: obj["isActive"]?.jsonPrimitive?.boolean ?: true,
                 isAdmin = obj["is_admin"]?.jsonPrimitive?.boolean ?: obj["isAdmin"]?.jsonPrimitive?.boolean ?: false,
                 canUseTools = obj["can_use_tools"]?.jsonPrimitive?.boolean ?: obj["canUseTools"]?.jsonPrimitive?.boolean ?: false
