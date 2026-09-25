@@ -477,46 +477,60 @@ fun main() {
                             "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
                             "/authorized_users.json".toJsString()
                         ) { ok, resp ->
+                            var updatedFirebase = false
                             if (ok) {
                                 try {
                                     val text = resp.toString()
-                                    if (text == "null" || text.isBlank()) {
-                                        onResult(false, "Kullanıcı bulunamadı")
-                                        return@jsFirebaseGet
-                                    }
-                                    val map = Json.parseToJsonElement(text).jsonObject
-                                    var targetKey = ""
-                                    var targetVal = JsonObject(emptyMap())
-                                    for ((key, value) in map) {
-                                        val uObj = value.jsonObject
-                                        if (uObj["id"]?.jsonPrimitive?.content?.toLongOrNull() == id) {
-                                            targetKey = key
-                                            targetVal = uObj
-                                            break
+                                    if (text != "null" && text.isNotBlank()) {
+                                        val map = Json.parseToJsonElement(text).jsonObject
+                                        var targetKey = ""
+                                        var targetVal: JsonObject? = null
+                                        for ((key, value) in map) {
+                                            val uObj = value.jsonObject
+                                            if (uObj["id"]?.jsonPrimitive?.content?.toLongOrNull() == id) {
+                                                targetKey = key
+                                                targetVal = uObj
+                                                break
+                                            }
+                                        }
+                                        if (targetKey.isNotBlank() && targetVal != null) {
+                                            val mutableObj = targetVal.toMutableMap()
+                                            obj["is_active"]?.jsonPrimitive?.boolean?.let { mutableObj["is_active"] = JsonPrimitive(it) }
+                                            obj["can_use_tools"]?.jsonPrimitive?.boolean?.let { mutableObj["can_use_tools"] = JsonPrimitive(it) }
+                                            obj["is_admin"]?.jsonPrimitive?.boolean?.let { mutableObj["is_admin"] = JsonPrimitive(it) }
+                                            obj["office_name"]?.jsonPrimitive?.content?.let { mutableObj["office_name"] = JsonPrimitive(it) }
+                                            val updatedJson = JsonObject(mutableObj).toString()
+                                            updatedFirebase = true
+                                            jsFirebasePost(
+                                                "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                                                "/authorized_users/$targetKey.json".toJsString(),
+                                                updatedJson.toJsString()
+                                            ) { updateOk, updateResp ->
+                                                jsSupabasePost(
+                                                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                                                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                                                    "/functions/v1/admin-users".toJsString(),
+                                                    requestJson.toJsString(),
+                                                    accessToken.toJsString()
+                                                ) { _, _ ->
+                                                    onResult(updateOk, updateResp.toString())
+                                                }
+                                            }
                                         }
                                     }
-                                    if (targetKey.isNotBlank()) {
-                                        val mutableObj = targetVal.toMutableMap()
-                                        obj["is_active"]?.let { mutableObj["is_active"] = it }
-                                        obj["can_use_tools"]?.let { mutableObj["can_use_tools"] = it }
-                                        obj["is_admin"]?.let { mutableObj["is_admin"] = it }
-                                        obj["office_name"]?.let { mutableObj["office_name"] = it }
-                                        val updatedJson = JsonObject(mutableObj).toString()
-                                        jsFirebasePost(
-                                            "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
-                                            "/authorized_users/$targetKey.json".toJsString(),
-                                            updatedJson.toJsString()
-                                        ) { updateOk, updateResp ->
-                                            onResult(updateOk, updateResp.toString())
-                                        }
-                                    } else {
-                                        onResult(false, "Kullanıcı bulunamadı")
-                                    }
-                                } catch (e: Exception) {
-                                    onResult(false, e.message ?: "Güncelleme hatası")
+                                } catch (_: Exception) {}
+                            }
+
+                            if (!updatedFirebase) {
+                                jsSupabasePost(
+                                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                                    "/functions/v1/admin-users".toJsString(),
+                                    requestJson.toJsString(),
+                                    accessToken.toJsString()
+                                ) { supOk, supResp ->
+                                    onResult(supOk, supResp.toString())
                                 }
-                            } else {
-                                onResult(false, "Yetkili kullanıcılar okunamadı")
                             }
                         }
                         return
