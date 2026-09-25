@@ -371,15 +371,19 @@ fun main() {
                                     "/rest/v1/users?id=eq.$id".toJsString(),
                                     patchJson.toJsString(),
                                     accessToken.toJsString()
-                                ) { patchOk, _ ->
-                                    jsSupabasePost(
-                                        "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                                        "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                                        "/functions/v1/admin-users".toJsString(),
-                                        requestJson.toJsString(),
-                                        accessToken.toJsString()
-                                    ) { ok, response ->
-                                        onResult(patchOk || ok, if (patchOk) "{}" else response.toString())
+                                ) { patchOk, patchResp ->
+                                    if (patchOk) {
+                                        onResult(true, "{}")
+                                    } else {
+                                        jsSupabasePost(
+                                            "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                                            "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                                            "/functions/v1/admin-users".toJsString(),
+                                            requestJson.toJsString(),
+                                            accessToken.toJsString()
+                                        ) { ok, response ->
+                                            onResult(ok, if (ok) "{}" else "PATCH: $patchResp | Edge: $response")
+                                        }
                                     }
                                 }
                                 return
