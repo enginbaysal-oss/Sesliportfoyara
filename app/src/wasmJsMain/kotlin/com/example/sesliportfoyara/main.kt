@@ -327,16 +327,16 @@ fun main() {
                 }
             }
 
-            override fun requestRegistration(name: String, phone: String, officeName: String, onResult: (Boolean, String) -> Unit) {
+            override fun requestRegistration(name: String, phone: String, onResult: (Boolean, String) -> Unit) {
                 val normalized = phone.filter { it.isDigit() }.let { if (it.length == 10 && it.startsWith("5")) "0$it" else it }
                 if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "Geçerli bir cep telefonu numarası giriniz."); return }
-                val body = """{"name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"officeName":${JsonPrimitive(officeName.trim())},"createdAt":${getCurrentTimeMillis()}}"""
+                val body = """{"name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"createdAt":${getCurrentTimeMillis()}}"""
                 jsFirebasePost(
                     "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
                     "/registration_requests.json".toJsString(),
                     body.toJsString()
                 ) { ok, response ->
-                    onResult(ok, if (ok) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else "Kayıt talebi gönderilemedi.")
+                    onResult(ok, if (ok) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else "Kayıт talebi gönderilemedi.")
                 }
             }
 

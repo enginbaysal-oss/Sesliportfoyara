@@ -112,8 +112,7 @@ data class AdminUser(
 data class PendingRequest(
     val id: String,
     val name: String,
-    val phone: String,
-    val officeName: String
+    val phone: String
 )
 
 fun parsePendingRequests(response: String): List<PendingRequest> {
@@ -124,8 +123,7 @@ fun parsePendingRequests(response: String): List<PendingRequest> {
             PendingRequest(
                 id = key,
                 name = obj["name"]?.jsonPrimitive?.content ?: obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: "Kayıt Talebi",
-                phone = obj["phone"]?.jsonPrimitive?.content ?: "",
-                officeName = obj["officeName"]?.jsonPrimitive?.content ?: obj["office_name"]?.jsonPrimitive?.content ?: "RE/MAX"
+                phone = obj["phone"]?.jsonPrimitive?.content ?: ""
             )
         }
     } catch (_: Exception) {
@@ -261,13 +259,12 @@ fun App() {
                         Screen.ProfileSetup -> ProfileSetupScreen(
                             initialName = myName,
                             initialPhone = myPhone,
-                            onComplete = { name, phone, officeName ->
+                            onComplete = { name, phone ->
                                 platformUtils.checkAppAuthorization(phone) { authorized, serverName, serverIsAdmin, serverCanUseTools, error ->
                                     if (authorized) {
                                         val finalName = serverName.ifBlank { name }
                                         settings.putString("my_consultant_name", finalName)
                                         settings.putString("my_consultant_phone", phone)
-                                        settings.putString("office_name", officeName)
                                         settings.putBoolean("is_admin", serverIsAdmin)
                                         settings.putBoolean("can_use_tools", serverCanUseTools)
                                         myName = finalName
@@ -277,7 +274,7 @@ fun App() {
                                         platformUtils.setActiveSession(true)
                                         currentScreen = Screen.VoiceSearch
                                     } else {
-                                        platformUtils.requestRegistration(name, phone, officeName) { _, _ ->
+                                        platformUtils.requestRegistration(name, phone) { _, _ ->
                                             scope.launch {
                                                 snackbarHostState.showSnackbar("✅ Kayıt talebiniz başarıyla gönderildi! Yönetici onayından sonra giriş yapabileceksiniz.")
                                             }
@@ -1199,12 +1196,11 @@ fun parseAdminUsers(response: String): List<AdminUser> {
 fun ProfileSetupScreen(
     initialName: String = "",
     initialPhone: String = "",
-    onComplete: (String, String, String) -> Unit,
+    onComplete: (String, String) -> Unit,
     onAdminLogin: (String, String, (Boolean, String, String) -> Unit) -> Unit
 ) {
     var nameValue by remember { mutableStateOf(TextFieldValue(initialName)) }
     var phoneValue by remember { mutableStateOf(TextFieldValue(initialPhone)) }
-    var officeNameValue by remember { mutableStateOf(TextFieldValue("RE/MAX İlyada")) }
 
     var showAdminLogin by remember { mutableStateOf(false) }
     var adminEmail by remember { mutableStateOf("engin.baysal@remax-ilyada.com") }
@@ -1235,7 +1231,7 @@ fun ProfileSetupScreen(
 
         Text("Giriş ve Profil", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Telefon numaranız, adınız ve ofis adınızla kayıt olun.",
+            "Telefon numaranızla giriş yapın veya kayıt talebi oluşturun.",
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 14.sp, textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp)
         )
@@ -1245,20 +1241,19 @@ fun ProfileSetupScreen(
         if (!showAdminLogin) {
             CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
             CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
-            CustomTextFieldValueInput("Ofis Adı (Örn: RE/MAX İlyada)", officeNameValue) { officeNameValue = it }
 
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
                 onClick = {
-                    if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank() && officeNameValue.text.isNotBlank()) {
-                        onComplete(nameValue.text.trim(), phoneValue.text.trim(), officeNameValue.text.trim())
+                    if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
+                        onComplete(nameValue.text.trim(), phoneValue.text.trim())
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
-                enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank() && officeNameValue.text.isNotBlank()
+                enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()
             ) {
                 Text("Giriş Yap / Kaydet", color = Color.Black, fontWeight = FontWeight.Bold)
             }
