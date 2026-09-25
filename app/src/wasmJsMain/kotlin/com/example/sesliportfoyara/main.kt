@@ -269,45 +269,60 @@ fun main() {
             override fun checkAppAuthorization(phone: String, onResult: (Boolean, String, Boolean, Boolean, String) -> Unit) {
                 val normalized = phone.filter { it.isDigit() }.let { if (it.length == 10 && it.startsWith("5")) "0$it" else it }
                 if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "", false, false, "Geçerli bir cep telefonu numarası giriniz."); return }
+                
                 jsFirebaseGet(
                     "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
                     "/authorized_users.json".toJsString()
                 ) { ok, response ->
+                    var fbAuthorized = false
+                    var fbName = ""
+                    var fbAdmin = false
+                    var fbTools = false
                     if (ok) {
                         try {
                             val text = response.toString()
-                            if (text == "null" || text.isBlank()) {
-                                onResult(false, "", false, false, "Bu telefon numarası için kullanım yetkisi bulunmuyor.")
-                                return@jsFirebaseGet
-                            }
-                            val map = Json.parseToJsonElement(text).jsonObject
-                            var foundUser: JsonObject? = null
-                            for ((_, value) in map) {
-                                val uObj = value.jsonObject
-                                val uPhone = uObj["phone"]?.jsonPrimitive?.content?.filter { it.isDigit() }
-                                if (uPhone == normalized) {
-                                    foundUser = uObj
-                                    break
+                            if (text != "null" && text.isNotBlank()) {
+                                val map = Json.parseToJsonElement(text).jsonObject
+                                for ((_, value) in map) {
+                                    val uObj = value.jsonObject
+                                    val uPhone = uObj["phone"]?.jsonPrimitive?.content?.filter { it.isDigit() }
+                                    if (uPhone == normalized) {
+                                        val isActive = uObj["is_active"]?.jsonPrimitive?.boolean ?: true
+                                        if (isActive) {
+                                            fbAuthorized = true
+                                            fbName = uObj["full_name"]?.jsonPrimitive?.content ?: uObj["fullName"]?.jsonPrimitive?.content ?: ""
+                                            fbAdmin = uObj["is_admin"]?.jsonPrimitive?.boolean ?: uObj["isAdmin"]?.jsonPrimitive?.boolean ?: false
+                                            fbTools = uObj["can_use_tools"]?.jsonPrimitive?.boolean ?: uObj["canUseTools"]?.jsonPrimitive?.boolean ?: false
+                                        }
+                                        break
+                                    }
                                 }
                             }
-                            if (foundUser != null) {
-                                val isActive = foundUser["is_active"]?.jsonPrimitive?.boolean ?: true
-                                val fullName = foundUser["full_name"]?.jsonPrimitive?.content ?: ""
-                                val isAdmin = foundUser["is_admin"]?.jsonPrimitive?.boolean ?: false
-                                val canUseTools = foundUser["can_use_tools"]?.jsonPrimitive?.boolean ?: false
-                                if (isActive) {
-                                    onResult(true, fullName, isAdmin, canUseTools, "")
-                                } else {
-                                    onResult(false, "", false, false, "Hesabınız yönetici tarafından pasif duruma getirilmiştir.")
-                                }
-                            } else {
-                                onResult(false, "", false, false, "Bu telefon numarası için kullanım yetkisi bulunmuyor.")
-                            }
-                        } catch (e: Exception) {
-                            onResult(false, "", false, false, "Yetkilendirme verisi okunamadı.")
-                        }
+                        } catch (_: Exception) {}
+                    }
+
+                    if (fbAuthorized) {
+                        onResult(true, fbName, fbAdmin, fbTools, "")
                     } else {
-                        onResult(false, "", false, false, "Yetkilendirme sunucusuna bağlanılamadı.")
+                        val body = """{"p_phone":${JsonPrimitive(normalized)}}"""
+                        jsSupabasePost("https://jcjerwvibjetomqeelsy.supabase.co".toJsString(), "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(), "/rest/v1/rpc/check_app_authorization".toJsString(), body.toJsString(), "".toJsString()) { supOk, supResp ->
+                            try {
+                                val text = supResp.toString()
+                                val arr = Json.parseToJsonElement(text).jsonArray
+                                if (supOk && arr.isNotEmpty()) {
+                                    val o = arr[0].jsonObject
+                                    val authorized = o["authorized"]?.jsonPrimitive?.boolean ?: false
+                                    val fullName = o["full_name"]?.jsonPrimitive?.content ?: ""
+                                    val isAdmin = o["is_admin"]?.jsonPrimitive?.boolean ?: false
+                                    val canUseTools = o["can_use_tools"]?.jsonPrimitive?.boolean ?: false
+                                    if (authorized) {
+                                        onResult(true, fullName, isAdmin, canUseTools, "")
+                                        return@jsSupabasePost
+                                    }
+                                }
+                            } catch (_: Exception) {}
+                            onResult(false, "", false, false, "Bu telefon numarası için kullanım yetkisi bulunmuyor.")
+                        }
                     }
                 }
             }
