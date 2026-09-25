@@ -419,8 +419,18 @@ fun main() {
                                 try {
                                     if (text != "null" && text.isNotBlank()) {
                                         val map = Json.parseToJsonElement(text).jsonObject
-                                        for ((_, value) in map) {
-                                            usersList.add(value.toString())
+                                        for ((key, value) in map) {
+                                            try {
+                                                val uObj = value.jsonObject
+                                                val mutableUObj = uObj.toMutableMap()
+                                                val phone = mutableUObj["phone"]?.jsonPrimitive?.content?.ifBlank { null } ?: key
+                                                mutableUObj["phone"] = JsonPrimitive(phone)
+                                                val name = mutableUObj["full_name"]?.jsonPrimitive?.content ?: mutableUObj["fullName"]?.jsonPrimitive?.content ?: mutableUObj["name"]?.jsonPrimitive?.content ?: ""
+                                                if (name.isBlank()) {
+                                                    mutableUObj["full_name"] = JsonPrimitive(phone)
+                                                }
+                                                usersList.add(JsonObject(mutableUObj).toString())
+                                            } catch (_: Exception) {}
                                         }
                                     }
                                 } catch (_: Exception) {}
