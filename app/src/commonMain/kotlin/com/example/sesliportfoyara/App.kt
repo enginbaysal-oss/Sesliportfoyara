@@ -123,7 +123,7 @@ fun parsePendingRequests(response: String): List<PendingRequest> {
             val obj = element.jsonObject
             PendingRequest(
                 id = key,
-                name = obj["name"]?.jsonPrimitive?.content ?: "",
+                name = obj["name"]?.jsonPrimitive?.content ?: obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: "Kayıt Talebi",
                 phone = obj["phone"]?.jsonPrimitive?.content ?: "",
                 officeName = obj["officeName"]?.jsonPrimitive?.content ?: obj["office_name"]?.jsonPrimitive?.content ?: "RE/MAX"
             )
@@ -1182,12 +1182,12 @@ fun parseAdminUsers(response: String): List<AdminUser> {
         root["users"]?.jsonArray?.map { element ->
             val obj = element.jsonObject
             AdminUser(
-                id = obj["id"]!!.jsonPrimitive.long,
-                fullName = obj["full_name"]!!.jsonPrimitive.content,
-                phone = obj["phone"]!!.jsonPrimitive.content,
-                isActive = obj["is_active"]!!.jsonPrimitive.boolean,
-                isAdmin = obj["is_admin"]!!.jsonPrimitive.boolean,
-                canUseTools = obj["can_use_tools"]!!.jsonPrimitive.boolean
+                id = obj["id"]?.jsonPrimitive?.content?.toLongOrNull() ?: getCurrentTimeMillis(),
+                fullName = obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: obj["name"]?.jsonPrimitive?.content ?: "İsimsiz Kullanıcı",
+                phone = obj["phone"]?.jsonPrimitive?.content ?: "",
+                isActive = obj["is_active"]?.jsonPrimitive?.boolean ?: obj["isActive"]?.jsonPrimitive?.boolean ?: true,
+                isAdmin = obj["is_admin"]?.jsonPrimitive?.boolean ?: obj["isAdmin"]?.jsonPrimitive?.boolean ?: false,
+                canUseTools = obj["can_use_tools"]?.jsonPrimitive?.boolean ?: obj["canUseTools"]?.jsonPrimitive?.boolean ?: false
             )
         } ?: emptyList()
     } catch (_: Exception) {
