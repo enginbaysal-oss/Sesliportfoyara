@@ -305,7 +305,7 @@ fun main() {
                     }
 
                     if (fbAuthorized) {
-                        onResult(true, fbName, fbAdmin, fbTools, fbOfficeAdmin, "")
+                        onResult(true, fbName, fbAdmin, fbTools, fbOfficeAdmin, "", "")
                     } else {
                         val body = """{"p_phone":${JsonPrimitive(normalized)}}"""
                         jsSupabasePost("https://jcjerwvibjetomqeelsy.supabase.co".toJsString(), "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(), "/rest/v1/rpc/check_app_authorization".toJsString(), body.toJsString(), "".toJsString()) { supOk, supResp ->
@@ -320,7 +320,7 @@ fun main() {
                                     val canUseTools = o["can_use_tools"]?.jsonPrimitive?.boolean ?: false
                                     val isOfficeAdmin = o["is_office_admin"]?.jsonPrimitive?.boolean ?: false
                                     if (authorized) {
-                                        onResult(true, fullName, isAdmin, canUseTools, isOfficeAdmin, "")
+                                        onResult(true, fullName, isAdmin, canUseTools, isOfficeAdmin, "", "")
                                         return@jsSupabasePost
                                     }
                                 }
