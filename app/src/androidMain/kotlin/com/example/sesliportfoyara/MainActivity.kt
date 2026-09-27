@@ -1,4 +1,4 @@
-﻿package com.example.sesliportfoyara
+package com.example.sesliportfoyara
 
 import android.Manifest
 import android.content.Intent
@@ -52,6 +52,8 @@ class MainActivity : ComponentActivity() {
         val fullName: String = "",
         val isAdmin: Boolean = false,
         val canUseTools: Boolean = false,
+        val isOfficeAdmin: Boolean = false,
+        val officeName: String = "",
         val error: String? = null
     )
 
@@ -116,7 +118,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            override fun onResponse(call: Call, response: Response) {
+            override fun
+
+
+                    onResponse(call: Call, response: Response) {
                 response.use {
                     try {
                         if (!it.isSuccessful) {
@@ -154,7 +159,9 @@ class MainActivity : ComponentActivity() {
                                     authorized = item.optBoolean("authorized", false),
                                     fullName = item.optString("full_name", ""),
                                     isAdmin = item.optBoolean("is_admin", false),
-                                    canUseTools = item.optBoolean("can_use_tools", false)
+                                    canUseTools = item.optBoolean("can_use_tools", false),
+                                    isOfficeAdmin = item.optBoolean("is_office_admin", false),
+                                    officeName = item.optString("office_name", "")
                                 )
                             )
                         }
@@ -259,6 +266,141 @@ class MainActivity : ComponentActivity() {
             }
         })
     }
+    private fun requestRegistration(name: String, phone: String, officeName: String, onResult: (Boolean, String) -> Unit) {
+        val normalized = normalizePhone(phone)
+        if (normalized.length != 11 || !normalized.startsWith("05")) {
+            onResult(false, "Geçerli bir cep telefonu numarası giriniz.")
+            return
+        }
+
+        val body = JSONObject()
+            .put("name", name.trim())
+            .put("phone", normalized)
+            .put("office_name", officeName.trim().ifBlank { "Ofissiz / Bağımsız" })
+            .put("createdAt", System.currentTimeMillis())
+            .toString()
+
+        val request = Request.Builder()
+            .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/registration_requests.json")
+            .addHeader("Content-Type", "application/json")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .build()
+
+        supabaseClient.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread { onResult(false, "Bağlantı hatası: ${e.message ?: e.javaClass.simpleName}") }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    val resp = it.body?.string().orEmpty()
+                    runOnUiThread {
+                        if (it.isSuccessful) onResult(true, resp)
+                        else onResult(false, "Kayıt talebi gönderilemedi (${it.code}): $resp")
+                    }
+                }
+            }
+        })
+    }
+
+    private fun getRegistrationRequests(onResult: (String) -> Unit) {
+        val request = Request.Builder()
+            .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/registration_requests.json")
+            .get()
+            .build()
+
+        supabaseClient.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread { onResult("{}") }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    val body = it.body?.string().orEmpty()
+                    runOnUiThread { onResult(if (it.isSuccessful && body != "null") body else "{}") }
+                }
+            }
+        })
+    }
+
+    private fun deleteRegistrationRequest(id: String, onResult: (Boolean) -> Unit) {
+        val request = Request.Builder()
+            .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/registration_requests/$id.json")
+            .delete()
+            .build()
+
+        supabaseClient.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread { onResult(false) }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    runOnUiThread { onResult(it.isSuccessful) }
+                }
+            }
+        })
+    }
+
+    private fun getOfficeNames(onResult: (List<String>) -> Unit) {
+        val request = Request.Builder()
+            .url("${BuildConfig.SUPABASE_URL}/rest/v1/rpc/list_offices_for_registration")
+            .addHeader("apikey", BuildConfig.SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer ${BuildConfig.SUPABASE_KEY}")
+            .addHeader("Content-Type", "application/json")
+            .post("{}".toRequestBody("application/json".toMediaType()))
+            .build()
+
+        supabaseClient.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread { onResult(listOf("Ofissiz / Bağımsız", "Bağlantı hatası: ${e.message ?: e.javaClass.simpleName}")) }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    val body = it.body?.string().orEmpty()
+                    val offices = mutableListOf<String>()
+                    try {
+                        val arr = org.json.JSONArray(body)
+                        for (i in 0 until arr.length()) {
+                            val name = arr.optJSONObject(i)?.optString("office_name", "")?.trim().orEmpty()
+                            if (name.isNotBlank()) offices.add(name)
+                        }
+                    } catch (_: Exception) {
+                    }
+
+                    if (!it.isSuccessful) {
+                        val shortBody = body.take(120)
+                        offices.add("Supabase hata ${it.code}: $shortBody")
+                    }
+
+                    if (it.isSuccessful && offices.isEmpty()) {
+                        val shortBody = body.take(120)
+                        offices.add("Liste boş geldi ${it.code}: $shortBody")
+                    }
+
+                    if (offices.none { office -> office.equals("Ofissiz / Bağımsız", ignoreCase = true) }) {
+                        offices.add("Ofissiz / Bağımsız")
+                    }
+
+                    val orderedOffices = offices
+                        .distinct()
+                        .sortedWith(
+                            compareBy<String> {
+                                when {
+                                    it.equals("REMAX İlyada 3", ignoreCase = true) -> 0
+                                    it.equals("Ofissiz / Bağımsız", ignoreCase = true) -> 2
+                                    else -> 1
+                                }
+                            }.thenBy { it.lowercase() }
+                        )
+
+                    runOnUiThread { onResult(orderedOffices) }
+                }
+            }
+        })
+    }
+
     private fun adminUsersRequest(accessToken: String, requestJson: String, onResult: (Boolean, String) -> Unit) {
         val request = Request.Builder()
             .url("${BuildConfig.SUPABASE_URL}/functions/v1/admin-users")
@@ -492,8 +634,8 @@ class MainActivity : ComponentActivity() {
                 createDocumentLauncher.launch(fileName)
             }
 
-            override fun checkAppAuthorization(phone: String, onResult: (Boolean, String, Boolean, Boolean, String) -> Unit) {
-                this@MainActivity.checkSupabaseAuthorization(phone) { r -> onResult(r.authorized, r.fullName, r.isAdmin, r.canUseTools, r.error ?: "") }
+            override fun checkAppAuthorization(phone: String, onResult: (Boolean, String, Boolean, Boolean, Boolean, String, String) -> Unit) {
+                this@MainActivity.checkSupabaseAuthorization(phone) { r -> onResult(r.authorized, r.fullName, r.isAdmin, r.canUseTools, r.isOfficeAdmin, r.officeName, r.error ?: "") }
             }
 
             override fun adminSignUp(email: String, password: String, onResult: (Boolean, String) -> Unit) {
@@ -502,6 +644,22 @@ class MainActivity : ComponentActivity() {
 
             override fun adminUsersRequest(accessToken: String, requestJson: String, onResult: (Boolean, String) -> Unit) {
                 this@MainActivity.adminUsersRequest(accessToken, requestJson, onResult)
+            }
+
+            override fun requestRegistration(name: String, phone: String, officeName: String, onResult: (Boolean, String) -> Unit) {
+                this@MainActivity.requestRegistration(name, phone, officeName, onResult)
+            }
+
+            override fun getOfficeNames(onResult: (List<String>) -> Unit) {
+                this@MainActivity.getOfficeNames(onResult)
+            }
+
+            override fun getRegistrationRequests(onResult: (String) -> Unit) {
+                this@MainActivity.getRegistrationRequests(onResult)
+            }
+
+            override fun deleteRegistrationRequest(id: String, onResult: (Boolean) -> Unit) {
+                this@MainActivity.deleteRegistrationRequest(id, onResult)
             }
 
             override fun adminResendConfirmation(email: String, onResult: (Boolean, String) -> Unit) {
@@ -521,7 +679,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings = remember { Settings() }
 
-            var authorized by remember { mutableStateOf(false) }
+            var authorized by remember { mutableStateOf(true) }
             var checking by remember { mutableStateOf(false) }
             var name by remember {
                 mutableStateOf(settings.getString("my_consultant_name", ""))
@@ -715,6 +873,7 @@ class MainActivity : ComponentActivity() {
                                                 true
                                             )
                                             settings.putBoolean("can_use_tools", false)
+                                            settings.putBoolean("is_office_admin", true)
                                             errorMessage = ""
                                             authorized = true
                                         } else {

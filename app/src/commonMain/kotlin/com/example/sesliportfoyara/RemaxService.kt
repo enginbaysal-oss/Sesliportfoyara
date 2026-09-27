@@ -374,7 +374,7 @@ class RemaxService {
         }
     }
 
-    suspend fun syncWithFirebase(url: String, dbManager: DatabaseManager): Int {
+    suspend fun syncWithFirebase(url: String, dbManager: DatabaseManager, officeName: String): Int {
         if (url.isBlank() || _isSyncing.value) return 0
         var totalAdded = 0
         var currentPage = 1
@@ -403,8 +403,9 @@ class RemaxService {
                     list.forEach { p ->
                         foundRemaxIds.add(p.id)
                         val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/")
-                        val existing = current.firstOrNull { it.id == p.id } ?: current.firstOrNull { it.link.replace("https://", "").replace("www.", "").removeSuffix("/") == norm }; if (existing != null) { val updated = p.copy(id = existing.id, consultantName = existing.consultantName.ifBlank { p.consultantName }, consultantPhone = existing.consultantPhone.ifBlank { p.consultantPhone }, createdAt = existing.createdAt); dbManager.updatePortfolio(updated) } else {
-                            if (dbManager.addPortfolio(p) != null) {
+                        val existing = current.firstOrNull { it.id == p.id } ?: current.firstOrNull { it.link.replace("https://", "").replace("www.", "").removeSuffix("/") == norm }; if (existing != null) { val updated = p.copy(id = existing.id, consultantName = existing.consultantName.ifBlank { p.consultantName }, consultantPhone = existing.consultantPhone.ifBlank { p.consultantPhone }, createdAt = existing.createdAt,
+                    officeName = existing.officeName.ifBlank { officeName }); dbManager.updatePortfolio(updated) } else {
+                            if (dbManager.addPortfolio(p.copy(officeName = officeName)) != null) {
                                 existingIds.add(p.id)
                                 existingLinks.add(norm)
                                 totalAdded++

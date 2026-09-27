@@ -1,4 +1,4 @@
-﻿package com.example.sesliportfoyara
+package com.example.sesliportfoyara
 
 import androidx.compose.runtime.staticCompositionLocalOf
 
@@ -11,7 +11,7 @@ interface PlatformUtils {
     fun startVoiceRecognition(onResult: (String) -> Unit, onError: (String) -> Unit)
     fun stopVoiceRecognition()
     fun saveFile(fileName: String, content: String, onResult: (Boolean) -> Unit)
-    fun checkAppAuthorization(phone: String, onResult: (Boolean, String, Boolean, Boolean, String) -> Unit) { onResult(false, "", false, false, "Bu platformda yetkilendirme desteklenmiyor.") }
+    fun checkAppAuthorization(phone: String, onResult: (Boolean, String, Boolean, Boolean, Boolean, String, String) -> Unit) { onResult(false, "", false, false, false, "", "Bu platformda yetkilendirme desteklenmiyor.") }
     fun hasActiveSession(): Boolean = false
     fun setActiveSession(active: Boolean) {}
     fun saveRemaxUrl(url: String) {}
@@ -22,9 +22,10 @@ interface PlatformUtils {
     fun adminResendConfirmation(email: String, onResult: (Boolean, String) -> Unit)
     fun adminUsersRequest(accessToken: String, requestJson: String, onResult: (Boolean, String) -> Unit)
     fun pickFile(onResult: (String?) -> Unit)
-    fun requestRegistration(name: String, phone: String, onResult: (Boolean, String) -> Unit) { onResult(false, "Bu platformda kayıt talebi desteklenmiyor.") }
+    fun requestRegistration(name: String, phone: String, officeName: String, onResult: (Boolean, String) -> Unit) { onResult(false, "Bu platformda kayıt talebi desteklenmiyor.") }
     fun getRegistrationRequests(onResult: (String) -> Unit) { onResult("{}") }
     fun deleteRegistrationRequest(id: String, onResult: (Boolean) -> Unit) { onResult(false) }
+    fun getOfficeNames(onResult: (List<String>) -> Unit) { onResult(listOf("Ofissiz / Bağımsız")) }
 }
 
 val LocalPlatformUtils = staticCompositionLocalOf<PlatformUtils> {

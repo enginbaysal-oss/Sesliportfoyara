@@ -32,7 +32,8 @@ class RemaxSyncWorker(
 
             val added = remaxService.syncWithFirebase(
                 url = remaxUrl,
-                dbManager = dbManager
+                dbManager = dbManager,
+                officeName = inputData.getString("officeName") ?: ""
             )
 
             Log.i("RemaxSyncWorker", "SENKRON TAMAMLANDI - EKLENEN: $added")

@@ -71,6 +71,7 @@ data class Portfolio(
     val consultantPhone: String = "",
     val ownerName: String = "",
     val ownerPhone: String = "",
+    val officeName: String = "",
     val type: String = "Satılık",
     val propertyType: String = "Daire", // Daire, Arsa, Tarla, Villa, İşyeri
     val features: List<String> = emptyList(),
@@ -104,16 +105,27 @@ data class AdminUser(
     val id: Long,
     val fullName: String,
     val phone: String,
+    val officeName: String = "",
     val isActive: Boolean,
     val isAdmin: Boolean,
-    val canUseTools: Boolean
+    val canUseTools: Boolean,
+    val isOfficeAdmin: Boolean = false
 )
 
 data class PendingRequest(
     val id: String,
     val name: String,
-    val phone: String
+    val phone: String,
+    val officeName: String = ""
 )
+
+fun normalizeOfficeName(value: String): String {
+    return value.trim()
+        .lowercase()
+        .replace("ı", "i")
+        .replace("İ", "i")
+        .replace("\\s+".toRegex(), " ")
+}
 
 fun parsePendingRequests(response: String): List<PendingRequest> {
     return try {
@@ -123,7 +135,8 @@ fun parsePendingRequests(response: String): List<PendingRequest> {
             PendingRequest(
                 id = key,
                 name = obj["name"]?.jsonPrimitive?.content ?: obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: "Kayıt Talebi",
-                phone = obj["phone"]?.jsonPrimitive?.content ?: ""
+                phone = obj["phone"]?.jsonPrimitive?.content ?: "",
+                officeName = obj["office_name"]?.jsonPrimitive?.content ?: obj["officeName"]?.jsonPrimitive?.content ?: ""
             )
         }
     } catch (_: Exception) {
@@ -146,6 +159,8 @@ fun App() {
     var remaxUrl by remember { mutableStateOf(settings.getString("remax_office_url", "")) }
     var isAdmin by remember { mutableStateOf(settings.getBoolean("is_admin", false)) }
     var canUseTools by remember { mutableStateOf(settings.getBoolean("can_use_tools", false)) }
+    var isOfficeAdmin by remember { mutableStateOf(settings.getBoolean("is_office_admin", false)) }
+    var myOfficeName by remember { mutableStateOf(settings.getString("my_office_name", "")) }
 
     // Oturum ve başlangıç ekranı kontrolü (Oturum yoksa ilk kayıt/giriş ekranını göster)
     var currentScreen by remember {
@@ -179,16 +194,20 @@ fun App() {
                 settings.putString("my_consultant_phone", "")
                 settings.putBoolean("is_admin", false)
                 settings.putBoolean("can_use_tools", false)
+                settings.putBoolean("is_office_admin", false)
+                settings.putString("my_office_name", "")
                 myName = ""
                 myPhone = ""
                 isAdmin = false
                 canUseTools = false
+                isOfficeAdmin = false
+                myOfficeName = ""
                 currentScreen = Screen.ProfileSetup
             }
 
             LaunchedEffect(Unit) {
                 if (platformUtils.hasActiveSession() && myPhone.isNotBlank()) {
-                    platformUtils.checkAppAuthorization(myPhone) { authorized, serverName, serverIsAdmin, serverCanUseTools, _ ->
+                    platformUtils.checkAppAuthorization(myPhone) { authorized, serverName, serverIsAdmin, serverCanUseTools, serverIsOfficeAdmin, serverOfficeName, _ ->
                         if (authorized) {
                             val finalName = serverName.ifBlank { myName }
                             if (finalName != myName) {
@@ -197,8 +216,12 @@ fun App() {
                             }
                             isAdmin = serverIsAdmin
                             canUseTools = serverCanUseTools
+                            isOfficeAdmin = serverIsOfficeAdmin
+                                        myOfficeName = serverOfficeName
                             settings.putBoolean("is_admin", serverIsAdmin)
                             settings.putBoolean("can_use_tools", serverCanUseTools)
+                            settings.putBoolean("is_office_admin", serverIsOfficeAdmin)
+                                        settings.putString("my_office_name", serverOfficeName)
                             platformUtils.setActiveSession(true)
                         } else {
                             platformUtils.setActiveSession(false)
@@ -211,8 +234,9 @@ fun App() {
                 }
 
                 dbManager.getPortfolios().collectLatest { list ->
+                    val visibleList = list.filter { normalizeOfficeName(it.officeName) == normalizeOfficeName(myOfficeName) }
                     officePortfolios.clear()
-                    officePortfolios.addAll(list.sortedByDescending { it.createdAt })
+                    officePortfolios.addAll(visibleList.sortedByDescending { it.createdAt })
                 }
             }
 
@@ -237,7 +261,7 @@ fun App() {
                 },
                 bottomBar = {
                     if (currentScreen != Screen.ProfileSetup && currentScreen != Screen.AddClient && currentScreen != Screen.ClientDetails) {
-                        TabNavigation(currentScreen, canUseTools, isAdmin) {
+                        TabNavigation(currentScreen, true, isAdmin) {
                             currentScreen = it
                             if (it != Screen.AddPortfolio) {
                                 editingPortfolio = null
@@ -259,25 +283,40 @@ fun App() {
                         Screen.ProfileSetup -> ProfileSetupScreen(
                             initialName = myName,
                             initialPhone = myPhone,
-                            onComplete = { name, phone ->
-                                platformUtils.checkAppAuthorization(phone) { authorized, serverName, serverIsAdmin, serverCanUseTools, error ->
+                            onComplete = { name, phone, officeName ->
+                                platformUtils.checkAppAuthorization(phone) { authorized, serverName, serverIsAdmin, serverCanUseTools, serverIsOfficeAdmin, serverOfficeName, error ->
                                     if (authorized) {
                                         val finalName = serverName.ifBlank { name }
                                         settings.putString("my_consultant_name", finalName)
                                         settings.putString("my_consultant_phone", phone)
                                         settings.putBoolean("is_admin", serverIsAdmin)
                                         settings.putBoolean("can_use_tools", serverCanUseTools)
+                                        settings.putBoolean("is_office_admin", serverIsOfficeAdmin)
+                                        settings.putString("my_office_name", serverOfficeName)
                                         myName = finalName
                                         myPhone = phone
                                         isAdmin = serverIsAdmin
                                         canUseTools = serverCanUseTools
+                                        isOfficeAdmin = serverIsOfficeAdmin
+                                        myOfficeName = serverOfficeName
                                         platformUtils.setActiveSession(true)
                                         currentScreen = Screen.VoiceSearch
                                     } else {
-                                        platformUtils.requestRegistration(name, phone) { _, _ ->
+                                        platformUtils.requestRegistration(name, phone, officeName) { _, _ ->
                                             scope.launch {
                                                 snackbarHostState.showSnackbar("✅ Kayıt talebiniz başarıyla gönderildi! Yönetici onayından sonra giriş yapabileceksiniz.")
                                             }
+                                        }
+                                    }
+                                }
+                            },
+                            onRegister = { name, phone, officeName ->
+                                platformUtils.requestRegistration(name, phone, officeName) { ok, message ->
+                                    scope.launch {
+                                        if (ok) {
+                                            snackbarHostState.showSnackbar("✅ Kayıt başvurunuz gönderildi. Yönetici onayından sonra giriş yapabilirsiniz.")
+                                        } else {
+                                            snackbarHostState.showSnackbar("❌ Kayıt başvurusu gönderilemedi: $message")
                                         }
                                     }
                                 }
@@ -287,8 +326,10 @@ fun App() {
                                     if (success) {
                                         settings.putBoolean("is_admin", true)
                                         settings.putBoolean("can_use_tools", true)
+                                        settings.putBoolean("is_office_admin", true)
                                         isAdmin = true
                                         canUseTools = true
+                                        isOfficeAdmin = true
                                         platformUtils.setActiveSession(true)
                                         currentScreen = Screen.UserManagement
                                     }
@@ -331,7 +372,10 @@ fun App() {
                                             else snackbarHostState.showSnackbar("❌ Güncelleme başarısız (Ağ hatası).")
                                         }
                                     } else {
-                                        val newP = p.copy(createdAt = Clock.now())
+                                        val newP = p.copy(
+                                    createdAt = Clock.now(),
+                                    officeName = if (saveLocally) p.officeName else myOfficeName
+                                )
                                         if (saveLocally) {
                                             localPortfolioManager.addPortfolio(newP)
                                             snackbarHostState.showSnackbar("✅ Yerel portföy eklendi.")
@@ -354,10 +398,14 @@ fun App() {
                             officePortfolios = officePortfolios,
                             localPortfolios = localPortfolios,
                             onDeleteOffice = { p ->
-                                scope.launch {
-                                    val ok = dbManager.deletePortfolio(p.id)
-                                    if (ok) snackbarHostState.showSnackbar("✅ Ofis portföyü silindi.")
-                                    else snackbarHostState.showSnackbar("❌ Silme başarısız (Ağ hatası).")
+                                if (!(isAdmin || isOfficeAdmin)) {
+                                    scope.launch { snackbarHostState.showSnackbar("Bu işlem için süper admin veya ofis admin yetkisi gerekir.") }
+                                } else {
+                                    scope.launch {
+                                        val ok = dbManager.deletePortfolio(p.id)
+                                        if (ok) snackbarHostState.showSnackbar("✅ Ofis portföyü silindi.")
+                                        else snackbarHostState.showSnackbar("❌ Silme başarısız (Ağ hatası).")
+                                    }
                                 }
                             },
                             onDeleteLocal = { p ->
@@ -365,12 +413,35 @@ fun App() {
                                 scope.launch { snackbarHostState.showSnackbar("✅ Yerel portföy silindi.") }
                             },
                             onClearOffice = {
-                                // Ekranın anında temizlendiğini görmek için asenkron isteğin cevabını beklemeden yerel listeyi sıfırlayalım
-                                officePortfolios.clear()
-                                scope.launch {
-                                    val ok = dbManager.clearAllPortfolios()
-                                    if (ok) snackbarHostState.showSnackbar("✅ Tüm ofis portföyleri silindi.")
-                                    else snackbarHostState.showSnackbar("ℹ️ Veritabanı sıfırlandı.")
+                                if (!(isAdmin || isOfficeAdmin)) {
+                                    scope.launch { snackbarHostState.showSnackbar("Tüm ofis portföylerini silmek için süper admin veya ofis admin yetkisi gerekir.") }
+                                } else if (myOfficeName.isBlank()) {
+                                    scope.launch { snackbarHostState.showSnackbar("Ofis adı bulunamadı. Önce kullanıcıya ofis adı atanmalı.") }
+                                } else {
+                                    val idsToDelete = officePortfolios
+                                        .filter { normalizeOfficeName(it.officeName) == normalizeOfficeName(myOfficeName) }
+                                        .map { it.id }
+                                        .filter { it.isNotBlank() }
+
+                                    if (idsToDelete.isEmpty()) {
+                                        scope.launch { snackbarHostState.showSnackbar("Bu ofise ait silinecek portföy bulunamadı.") }
+                                    } else {
+                                        scope.launch {
+                                            var allOk = true
+                                            idsToDelete.forEach { id ->
+                                                val ok = dbManager.deletePortfolio(id)
+                                                if (!ok) allOk = false
+                                            }
+
+                                            officePortfolios.removeAll { p -> idsToDelete.contains(p.id) }
+
+                                            if (allOk) {
+                                                snackbarHostState.showSnackbar("✅ ${idsToDelete.size} ofis portföyü silindi.")
+                                            } else {
+                                                snackbarHostState.showSnackbar("⚠️ Bazı portföyler silinemedi.")
+                                            }
+                                        }
+                                    }
                                 }
                             },
                             onClearLocal = {
@@ -413,20 +484,24 @@ fun App() {
                                 }
                             },
                             onImportRemax = { url ->
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("⌛ Portföyler ofise aktarılıyor...")
-                                    // syncWithFirebase artık kaç tane yeni ilan eklendiğini dönüyor
-                                    val count = remaxService.syncWithFirebase(url, dbManager)
-                                    if (count > 0) {
-                                        snackbarHostState.showSnackbar("✅ $count yeni portföy başarıyla aktarıldı.")
-                                    } else {
-                                        snackbarHostState.showSnackbar("ℹ️ Yeni portföy bulunamadı veya hepsi zaten mevcut.")
+                                if (!(isAdmin || isOfficeAdmin)) {
+                                    scope.launch { snackbarHostState.showSnackbar("İçeri aktarma için süper admin veya ofis admin yetkisi gerekir.") }
+                                } else {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("⌛ Portföyler ofise aktarılıyor...")
+                                        val count = remaxService.syncWithFirebase(url, dbManager, myOfficeName)
+                                        if (count > 0) {
+                                            snackbarHostState.showSnackbar("✅ $count yeni portföy başarıyla aktarıldı.")
+                                        } else {
+                                            snackbarHostState.showSnackbar("ℹ️ Yeni portföy bulunamadı veya hepsi zaten mevcut.")
+                                        }
                                     }
                                 }
                             },
                             currentName = myName,
                             currentPhone = myPhone,
-                            isAdmin = isAdmin
+                            currentOfficeName = myOfficeName,
+                            isAdmin = isAdmin || isOfficeAdmin
                         )
                         Screen.UserManagement -> {
                             val platformUtils = LocalPlatformUtils.current
@@ -440,6 +515,7 @@ fun App() {
                             var pendingRequests by remember { mutableStateOf<List<PendingRequest>>(emptyList()) }
                             var newUserName by remember { mutableStateOf("") }
                             var newUserPhone by remember { mutableStateOf("") }
+    var newUserOfficeName by remember { mutableStateOf("Ofissiz / Bağımsız") }
                             var newUserTools by remember { mutableStateOf(false) }
                             var newUserAdmin by remember { mutableStateOf(false) }
 
@@ -513,6 +589,7 @@ fun App() {
                                                         adminPassword = ""
                                                         adminAuthenticated = true
                                                         canUseTools = true
+                                        isOfficeAdmin = true
                                                         adminMessage = "Yönetici girişi başarılı."
                                                         platformUtils.adminUsersRequest(token, """{"action":"list"}""") { listSuccess, listResponse ->
                                                             adminMessage = if (listSuccess) {
@@ -591,6 +668,12 @@ fun App() {
                                                 Column(modifier = Modifier.padding(12.dp)) {
                                                     Text(req.name, fontWeight = FontWeight.Bold)
                                                     Text(req.phone)
+
+                                                            Text(
+                                                                "Ofis: ${req.officeName.ifBlank { "Ofissiz / Bağımsız" }}",
+                                                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                                                                fontSize = 13.sp
+                                                            )
                                                     Spacer(Modifier.height(8.dp))
                                                     Row(
                                                         modifier = Modifier.fillMaxWidth(),
@@ -600,7 +683,7 @@ fun App() {
                                                             onClick = {
                                                                 val token = adminSessionToken
                                                                 adminLoading = true
-                                                                val addJson = """{"action":"add","full_name":${JsonPrimitive(req.name).toString()},"phone":${JsonPrimitive(req.phone).toString()},"can_use_tools":false,"is_admin":false}"""
+                                                                val addJson = """{"action":"add","full_name":${JsonPrimitive(req.name).toString()},"phone":${JsonPrimitive(req.phone).toString()},"office_name":${JsonPrimitive(req.officeName).toString()},"can_use_tools":false,"is_admin":false,"is_office_admin":false}"""
                                                                 platformUtils.adminUsersRequest(token, addJson) { addOk, addResp ->
                                                                     if (addOk) {
                                                                         platformUtils.deleteRegistrationRequest(req.id) { _ ->
@@ -679,6 +762,69 @@ fun App() {
 
                                                 Text(user.phone)
 
+                                                Text(
+                                                    "Ofis: ${user.officeName.ifBlank { "Ofissiz / Bağımsız" }}",
+                                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                                                    fontSize = 13.sp
+                                                )
+
+
+                                                var showOfficeEditor by remember(user.id, user.officeName) { mutableStateOf(false) }
+                                                var editOfficeName by remember(user.id, user.officeName) { mutableStateOf(user.officeName.ifBlank { "Ofissiz / Bağımsız" }) }
+
+                                                if (showOfficeEditor) {
+                                                    OutlinedTextField(
+                                                        value = editOfficeName,
+                                                        onValueChange = { editOfficeName = it },
+                                                        label = { Text("Ofis Adı") },
+                                                        singleLine = true,
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    )
+
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                    ) {
+                                                        Button(
+                                                            onClick = {
+                                                                val token = adminSessionToken
+                                                                val cleanOfficeName = editOfficeName.trim().ifBlank { "Ofissiz / Bağımsız" }
+                                                                adminLoading = true
+                                                                val requestJson = """{"action":"update","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)},"office_name":${JsonPrimitive(cleanOfficeName)}}"""
+                                                                platformUtils.adminUsersRequest(token, requestJson) { success, response ->
+                                                                    if (success) {
+                                                                        platformUtils.adminUsersRequest(token, """{"action":"list"}""") { listSuccess, listResponse ->
+                                                                            adminLoading = false
+                                                                            if (listSuccess) {
+                                                                                adminUsers = parseAdminUsers(listResponse).map { if (it.id == user.id || it.phone == user.phone) it.copy(officeName = cleanOfficeName) else it }
+                                                                                showOfficeEditor = false
+                                                                                adminMessage = "Ofis bilgisi güncellendi."
+                                                                            } else adminMessage = "Liste yenilenemedi: $listResponse"
+                                                                        }
+                                                                    } else {
+                                                                        adminLoading = false
+                                                                        adminMessage = "Ofis güncelleme başarısız: $response"
+                                                                    }
+                                                                }
+                                                            },
+                                                            modifier = Modifier.weight(1f),
+                                                            enabled = !adminLoading
+                                                        ) { Text("Kaydet") }
+
+                                                        OutlinedButton(
+                                                            onClick = {
+                                                                editOfficeName = user.officeName.ifBlank { "Ofissiz / Bağımsız" }
+                                                                showOfficeEditor = false
+                                                            },
+                                                            modifier = Modifier.weight(1f)
+                                                        ) { Text("İptal") }
+                                                    }
+                                                } else {
+                                                    TextButton(onClick = { showOfficeEditor = true }, enabled = !adminLoading) {
+                                                        Text("Ofisi Düzenle")
+                                                    }
+                                                }
+
                                                 Spacer(Modifier.height(6.dp))
 
                                                 if (user.isAdmin) {
@@ -694,6 +840,7 @@ fun App() {
                                                             onCheckedChange = { checked ->
                                                                 val token = adminSessionToken
                                                                 adminLoading = true
+                                                                adminUsers = adminUsers.map { if (it.id == user.id) it.copy(isAdmin = checked) else it }
 
                                                                 val requestJson =
                                                                     """{"action":"update","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)},"is_admin":$checked}"""
@@ -709,8 +856,8 @@ fun App() {
                                                                         ) { listSuccess, listResponse ->
                                                                             adminLoading = false
                                                                             if (listSuccess) {
-                                                                                adminUsers = parseAdminUsers(listResponse)
-                                                                                adminMessage = "Yönetici yetkisi güncellendi."
+                                                                                adminUsers = parseAdminUsers(listResponse).map { if (it.id == user.id || it.phone == user.phone) it.copy(isAdmin = checked) else it }
+                                                                                adminMessage = "Süper admin yetkisi güncellendi."
                                                                             } else {
                                                                                 adminMessage = "Liste yenilenemedi: $listResponse"
                                                                             }
@@ -778,6 +925,7 @@ fun App() {
                                                             onCheckedChange = { checked ->
                                                                 val token = adminSessionToken
                                                                 adminLoading = true
+                                                                adminUsers = adminUsers.map { if (it.id == user.id) it.copy(canUseTools = checked) else it }
 
                                                                 val requestJson =
                                                                     """{"action":"update","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)},"can_use_tools":$checked}"""
@@ -793,8 +941,51 @@ fun App() {
                                                                         ) { listSuccess, listResponse ->
                                                                             adminLoading = false
                                                                             if (listSuccess) {
-                                                                                adminUsers = parseAdminUsers(listResponse)
+                                                                                adminUsers = parseAdminUsers(listResponse).map { if (it.id == user.id || it.phone == user.phone) it.copy(canUseTools = checked) else it }
                                                                                 adminMessage = "Araçlar yetkisi güncellendi."
+                                                                            } else {
+                                                                                adminMessage = "Liste yenilenemedi: $listResponse"
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        adminLoading = false
+                                                                        adminMessage = "Güncelleme başarısız: $response"
+                                                                    }
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Ofis Admin")
+
+                                                        Switch(
+                                                            checked = user.isOfficeAdmin,
+                                                            onCheckedChange = { checked ->
+                                                                val token = adminSessionToken
+                                                                adminLoading = true
+                                                                adminUsers = adminUsers.map { if (it.id == user.id) it.copy(isOfficeAdmin = checked) else it }
+
+                                                                val requestJson =
+                                                                    """{"action":"update","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)},"is_office_admin":$checked}"""
+
+                                                                platformUtils.adminUsersRequest(
+                                                                    token,
+                                                                    requestJson
+                                                                ) { success, response ->
+                                                                    if (success) {
+                                                                        platformUtils.adminUsersRequest(
+                                                                            token,
+                                                                            """{"action":"list"}"""
+                                                                        ) { listSuccess, listResponse ->
+                                                                            adminLoading = false
+                                                                            if (listSuccess) {
+                                                                                adminUsers = parseAdminUsers(listResponse).map { if (it.id == user.id || it.phone == user.phone) it.copy(isOfficeAdmin = checked) else it }
+                                                                                adminMessage = "Ofis admin yetkisi güncellendi."
                                                                             } else {
                                                                                 adminMessage = "Liste yenilenemedi: $listResponse"
                                                                             }
@@ -862,6 +1053,7 @@ fun App() {
                                                             onCheckedChange = { checked ->
                                                                 val token = adminSessionToken
                                                                 adminLoading = true
+                                                                adminUsers = adminUsers.map { if (it.id == user.id) it.copy(canUseTools = checked) else it }
 
                                                                 val requestJson =
                                                                     """{"action":"update","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)},"can_use_tools":$checked}"""
@@ -877,8 +1069,51 @@ fun App() {
                                                                         ) { listSuccess, listResponse ->
                                                                             adminLoading = false
                                                                             if (listSuccess) {
-                                                                                adminUsers = parseAdminUsers(listResponse)
+                                                                                adminUsers = parseAdminUsers(listResponse).map { if (it.id == user.id || it.phone == user.phone) it.copy(canUseTools = checked) else it }
                                                                                 adminMessage = "Araçlar yetkisi güncellendi."
+                                                                            } else {
+                                                                                adminMessage = "Liste yenilenemedi: $listResponse"
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        adminLoading = false
+                                                                        adminMessage = "Güncelleme başarısız: $response"
+                                                                    }
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Ofis Admin")
+
+                                                        Switch(
+                                                            checked = user.isOfficeAdmin,
+                                                            onCheckedChange = { checked ->
+                                                                val token = adminSessionToken
+                                                                adminLoading = true
+                                                                adminUsers = adminUsers.map { if (it.id == user.id) it.copy(isOfficeAdmin = checked) else it }
+
+                                                                val requestJson =
+                                                                    """{"action":"update","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)},"is_office_admin":$checked}"""
+
+                                                                platformUtils.adminUsersRequest(
+                                                                    token,
+                                                                    requestJson
+                                                                ) { success, response ->
+                                                                    if (success) {
+                                                                        platformUtils.adminUsersRequest(
+                                                                            token,
+                                                                            """{"action":"list"}"""
+                                                                        ) { listSuccess, listResponse ->
+                                                                            adminLoading = false
+                                                                            if (listSuccess) {
+                                                                                adminUsers = parseAdminUsers(listResponse).map { if (it.id == user.id || it.phone == user.phone) it.copy(isOfficeAdmin = checked) else it }
+                                                                                adminMessage = "Ofis admin yetkisi güncellendi."
                                                                             } else {
                                                                                 adminMessage = "Liste yenilenemedi: $listResponse"
                                                                             }
@@ -904,6 +1139,7 @@ fun App() {
                                                             onCheckedChange = { checked ->
                                                                 val token = adminSessionToken
                                                                 adminLoading = true
+                                                                adminUsers = adminUsers.map { if (it.id == user.id) it.copy(isAdmin = checked) else it }
 
                                                                 val requestJson =
                                                                     """{"action":"update","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)},"is_admin":$checked}"""
@@ -919,8 +1155,8 @@ fun App() {
                                                                         ) { listSuccess, listResponse ->
                                                                             adminLoading = false
                                                                             if (listSuccess) {
-                                                                                adminUsers = parseAdminUsers(listResponse)
-                                                                                adminMessage = "Yönetici yetkisi güncellendi."
+                                                                                adminUsers = parseAdminUsers(listResponse).map { if (it.id == user.id || it.phone == user.phone) it.copy(isAdmin = checked) else it }
+                                                                                adminMessage = "Süper admin yetkisi güncellendi."
                                                                             } else {
                                                                                 adminMessage = "Liste yenilenemedi: $listResponse"
                                                                             }
@@ -936,41 +1172,66 @@ fun App() {
 
                                                     Spacer(Modifier.height(8.dp))
 
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            val token = adminSessionToken
-                                                            adminLoading = true
+                                                    var showDeleteUserDialog by remember(user.id) { mutableStateOf(false) }
 
-                                                            val requestJson =
-                                                                """{"action":"delete","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)}}"""
+                                                    if (showDeleteUserDialog) {
+                                                        AlertDialog(
+                                                            onDismissRequest = { showDeleteUserDialog = false },
+                                                            title = { Text("Kullanıcı silinsin mi?") },
+                                                            text = { Text("Bu kullanıcı kalıcı olarak silinecek: ${user.fullName}") },
+                                                            confirmButton = {
+                                                                Button(
+                                                                    onClick = {
+                                                                        showDeleteUserDialog = false
+                                                                        val token = adminSessionToken
+                                                                        adminLoading = true
 
-                                                            platformUtils.adminUsersRequest(
-                                                                token,
-                                                                requestJson
-                                                            ) { success, response ->
-                                                                if (success) {
-                                                                    platformUtils.adminUsersRequest(
-                                                                        token,
-                                                                        """{"action":"list"}"""
-                                                                    ) { listSuccess, listResponse ->
-                                                                        adminLoading = false
-                                                                        if (listSuccess) {
-                                                                            adminUsers = parseAdminUsers(listResponse)
-                                                                            adminMessage = "Kullanıcı silindi."
-                                                                        } else {
-                                                                            adminMessage = "Liste yenilenemedi: $listResponse"
+                                                                        val requestJson =
+                                                                            """{"action":"delete","phone":${JsonPrimitive(user.phone)},"id":${user.id},"full_name":${JsonPrimitive(user.fullName)}}"""
+
+                                                                        platformUtils.adminUsersRequest(
+                                                                            token,
+                                                                            requestJson
+                                                                        ) { success, response ->
+                                                                            if (success) {
+                                                                                platformUtils.adminUsersRequest(
+                                                                                    token,
+                                                                                    """{"action":"list"}"""
+                                                                                ) { listSuccess, listResponse ->
+                                                                                    adminLoading = false
+                                                                                    if (listSuccess) {
+                                                                                        adminUsers = parseAdminUsers(listResponse)
+                                                                                        adminMessage = "Kullanıcı silindi."
+                                                                                    } else {
+                                                                                        adminMessage = "Liste yenilenemedi: $listResponse"
+                                                                                    }
+                                                                                }
+                                                                            } else {
+                                                                                adminLoading = false
+                                                                                adminMessage = "Silme işlemi başarısız: $response"
+                                                                            }
                                                                         }
-                                                                    }
-                                                                } else {
-                                                                    adminLoading = false
-                                                                    adminMessage = "Silme işlemi başarısız: $response"
+                                                                    },
+                                                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                                                                ) {
+                                                                    Text("Evet, Sil", color = Color.White)
+                                                                }
+                                                            },
+                                                            dismissButton = {
+                                                                TextButton(onClick = { showDeleteUserDialog = false }) {
+                                                                    Text("İptal")
                                                                 }
                                                             }
-                                                        },
+                                                        )
+                                                    }
+
+                                                    Button(
+                                                        onClick = { showDeleteUserDialog = true },
                                                         enabled = !adminLoading,
-                                                        modifier = Modifier.fillMaxWidth()
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                                                     ) {
-                                                        Text("KULLANICIYI SİL")
+                                                        Text("KULLANICIYI SİL", color = Color.White, fontWeight = FontWeight.Bold)
                                                     }
                                                 }
                                             }
@@ -995,6 +1256,18 @@ fun App() {
                                     )
 
                                     Spacer(Modifier.height(8.dp))
+
+                                    OutlinedTextField(
+                                        value = newUserOfficeName,
+                                        onValueChange = { newUserOfficeName = it },
+                                        label = { Text("Ofis Adı") },
+                                        modifier = Modifier.fillMaxWidth()
+
+                                    )
+
+
+                                    Spacer(Modifier.height(8.dp))
+
 
                                     OutlinedTextField(
                                         value = newUserPhone,
@@ -1038,7 +1311,7 @@ fun App() {
                                                 adminLoading = true
 
                                                 val requestJson =
-                                                    """{"action":"add","full_name":${JsonPrimitive(newUserName.trim()).toString()},"phone":${JsonPrimitive(newUserPhone).toString()},"can_use_tools":$newUserTools,"is_admin":$newUserAdmin}"""
+                                                    """{"action":"add","full_name":${JsonPrimitive(newUserName.trim()).toString()},"phone":${JsonPrimitive(newUserPhone).toString()},"office_name":${JsonPrimitive(newUserOfficeName.trim().ifBlank { "Ofissiz / Bağımsız" }).toString()},"can_use_tools":$newUserTools,"is_admin":$newUserAdmin,"is_office_admin":false}"""
 
                                                 platformUtils.adminUsersRequest(
                                                     token,
@@ -1180,13 +1453,16 @@ fun parseAdminUsers(response: String): List<AdminUser> {
             val obj = element.jsonObject
             val name = obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: obj["name"]?.jsonPrimitive?.content ?: ""
             val phone = obj["phone"]?.jsonPrimitive?.content ?: ""
+            val adminOfficeName = obj["office_name"]?.jsonPrimitive?.content ?: obj["officeName"]?.jsonPrimitive?.content ?: ""
             AdminUser(
                 id = obj["id"]?.jsonPrimitive?.content?.toLongOrNull() ?: getCurrentTimeMillis(),
                 fullName = name.ifBlank { phone.ifBlank { "Yetkili Kullanıcı" } },
                 phone = phone,
+                officeName = adminOfficeName,
                 isActive = obj["is_active"]?.jsonPrimitive?.boolean ?: obj["isActive"]?.jsonPrimitive?.boolean ?: true,
                 isAdmin = obj["is_admin"]?.jsonPrimitive?.boolean ?: obj["isAdmin"]?.jsonPrimitive?.boolean ?: false,
-                canUseTools = obj["can_use_tools"]?.jsonPrimitive?.boolean ?: obj["canUseTools"]?.jsonPrimitive?.boolean ?: false
+                canUseTools = obj["can_use_tools"]?.jsonPrimitive?.boolean ?: obj["canUseTools"]?.jsonPrimitive?.boolean ?: false,
+                isOfficeAdmin = obj["is_office_admin"]?.jsonPrimitive?.boolean ?: obj["isOfficeAdmin"]?.jsonPrimitive?.boolean ?: false
             )
         } ?: emptyList()
     } catch (_: Exception) {
@@ -1198,11 +1474,26 @@ fun parseAdminUsers(response: String): List<AdminUser> {
 fun ProfileSetupScreen(
     initialName: String = "",
     initialPhone: String = "",
-    onComplete: (String, String) -> Unit,
+    onComplete: (String, String, String) -> Unit,
+    onRegister: (String, String, String) -> Unit,
     onAdminLogin: (String, String, (Boolean, String, String) -> Unit) -> Unit
 ) {
     var nameValue by remember { mutableStateOf(TextFieldValue(initialName)) }
     var phoneValue by remember { mutableStateOf(TextFieldValue(initialPhone)) }
+    var officeNameValue by remember { mutableStateOf(TextFieldValue("Ofissiz / Bağımsız")) }
+    var officeOptions by remember { mutableStateOf(listOf("Ofissiz / Bağımsız")) }
+    var officeMenuExpanded by remember { mutableStateOf(false) }
+    val platformUtils = LocalPlatformUtils.current
+
+    LaunchedEffect(Unit) {
+        platformUtils.getOfficeNames { offices ->
+            val cleaned = offices.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+            officeOptions = if (cleaned.isEmpty()) listOf("Ofissiz / Bağımsız") else cleaned
+            if (officeNameValue.text.isBlank() || officeNameValue.text == "Ofissiz / Bağımsız") {
+                officeNameValue = TextFieldValue(officeOptions.firstOrNull() ?: "Ofissiz / Bağımsız")
+            }
+        }
+    }
 
     var showAdminLogin by remember { mutableStateOf(false) }
     var adminEmail by remember { mutableStateOf("engin.baysal@remax-ilyada.com") }
@@ -1243,21 +1534,69 @@ fun ProfileSetupScreen(
         if (!showAdminLogin) {
             CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
             CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = { officeMenuExpanded = true },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        "Ofis: ${officeNameValue.text.ifBlank { "Ofissiz / Bağımsız" }}",
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Start
+                    )
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                }
+
+                if (officeMenuExpanded) {
+                    Spacer(Modifier.height(6.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
+                            .padding(6.dp)
+                    ) {
+                        officeOptions.forEach { office ->
+                            OutlinedButton(
+                                onClick = {
+                                    officeNameValue = TextFieldValue(office)
+                                    officeMenuExpanded = false
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(office)
+                            }
+                        }
+
+                        if (officeOptions.size <= 1) {
+                            Text(
+                                "Ofis listesi gelmezse Supabase bağlantısı kontrol edilecek.",
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(6.dp)
+                            )
+                        }
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
                 onClick = {
                     if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
-                        onComplete(nameValue.text.trim(), phoneValue.text.trim())
+                        onComplete(nameValue.text.trim(), phoneValue.text.trim(), officeNameValue.text.trim())
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
-                enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()
+                enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank() && officeNameValue.text.isNotBlank()
             ) {
-                Text("Giriş Yap / Kaydet", color = Color.Black, fontWeight = FontWeight.Bold)
+                Text("Giriş Yap", color = Color.Black, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -2047,6 +2386,7 @@ fun MyPortfolioScreen(
     onImportRemax: (String) -> Unit,
     currentName: String,
     currentPhone: String,
+    currentOfficeName: String,
     isAdmin: Boolean
 ) {
     var selectedTab by remember { mutableStateOf(1) } // Ekran açıldığında doğrudan "Ofis (1)" sekmesini aktif yapalım (Görselde Ofis seçili)
@@ -2193,7 +2533,7 @@ fun MyPortfolioScreen(
         Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp)) {
             val tabs = listOf(
                 "Benim (${localPortfolios.size})", // "adet" yazısı kaldırıldı yer kazanmak için
-                "Ofis (${officePortfolios.size})"
+                "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (${officePortfolios.size})"
             )
             tabs.forEachIndexed { index, title ->
                 val selected = selectedTab == index

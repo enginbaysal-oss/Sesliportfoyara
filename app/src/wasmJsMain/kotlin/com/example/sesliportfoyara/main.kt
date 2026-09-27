@@ -267,9 +267,9 @@ fun main() {
                 }
             }
 
-            override fun checkAppAuthorization(phone: String, onResult: (Boolean, String, Boolean, Boolean, String) -> Unit) {
+            override fun checkAppAuthorization(phone: String, onResult: (Boolean, String, Boolean, Boolean, Boolean, String, String) -> Unit) {
                 val normalized = phone.filter { it.isDigit() }.let { if (it.length == 10 && it.startsWith("5")) "0$it" else it }
-                if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "", false, false, "Geçerli bir cep telefonu numarası giriniz."); return }
+                if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "", false, false, false, "", "Geçerli bir cep telefonu numarası giriniz."); return }
                 
                 jsFirebaseGet(
                     "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
@@ -279,6 +279,7 @@ fun main() {
                     var fbName = ""
                     var fbAdmin = false
                     var fbTools = false
+                    var fbOfficeAdmin = false
                     if (ok) {
                         try {
                             val text = response.toString()
@@ -294,6 +295,7 @@ fun main() {
                                             fbName = uObj["full_name"]?.jsonPrimitive?.content ?: uObj["fullName"]?.jsonPrimitive?.content ?: ""
                                             fbAdmin = uObj["is_admin"]?.jsonPrimitive?.boolean ?: uObj["isAdmin"]?.jsonPrimitive?.boolean ?: false
                                             fbTools = uObj["can_use_tools"]?.jsonPrimitive?.boolean ?: uObj["canUseTools"]?.jsonPrimitive?.boolean ?: false
+                                            fbOfficeAdmin = uObj["is_office_admin"]?.jsonPrimitive?.boolean ?: uObj["isOfficeAdmin"]?.jsonPrimitive?.boolean ?: false
                                         }
                                         break
                                     }
@@ -303,7 +305,7 @@ fun main() {
                     }
 
                     if (fbAuthorized) {
-                        onResult(true, fbName, fbAdmin, fbTools, "")
+                        onResult(true, fbName, fbAdmin, fbTools, fbOfficeAdmin, "")
                     } else {
                         val body = """{"p_phone":${JsonPrimitive(normalized)}}"""
                         jsSupabasePost("https://jcjerwvibjetomqeelsy.supabase.co".toJsString(), "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(), "/rest/v1/rpc/check_app_authorization".toJsString(), body.toJsString(), "".toJsString()) { supOk, supResp ->
@@ -316,22 +318,23 @@ fun main() {
                                     val fullName = o["full_name"]?.jsonPrimitive?.content ?: ""
                                     val isAdmin = o["is_admin"]?.jsonPrimitive?.boolean ?: false
                                     val canUseTools = o["can_use_tools"]?.jsonPrimitive?.boolean ?: false
+                                    val isOfficeAdmin = o["is_office_admin"]?.jsonPrimitive?.boolean ?: false
                                     if (authorized) {
-                                        onResult(true, fullName, isAdmin, canUseTools, "")
+                                        onResult(true, fullName, isAdmin, canUseTools, isOfficeAdmin, "")
                                         return@jsSupabasePost
                                     }
                                 }
                             } catch (_: Exception) {}
-                            onResult(false, "", false, false, "Bu telefon numarası için kullanım yetkisi bulunmuyor.")
+                            onResult(false, "", false, false, false, "", "Bu telefon numarası için kullanım yetkisi bulunmuyor.")
                         }
                     }
                 }
             }
 
-            override fun requestRegistration(name: String, phone: String, onResult: (Boolean, String) -> Unit) {
+            override fun requestRegistration(name: String, phone: String, officeName: String, onResult: (Boolean, String) -> Unit) {
                 val normalized = phone.filter { it.isDigit() }.let { if (it.length == 10 && it.startsWith("5")) "0$it" else it }
                 if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "Geçerli bir cep telefonu numarası giriniz."); return }
-                val body = """{"name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"createdAt":${getCurrentTimeMillis()}}"""
+                val body = """{"name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"office_name":${JsonPrimitive(officeName.trim())},"createdAt":${getCurrentTimeMillis()}}"""
                 jsFirebasePost(
                     "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
                     "/registration_requests.json".toJsString(),
@@ -446,8 +449,9 @@ fun main() {
                         val phone = obj["phone"]?.jsonPrimitive?.content ?: ""
                         val canUseTools = obj["can_use_tools"]?.jsonPrimitive?.boolean ?: obj["canUseTools"]?.jsonPrimitive?.boolean ?: false
                         val isAdmin = obj["is_admin"]?.jsonPrimitive?.boolean ?: obj["isAdmin"]?.jsonPrimitive?.boolean ?: false
+                        val isOfficeAdmin = obj["is_office_admin"]?.jsonPrimitive?.boolean ?: obj["isOfficeAdmin"]?.jsonPrimitive?.boolean ?: false
                         val id = getCurrentTimeMillis()
-                        val userJson = """{"id":$id,"full_name":${JsonPrimitive(fullName)},"phone":${JsonPrimitive(phone)},"is_active":true,"can_use_tools":$canUseTools,"is_admin":$isAdmin}"""
+                        val userJson = """{"id":$id,"full_name":${JsonPrimitive(fullName)},"phone":${JsonPrimitive(phone)},"is_active":true,"can_use_tools":$canUseTools,"is_admin":$isAdmin,"is_office_admin":$isOfficeAdmin}"""
                         val sanitizedPhone = phone.filter { it.isDigit() }
                         if (sanitizedPhone.isBlank() || sanitizedPhone.length < 10) {
                             onResult(false, "Geçerli bir telefon numarası giriniz.")
@@ -505,10 +509,12 @@ fun main() {
                             obj["is_active"]?.jsonPrimitive?.boolean?.let { mutableObj["is_active"] = JsonPrimitive(it) }
                             obj["can_use_tools"]?.jsonPrimitive?.boolean?.let { mutableObj["can_use_tools"] = JsonPrimitive(it) }
                             obj["is_admin"]?.jsonPrimitive?.boolean?.let { mutableObj["is_admin"] = JsonPrimitive(it) }
+                            obj["is_office_admin"]?.jsonPrimitive?.boolean?.let { mutableObj["is_office_admin"] = JsonPrimitive(it) }
 
                             if (!mutableObj.containsKey("is_active")) mutableObj["is_active"] = JsonPrimitive(true)
                             if (!mutableObj.containsKey("can_use_tools")) mutableObj["can_use_tools"] = JsonPrimitive(false)
                             if (!mutableObj.containsKey("is_admin")) mutableObj["is_admin"] = JsonPrimitive(false)
+                            if (!mutableObj.containsKey("is_office_admin")) mutableObj["is_office_admin"] = JsonPrimitive(false)
                             if (!mutableObj.containsKey("full_name") && sanitizedPhone.isNotBlank()) mutableObj["full_name"] = JsonPrimitive(sanitizedPhone)
                             if (!mutableObj.containsKey("phone") && sanitizedPhone.isNotBlank()) mutableObj["phone"] = JsonPrimitive(sanitizedPhone)
 
