@@ -217,11 +217,11 @@ fun App() {
                             isAdmin = serverIsAdmin
                             canUseTools = serverCanUseTools
                             isOfficeAdmin = serverIsOfficeAdmin
-                                        myOfficeName = finalOfficeName
+                                        myOfficeName = serverOfficeName
                             settings.putBoolean("is_admin", serverIsAdmin)
                             settings.putBoolean("can_use_tools", serverCanUseTools)
                             settings.putBoolean("is_office_admin", serverIsOfficeAdmin)
-                                        val finalOfficeName = serverOfficeName.ifBlank { officeName }
+                            val finalOfficeName = serverOfficeName
                                         settings.putString("my_office_name", finalOfficeName)
                             platformUtils.setActiveSession(true)
                         } else {
