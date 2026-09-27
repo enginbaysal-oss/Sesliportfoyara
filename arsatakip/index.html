@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
@@ -203,6 +203,10 @@
     let recordingStream = null;
 
     async function startRecording() {
+        const webMenu = document.getElementById("web-menu");
+        const recordMenu = document.getElementById("record-menu");
+        if (webMenu) webMenu.style.display = "none";
+        if (recordMenu) recordMenu.style.display = "none";
         try {
             recordingStream = await navigator.mediaDevices.getDisplayMedia({
                 video: true,
@@ -241,6 +245,8 @@
                 if (screenRecorder && screenRecorder.state !== "inactive") screenRecorder.stop();
             });
         } catch (e) {
+            if (webMenu) webMenu.style.display = "flex";
+            if (recordMenu) recordMenu.style.display = "flex";
             document.getElementById("status-bar").innerText = "EKRAN KAYDI BAŞLATILAMADI";
         }
     }
