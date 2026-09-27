@@ -217,11 +217,12 @@ fun App() {
                             isAdmin = serverIsAdmin
                             canUseTools = serverCanUseTools
                             isOfficeAdmin = serverIsOfficeAdmin
-                                        myOfficeName = serverOfficeName
+                                        myOfficeName = finalOfficeName
                             settings.putBoolean("is_admin", serverIsAdmin)
                             settings.putBoolean("can_use_tools", serverCanUseTools)
                             settings.putBoolean("is_office_admin", serverIsOfficeAdmin)
-                                        settings.putString("my_office_name", serverOfficeName)
+                                        val finalOfficeName = serverOfficeName.ifBlank { officeName }
+                                        settings.putString("my_office_name", finalOfficeName)
                             platformUtils.setActiveSession(true)
                         } else {
                             platformUtils.setActiveSession(false)
@@ -292,13 +293,14 @@ fun App() {
                                         settings.putBoolean("is_admin", serverIsAdmin)
                                         settings.putBoolean("can_use_tools", serverCanUseTools)
                                         settings.putBoolean("is_office_admin", serverIsOfficeAdmin)
-                                        settings.putString("my_office_name", serverOfficeName)
+                                        val finalOfficeName = serverOfficeName.ifBlank { officeName }
+                                        settings.putString("my_office_name", finalOfficeName)
                                         myName = finalName
                                         myPhone = phone
                                         isAdmin = serverIsAdmin
                                         canUseTools = serverCanUseTools
                                         isOfficeAdmin = serverIsOfficeAdmin
-                                        myOfficeName = serverOfficeName
+                                        myOfficeName = finalOfficeName
                                         platformUtils.setActiveSession(true)
                                         currentScreen = Screen.VoiceSearch
                                     } else {
