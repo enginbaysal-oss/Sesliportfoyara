@@ -331,6 +331,43 @@ fun main() {
                 }
             }
 
+            override fun getOfficeNames(onResult: (List<String>) -> Unit) {
+                jsSupabasePost(
+                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                    "/rest/v1/rpc/list_offices_for_registration".toJsString(),
+                    "{}".toJsString(),
+                    "".toJsString()
+                ) { ok, response ->
+                    val offices = mutableListOf<String>()
+                    try {
+                        val arr = Json.parseToJsonElement(response.toString()).jsonArray
+                        for (item in arr) {
+                            val name = item.jsonObject["office_name"]?.jsonPrimitive?.content?.trim().orEmpty()
+                            if (name.isNotBlank()) offices.add(name)
+                        }
+                    } catch (_: Exception) {
+                    }
+
+                    if (offices.none { it.equals("Ofissiz / Bağımsız", ignoreCase = true) }) {
+                        offices.add("Ofissiz / Bağımsız")
+                    }
+
+                    val orderedOffices = offices
+                        .distinct()
+                        .sortedWith(
+                            compareBy<String> {
+                                when {
+                                    it.equals("REMAX İlyada 3", ignoreCase = true) -> 0
+                                    it.equals("Ofissiz / Bağımsız", ignoreCase = true) -> 2
+                                    else -> 1
+                                }
+                            }.thenBy { it.lowercase() }
+                        )
+
+                    onResult(orderedOffices)
+                }
+            }
             override fun requestRegistration(name: String, phone: String, officeName: String, onResult: (Boolean, String) -> Unit) {
                 val normalized = phone.filter { it.isDigit() }.let { if (it.length == 10 && it.startsWith("5")) "0$it" else it }
                 if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "Geçerli bir cep telefonu numarası giriniz."); return }
