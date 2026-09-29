@@ -77,6 +77,9 @@ data class Portfolio(
     val features: List<String> = emptyList(),
     val imageUrl: String = "",
     val link: String = "",
+    val authorityStartDate: Long = 0L,
+    val authorityDurationDays: Int = 0,
+    val authorityEndDate: Long = 0L,
     val createdAt: Long = 0
 )
 
@@ -1676,6 +1679,80 @@ object Clock {
     fun now() = getCurrentTimeMillis()
 }
 
+const val DAY_MS: Long = 24L * 60L * 60L * 1000L
+
+fun isLeapYearValue(year: Int): Boolean {
+    return (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
+
+fun daysInMonthValue(year: Int, month: Int): Int {
+    return when (month) {
+        1, 3, 5, 7, 8, 10, 12 -> 31
+        4, 6, 9, 11 -> 30
+        2 -> if (isLeapYearValue(year)) 29 else 28
+        else -> 0
+    }
+}
+
+fun daysBeforeYearValue(year: Int): Long {
+    var days = 0L
+    for (y in 1970 until year) {
+        days += if (isLeapYearValue(y)) 366L else 365L
+    }
+    return days
+}
+
+fun daysBeforeMonthValue(year: Int, month: Int): Long {
+    var days = 0L
+    for (m in 1 until month) {
+        days += daysInMonthValue(year, m).toLong()
+    }
+    return days
+}
+
+fun parseTurkishDateMillis(value: String): Long {
+    val parts = value.trim().split(".", "/", "-")
+    if (parts.size != 3) return 0L
+    val day = parts[0].toIntOrNull() ?: return 0L
+    val month = parts[1].toIntOrNull() ?: return 0L
+    val year = parts[2].toIntOrNull() ?: return 0L
+    if (year < 1970 || month !in 1..12) return 0L
+    val maxDay = daysInMonthValue(year, month)
+    if (day !in 1..maxDay) return 0L
+    return (daysBeforeYearValue(year) + daysBeforeMonthValue(year, month) + (day - 1)) * DAY_MS
+}
+
+fun formatTurkishDateMillis(millis: Long): String {
+    if (millis <= 0L) return ""
+    var days = millis / DAY_MS
+    var year = 1970
+    while (true) {
+        val yearDays = if (isLeapYearValue(year)) 366L else 365L
+        if (days < yearDays) break
+        days -= yearDays
+        year++
+    }
+    var month = 1
+    while (true) {
+        val monthDays = daysInMonthValue(year, month).toLong()
+        if (days < monthDays) break
+        days -= monthDays
+        month++
+    }
+    val day = days + 1
+    return day.toString().padStart(2, '0') + "." + month.toString().padStart(2, '0') + "." + year
+}
+
+fun portfolioAuthorityWarning(portfolio: Portfolio): String {
+    if (portfolio.authorityEndDate <= 0L) return ""
+    val daysLeft = ((portfolio.authorityEndDate - Clock.now()) / DAY_MS).toInt()
+    return when {
+        daysLeft < 0 -> "Yetki süresi doldu: ${formatTurkishDateMillis(portfolio.authorityEndDate)}"
+        daysLeft <= 3 -> "Yetki süresi $daysLeft gün içinde doluyor: ${formatTurkishDateMillis(portfolio.authorityEndDate)}"
+        else -> ""
+    }
+}
+
 @Composable
 fun PremiumLogo(modifier: Modifier = Modifier) {
     val goldColor = Color(0xFF22A447)
@@ -2159,6 +2236,11 @@ fun AddPortfolioScreen(
     var propertyType by remember(editingPortfolio) { mutableStateOf(editingPortfolio?.propertyType ?: "Daire") }
     var features by remember(editingPortfolio) { mutableStateOf(editingPortfolio?.features?.joinToString(", ") ?: "") }
     var link by remember(editingPortfolio) { mutableStateOf(editingPortfolio?.link ?: "") }
+    var authorityStartDateText by remember(editingPortfolio) { mutableStateOf(formatTurkishDateMillis(editingPortfolio?.authorityStartDate ?: 0L)) }
+    var authorityDurationDaysText by remember(editingPortfolio) { mutableStateOf(if ((editingPortfolio?.authorityDurationDays ?: 0) > 0) editingPortfolio?.authorityDurationDays.toString() else "") }
+    val authorityStartMillis = parseTurkishDateMillis(authorityStartDateText)
+    val authorityDurationDays = authorityDurationDaysText.toIntOrNull() ?: 0
+    val authorityEndMillis = if (authorityStartMillis > 0L && authorityDurationDays > 0) authorityStartMillis + (authorityDurationDays * DAY_MS) else 0L
     var saveLocally by remember { mutableStateOf(editingPortfolio?.id?.startsWith("local_") ?: true) }
 
     // Danışman bilgileri sadece admin tarafından veya yeni eklerken (default olarak) değiştirilebilir.
@@ -2276,6 +2358,24 @@ fun AddPortfolioScreen(
         CustomInputField("Özellikler (virgülle ayırın)", features) { features = it }
         CustomInputField("İlan Linki", link) { link = it }
 
+        HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f).copy(0.2f))
+        Text("YETKİ SÖZLEŞMESİ", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Row(Modifier.fillMaxWidth()) {
+            Box(Modifier.weight(1f)) {
+                CustomInputField("Başlangıç (gg.aa.yyyy)", authorityStartDateText) { authorityStartDateText = it }
+            }
+            Spacer(Modifier.width(10.dp))
+            Box(Modifier.weight(1f)) {
+                CustomInputField("Süre (gün)", authorityDurationDaysText) { authorityDurationDaysText = it.filter { ch -> ch.isDigit() } }
+            }
+        }
+        Text(
+            if (authorityEndMillis > 0L) "Bitiş tarihi: ${formatTurkishDateMillis(authorityEndMillis)}" else "Bitiş tarihi otomatik hesaplanacak.",
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+
         Spacer(modifier = Modifier.height(30.dp))
 
         Button(
@@ -2296,6 +2396,9 @@ fun AddPortfolioScreen(
                         propertyType = propertyType,
                         features = features.split(",").map { it.trim() }.filter { it.isNotEmpty() },
                         link = link,
+                        authorityStartDate = authorityStartMillis,
+                        authorityDurationDays = authorityDurationDays,
+                        authorityEndDate = authorityEndMillis,
                         createdAt = editingPortfolio?.createdAt ?: 0L
                     ), saveLocally)
                 }
