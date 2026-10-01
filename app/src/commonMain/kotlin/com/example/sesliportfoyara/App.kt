@@ -254,11 +254,11 @@ fun App() {
                             if (isAdmin && currentScreen != Screen.UserManagement) {
                                 Button(
                                     onClick = { currentScreen = Screen.UserManagement },
-                                    modifier = Modifier.height(38.dp).padding(horizontal = 20.dp, vertical = 4.dp)
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
                                 ) {
                                     Icon(Icons.Default.Lock, contentDescription = null)
                                     Spacer(Modifier.width(8.dp))
-                                    Text("KULLANICI YÖNETİMİ", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("KULLANICI YÖNETİMİ", fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -2625,10 +2625,10 @@ fun MyPortfolioScreen(
 
         // İŞLEM BUTONLARI (Yalnızca Admin / Ofis Yetkilisi görebilir)
         if (isAdmin) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.widthIn(max = 520.dp).align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = { showImportDialog = true },
-                    modifier = Modifier.weight(1f).height(32.dp),
+                    modifier = Modifier.weight(1f).height(36.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
@@ -2640,7 +2640,7 @@ fun MyPortfolioScreen(
 
                 Button(
                     onClick = { showClearDialog = true },
-                    modifier = Modifier.weight(1f).height(32.dp),
+                    modifier = Modifier.weight(1f).height(36.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B)),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
@@ -2655,7 +2655,7 @@ fun MyPortfolioScreen(
         }
 
         // TABLAR
-        Row(modifier = Modifier.fillMaxWidth().height(34.dp).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(2.dp)) {
+        Row(modifier = Modifier.widthIn(max = 520.dp).align(Alignment.CenterHorizontally).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp)) {
             val tabs = listOf(
                 "Benim (${localPortfolios.size})", // "adet" yazısı kaldırıldı yer kazanmak için
                 if (!officePortfoliosLoaded && officePortfolios.isEmpty()) "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (${officePortfolios.size})"
@@ -2666,10 +2666,10 @@ fun MyPortfolioScreen(
                     modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
                         .background(if (selected) MaterialTheme.colorScheme.surface else Color.Transparent)
                         .border(if (selected) BorderStroke(0.5.dp, MaterialTheme.colorScheme.onBackground.copy(0.05f)) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(6.dp))
-                        .clickable { selectedTab = index }.padding(vertical = 8.dp), // Padding 10'dan 8'e düşürüldü
+                        .clickable { selectedTab = index }.padding(vertical = 11.dp), // Padding 10'dan 8'e düşürüldü
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(title, color = if (selected) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center)
+                    Text(title, color = if (selected) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 13.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center)
                 }
             }
         }
