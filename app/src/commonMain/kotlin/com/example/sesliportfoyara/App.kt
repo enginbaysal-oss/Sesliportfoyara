@@ -183,6 +183,7 @@ fun App() {
     ) {
         SesliportfoyaraTheme(darkTheme = false) {
             val officePortfolios = remember { mutableStateListOf<Portfolio>() }
+            var officePortfoliosLoaded by remember { mutableStateOf(false) }
             val localPortfolios by localPortfolioManager.portfolios.collectAsState()
             val clients by crmManager.clients.collectAsState()
 
@@ -225,7 +226,7 @@ fun App() {
                             settings.putBoolean("is_admin", serverIsAdmin)
                             settings.putBoolean("can_use_tools", serverCanUseTools)
                             settings.putBoolean("is_office_admin", serverIsOfficeAdmin)
-                                        settings.putString("my_office_name", finalOfficeName)
+                                        if (finalOfficeName.isNotBlank()) settings.putString("my_office_name", finalOfficeName)
                             platformUtils.setActiveSession(true)
                         } else {
                             platformUtils.setActiveSession(false)
@@ -297,7 +298,7 @@ fun App() {
                                         settings.putBoolean("can_use_tools", serverCanUseTools)
                                         settings.putBoolean("is_office_admin", serverIsOfficeAdmin)
                                         val finalOfficeName = serverOfficeName.ifBlank { officeName }
-                                        settings.putString("my_office_name", finalOfficeName)
+                                        if (finalOfficeName.isNotBlank()) settings.putString("my_office_name", finalOfficeName)
                                         myName = finalName
                                         myPhone = phone
                                         isAdmin = serverIsAdmin
@@ -506,6 +507,7 @@ fun App() {
                             currentName = myName,
                             currentPhone = myPhone,
                             currentOfficeName = myOfficeName,
+                            officePortfoliosLoaded = officePortfoliosLoaded,
                             isAdmin = isAdmin || isOfficeAdmin
                         )
                         Screen.UserManagement -> {
@@ -2492,6 +2494,7 @@ fun MyPortfolioScreen(
     currentName: String,
     currentPhone: String,
     currentOfficeName: String,
+    officePortfoliosLoaded: Boolean,
     isAdmin: Boolean
 ) {
     var selectedTab by remember { mutableStateOf(1) } // Ekran açıldığında doğrudan "Ofis (1)" sekmesini aktif yapalım (Görselde Ofis seçili)
@@ -2638,7 +2641,7 @@ fun MyPortfolioScreen(
         Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp)) {
             val tabs = listOf(
                 "Benim (${localPortfolios.size})", // "adet" yazısı kaldırıldı yer kazanmak için
-                "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (${officePortfolios.size})"
+                if (!officePortfoliosLoaded) "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (${officePortfolios.size})"
             )
             tabs.forEachIndexed { index, title ->
                 val selected = selectedTab == index
