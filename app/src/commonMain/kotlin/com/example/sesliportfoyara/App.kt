@@ -1494,8 +1494,25 @@ fun ProfileSetupScreen(
 
     LaunchedEffect(Unit) {
         platformUtils.getOfficeNames { offices ->
-            val cleaned = offices.map { it.trim() }.filter { it.isNotBlank() }.distinct()
-            officeOptions = if (cleaned.isEmpty()) listOf("Ofissiz / Bağımsız") else cleaned
+            val cleaned = offices
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinctBy { normalizeOfficeName(it) }
+
+            val preferredOffice = cleaned.firstOrNull {
+                normalizeOfficeName(it) == normalizeOfficeName("REMAX İlyada 3")
+            }
+
+            officeOptions = if (cleaned.isEmpty()) {
+                listOf("Ofissiz / Bağımsız")
+            } else {
+                listOfNotNull(preferredOffice) +
+                    cleaned.filter {
+                        normalizeOfficeName(it) != normalizeOfficeName(preferredOffice ?: "") &&
+                            normalizeOfficeName(it) != normalizeOfficeName("Ofissiz / Bağımsız")
+                    } +
+                    listOf("Ofissiz / Bağımsız")
+            }
             if (officeNameValue.text.isBlank() || officeNameValue.text == "Ofissiz / Bağımsız") {
                 officeNameValue = TextFieldValue(officeOptions.firstOrNull() ?: "Ofissiz / Bağımsız")
             }
@@ -2641,7 +2658,7 @@ fun MyPortfolioScreen(
         Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp)) {
             val tabs = listOf(
                 "Benim (${localPortfolios.size})", // "adet" yazısı kaldırıldı yer kazanmak için
-                if (!officePortfoliosLoaded) "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (${officePortfolios.size})"
+                if (!officePortfoliosLoaded && officePortfolios.isEmpty()) "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (${officePortfolios.size})"
             )
             tabs.forEachIndexed { index, title ->
                 val selected = selectedTab == index
