@@ -254,11 +254,11 @@ fun App() {
                             if (isAdmin && currentScreen != Screen.UserManagement) {
                                 Button(
                                     onClick = { currentScreen = Screen.UserManagement },
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)
+                                    modifier = Modifier.height(38.dp).padding(horizontal = 20.dp, vertical = 4.dp)
                                 ) {
                                     Icon(Icons.Default.Lock, contentDescription = null)
                                     Spacer(Modifier.width(8.dp))
-                                    Text("KULLANICI YÖNETİMİ", fontWeight = FontWeight.Bold)
+                                    Text("KULLANICI YÖNETİMİ", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -2628,26 +2628,26 @@ fun MyPortfolioScreen(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = { showImportDialog = true },
-                    modifier = Modifier.weight(1f).height(36.dp),
+                    modifier = Modifier.weight(1f).height(32.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("İçe Aktar", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("İçe Aktar", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Button(
                     onClick = { showClearDialog = true },
-                    modifier = Modifier.weight(1f).height(36.dp),
+                    modifier = Modifier.weight(1f).height(32.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B)),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Icon(Icons.Default.DeleteSweep, null, tint = Color.White, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Temizle", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Temizle", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -2655,7 +2655,7 @@ fun MyPortfolioScreen(
         }
 
         // TABLAR
-        Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().height(34.dp).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(2.dp)) {
             val tabs = listOf(
                 "Benim (${localPortfolios.size})", // "adet" yazısı kaldırıldı yer kazanmak için
                 if (!officePortfoliosLoaded && officePortfolios.isEmpty()) "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (${officePortfolios.size})"
@@ -2945,12 +2945,12 @@ fun PortfolioItem(
                         if (portfolio.link.isNotEmpty()) {
                             Button(
                                 onClick = { platformUtils.openUri(portfolio.link) },
-                                modifier = Modifier.weight(1f).height(42.dp),
+                                modifier = Modifier.width(96.dp).height(34.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
                                 shape = RoundedCornerShape(10.dp),
                                 contentPadding = PaddingValues(0.dp)
                             ) {
-                                Text("İlanı Aç", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("İlanı Aç", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
