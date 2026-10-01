@@ -170,12 +170,48 @@
                 map.flyTo({ center: target, zoom: 15, speed: 0.8 });
                 document.getElementById('status-bar').innerText = parcelCount + ". PARSEL EKLENDİ";
                 document.getElementById('start-btn').style.display = 'block';
+                hideArsaTakipFlightMenus(true);
                 document.getElementById('clear-btn').style.display = 'block';
                 document.getElementById('script-panel').style.display = 'block';
             }
         } catch (e) { document.getElementById('status-bar').innerText = "HATA: " + e.message.toUpperCase(); }
     }
 
+    function setArsaTakipMenusVisible(visible) {
+        const display = visible ? "flex" : "none";
+        const webMenu = document.getElementById("web-menu");
+        const recordMenu = document.getElementById("record-menu");
+        if (webMenu) webMenu.style.display = display;
+        if (recordMenu) recordMenu.style.display = display;
+    }
+
+
+    function hideArsaTakipFlightMenus(visible) {
+        const display = visible ? "" : "none";
+        const labels = [
+            "TKGM Parsel Sorgu",
+            "Parsel Dosyası Yükle",
+            "WhatsApp ile Gönder",
+            "Ana Menü",
+            "Ana Menu"
+        ];
+
+        ["web-menu", "record-menu", "menu", "top-menu", "left-menu"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = display;
+        });
+
+        document.querySelectorAll("button, a, label, input").forEach(el => {
+            const text = (el.innerText || el.value || el.title || el.ariaLabel || "").trim();
+            if (labels.some(label => text.includes(label))) {
+                let target = el;
+                if (el.parentElement && el.parentElement.children.length <= 3) {
+                    target = el.parentElement;
+                }
+                target.style.display = display;
+            }
+        });
+    }
     function addScriptRow() {
         const div = document.createElement('div');
         div.className = 'script-row';
@@ -265,6 +301,7 @@
         }
     }
     function startFlight() {
+        hideArsaTakipFlightMenus(false);
         const scriptRows = document.querySelectorAll('.script-row');
         const scripts = Array.from(scriptRows).map(row => ({
             sec: parseInt(row.querySelector('.script-sec').value) || 0,
@@ -306,6 +343,7 @@
             if (p < 1) requestAnimationFrame(spiral);
             else {
                 document.getElementById('status-bar').innerText = "SERBEST KEŞİF: PARSELİ İNCELEYEBİLİRSİNİZ";
+                hideArsaTakipFlightMenus(true);
                 document.getElementById('clear-btn').style.display = 'block';
                 subOverlay.style.display = 'none';
                 map.dragPan.enable();
