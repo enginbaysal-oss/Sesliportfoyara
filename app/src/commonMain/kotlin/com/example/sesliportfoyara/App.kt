@@ -2286,12 +2286,12 @@ fun AddPortfolioScreen(
                     val selected = saveLocally == isLocal
                     Box(
                         modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                            .border(BorderStroke(0.5.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)), RoundedCornerShape(8.dp))
-                            .clickable { saveLocally = isLocal }.padding(vertical = 8.dp),
+                            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+                            .border(BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)), RoundedCornerShape(8.dp))
+                            .clickable { saveLocally = isLocal }.padding(vertical = 9.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(label, color = if (selected) Color.White else MaterialTheme.colorScheme.onBackground, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(label, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
             }
@@ -2310,13 +2310,13 @@ fun AddPortfolioScreen(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                        .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)), RoundedCornerShape(8.dp))
+                        .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+                        .border(BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)), RoundedCornerShape(8.dp))
                         .clickable { type = option }
-                        .padding(vertical = 12.dp),
+                        .padding(vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(option, color = if (selected) Color.White else MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                    Text(option, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
                 }
             }
         }

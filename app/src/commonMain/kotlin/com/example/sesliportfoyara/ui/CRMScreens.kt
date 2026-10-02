@@ -27,6 +27,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sesliportfoyara.*
@@ -402,18 +403,59 @@ fun CRMMainScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("CRM", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                
-                Button(
-                    onClick = onAddClient,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                    modifier = Modifier.height(32.dp),
-                    shape = RoundedCornerShape(8.dp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("CRM", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(12.dp))
+                    Button(
+                        onClick = onAddClient,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        modifier = Modifier.height(32.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Add, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Ekle", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                // Alıcılar ve Satıcılar sekmeleri aynı hizada sağda
+                Row(
+                    modifier = Modifier
+                        .widthIn(max = 260.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                        .padding(3.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Add, null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Ekle", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    listOf("Alıcılar", "Satıcılar").forEachIndexed { index, title ->
+                        val selected = selectedTab == index
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(
+                                    if (selected) 
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) 
+                                    else 
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                                )
+                                .border(
+                                    BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.2f)), 
+                                    RoundedCornerShape(6.dp)
+                                )
+                                .clickable { selectedTab = index }
+                                .padding(vertical = 7.dp, horizontal = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                title, 
+                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, 
+                                fontSize = 12.sp, 
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
                 }
             }
 
@@ -490,24 +532,6 @@ fun CRMMainScreen(
                                 }
                             }
                         }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(0.5f), RoundedCornerShape(8.dp)).padding(3.dp)
-            ) {
-                listOf("Alıcılar", "Satıcılar").forEachIndexed { index, title ->
-                    val selected = selectedTab == index
-                    Box(
-                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
-                            .background(if (selected) MaterialTheme.colorScheme.surface else Color.Transparent)
-                            .clickable { selectedTab = index }.padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(title, color = if (selected) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
             }
