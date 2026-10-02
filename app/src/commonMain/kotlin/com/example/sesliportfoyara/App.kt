@@ -2616,7 +2616,7 @@ fun MyPortfolioScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Portföylerim", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 if (isAdmin) {
                     Spacer(Modifier.width(6.dp))
@@ -2624,11 +2624,11 @@ fun MyPortfolioScreen(
                         Text("ADMIN", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(10.dp))
 
                     Button(
                         onClick = { showImportDialog = true },
-                        modifier = Modifier.width(150.dp).height(34.dp),
+                        modifier = Modifier.width(130.dp).height(34.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(horizontal = 8.dp)
@@ -2640,34 +2640,56 @@ fun MyPortfolioScreen(
                 }
             }
 
+            // TABLAR (Benim ve Ofisim) aynı hizada
+            Row(
+                modifier = Modifier
+                    .widthIn(max = 380.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                    .padding(3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val tabs = listOf(
+                    "Benim (${localPortfolios.size})",
+                    if (!officePortfoliosLoaded && officePortfolios.isEmpty()) "${currentOfficeName.ifBlank { "Ofissiz" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Ofissiz" }} (${officePortfolios.size})"
+                )
+                tabs.forEachIndexed { index, title ->
+                    val selected = selectedTab == index
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(
+                                if (selected) 
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) 
+                                else 
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                            )
+                            .border(
+                                BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.2f)), 
+                                RoundedCornerShape(6.dp)
+                            )
+                            .clickable { selectedTab = index }
+                            .padding(vertical = 9.dp, horizontal = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            title, 
+                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, 
+                            fontSize = 12.sp, 
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, 
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+
             if (isAdmin) {
+                Spacer(Modifier.width(8.dp))
                 IconButton(
                     onClick = { showClearDialog = true },
                     modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
                 ) {
                     Icon(Icons.Default.DeleteSweep, null, tint = Color(0xFFC0392B), modifier = Modifier.size(17.dp))
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // TABLAR
-        Row(modifier = Modifier.widthIn(max = 520.dp).align(Alignment.CenterHorizontally).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp)) {
-            val tabs = listOf(
-                "Benim (${localPortfolios.size})", // "adet" yazısı kaldırıldı yer kazanmak için
-                if (!officePortfoliosLoaded && officePortfolios.isEmpty()) "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (${officePortfolios.size})"
-            )
-            tabs.forEachIndexed { index, title ->
-                val selected = selectedTab == index
-                Box(
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
-                        .background(if (selected) MaterialTheme.colorScheme.surface else Color.Transparent)
-                        .border(if (selected) BorderStroke(0.5.dp, MaterialTheme.colorScheme.onBackground.copy(0.05f)) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(6.dp))
-                        .clickable { selectedTab = index }.padding(vertical = 11.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(title, color = if (selected) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 13.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center)
                 }
             }
         }
