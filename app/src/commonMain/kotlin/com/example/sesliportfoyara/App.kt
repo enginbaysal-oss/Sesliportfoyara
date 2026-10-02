@@ -2616,41 +2616,36 @@ fun MyPortfolioScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 Text("Portföylerim", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 if (isAdmin) {
                     Spacer(Modifier.width(6.dp))
                     Box(modifier = Modifier.background(Color(0xFFFF5252), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 1.dp)) {
                         Text("ADMIN", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                     }
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Button(
+                        onClick = { showImportDialog = true },
+                        modifier = Modifier.width(150.dp).height(34.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("İçe Aktar", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 
             if (isAdmin) {
-                Row(modifier = Modifier.widthIn(max = 520.dp).weight(1f).padding(start = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { showImportDialog = true },
-                        modifier = Modifier.weight(1f).height(36.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
-                    ) {
-                        Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("İçe Aktar", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    Button(
-                        onClick = { showClearDialog = true },
-                        modifier = Modifier.weight(1f).height(36.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B)),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
-                    ) {
-                        Icon(Icons.Default.DeleteSweep, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Temizle", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
+                IconButton(
+                    onClick = { showClearDialog = true },
+                    modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                ) {
+                    Icon(Icons.Default.DeleteSweep, null, tint = Color(0xFFC0392B), modifier = Modifier.size(17.dp))
                 }
             }
         }
