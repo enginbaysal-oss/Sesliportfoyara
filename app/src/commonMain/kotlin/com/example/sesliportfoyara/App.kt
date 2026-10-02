@@ -2079,7 +2079,7 @@ fun VoiceSearchScreen(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-        Spacer(modifier = Modifier.height(10.dp)) // Boşluk daraltıldı
+        Spacer(modifier = Modifier.height(2.dp))
 
         Box(
             modifier = Modifier.size(100.dp), // Boyut 140'tan 100'e düşürüldü
@@ -2651,7 +2651,7 @@ fun MyPortfolioScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(4.dp))
         }
 
         // TABLAR
@@ -2666,7 +2666,7 @@ fun MyPortfolioScreen(
                     modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
                         .background(if (selected) MaterialTheme.colorScheme.surface else Color.Transparent)
                         .border(if (selected) BorderStroke(0.5.dp, MaterialTheme.colorScheme.onBackground.copy(0.05f)) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(6.dp))
-                        .clickable { selectedTab = index }.padding(vertical = 11.dp), // Padding 10'dan 8'e düşürüldü
+                        .clickable { selectedTab = index }.padding(vertical = 11.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(title, color = if (selected) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 13.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center)
@@ -2943,6 +2943,16 @@ fun PortfolioItem(
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (portfolio.link.isNotEmpty()) {
+                        if (portfolio.authorityEndDate > 0L) {
+                            Text(
+                                "Yetki bitiş: ${formatTurkishDateMillis(portfolio.authorityEndDate)}",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(6.dp))
+                        }
+
                             Button(
                                 onClick = { platformUtils.openUri(portfolio.link) },
                                 modifier = Modifier.width(96.dp).height(34.dp),
