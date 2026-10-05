@@ -150,6 +150,9 @@ external fun jsSupabasePatch(url: JsString, key: JsString, path: JsString, body:
 @JsFun("(url, path, body, callback) => { fetch(url + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, 'Baglanti hatasi: ' + e.message)); }")
 external fun jsFirebasePost(url: JsString, path: JsString, body: JsString, callback: (Boolean, JsString) -> Unit)
 
+@JsFun("(url, path, body, callback) => { fetch(url + path, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: body }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, 'Baglanti hatasi: ' + e.message)); }")
+external fun jsFirebasePut(url: JsString, path: JsString, body: JsString, callback: (Boolean, JsString) -> Unit)
+
 @JsFun("(url, path, callback) => { fetch(url + path, { method: 'GET' }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, '{}')); }")
 external fun jsFirebaseGet(url: JsString, path: JsString, callback: (Boolean, JsString) -> Unit)
 
@@ -373,21 +376,12 @@ fun main() {
                 if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "Geçerli bir cep telefonu numarası giriniz."); return }
                 val body = """{"name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"office_name":${JsonPrimitive(officeName.trim())},"createdAt":${getCurrentTimeMillis()}}"""
                 
-                jsFirebasePost(
+                jsFirebasePut(
                     "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
-                    "/registration_requests.json".toJsString(),
+                    "/registration_requests/$normalized.json".toJsString(),
                     body.toJsString()
-                ) { ok1, _ ->
-                    jsSupabasePost(
-                        "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                        "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                        "/rest/v1/registration_requests".toJsString(),
-                        body.toJsString(),
-                        "".toJsString()
-                    ) { ok2, _ ->
-                        val success = ok1 || ok2
-                        onResult(success, if (success) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else "Kayıt talebi gönderilemedi.")
-                    }
+                ) { ok, _ ->
+                    onResult(ok, if (ok) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else "Kayıt talebi gönderilemedi.")
                 }
             }
 
