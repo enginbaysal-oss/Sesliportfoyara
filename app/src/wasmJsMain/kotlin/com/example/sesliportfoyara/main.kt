@@ -372,12 +372,22 @@ fun main() {
                 val normalized = phone.filter { it.isDigit() }.let { if (it.length == 10 && it.startsWith("5")) "0$it" else it }
                 if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "Geçerli bir cep telefonu numarası giriniz."); return }
                 val body = """{"name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"office_name":${JsonPrimitive(officeName.trim())},"createdAt":${getCurrentTimeMillis()}}"""
+                
                 jsFirebasePost(
                     "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
                     "/registration_requests.json".toJsString(),
                     body.toJsString()
-                ) { ok, response ->
-                    onResult(ok, if (ok) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else "Kayıт talebi gönderilemedi.")
+                ) { ok1, _ ->
+                    jsSupabasePost(
+                        "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                        "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                        "/rest/v1/registration_requests".toJsString(),
+                        body.toJsString(),
+                        "".toJsString()
+                    ) { ok2, _ ->
+                        val success = ok1 || ok2
+                        onResult(success, if (success) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else "Kayıt talebi gönderilemedi.")
+                    }
                 }
             }
 
@@ -385,8 +395,37 @@ fun main() {
                 jsFirebaseGet(
                     "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
                     "/registration_requests.json".toJsString()
-                ) { ok, response ->
-                    if (ok) onResult(response.toString()) else onResult("{}")
+                ) { ok1, resp1 ->
+                    if (ok1 && resp1.toString() != "null" && resp1.toString().isNotBlank() && resp1.toString() != "{}") {
+                        onResult(resp1.toString())
+                    } else {
+                        jsSupabasePost(
+                            "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                            "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                            "/rest/v1/registration_requests?select=*".toJsString(),
+                            "".toJsString(),
+                            "".toJsString()
+                        ) { ok2, resp2 ->
+                            if (ok2) {
+                                try {
+                                    val text = resp2.toString()
+                                    val arr = Json.parseToJsonElement(text).jsonArray
+                                    val map = mutableMapOf<String, String>()
+                                    arr.forEachIndexed { index, el ->
+                                        val obj = el.jsonObject
+                                        val id = obj["id"]?.jsonPrimitive?.content ?: "sup_$index"
+                                        map[id] = obj.toString()
+                                    }
+                                    val jsonMapObj = JsonObject(map.mapValues { Json.parseToJsonElement(it.value) }).toString()
+                                    onResult(jsonMapObj)
+                                } catch (_: Exception) {
+                                    onResult("{}")
+                                }
+                            } else {
+                                onResult("{}")
+                            }
+                        }
+                    }
                 }
             }
 
@@ -394,8 +433,16 @@ fun main() {
                 jsFirebaseDelete(
                     "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
                     "/registration_requests/$id.json".toJsString()
-                ) { ok ->
-                    onResult(ok)
+                ) { ok1 ->
+                    jsSupabasePost(
+                        "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                        "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                        "/rest/v1/registration_requests?id=eq.$id".toJsString(),
+                        "".toJsString(),
+                        "".toJsString()
+                    ) { ok2, _ ->
+                        onResult(ok1 || ok2)
+                    }
                 }
             }
 
