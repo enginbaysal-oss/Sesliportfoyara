@@ -331,8 +331,11 @@ class MainActivity : ComponentActivity() {
             .toString()
 
         val request = Request.Builder()
-            .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/registration_requests.json")
+            .url("${BuildConfig.SUPABASE_URL}/rest/v1/registration_requests")
+            .addHeader("apikey", BuildConfig.SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer ${BuildConfig.SUPABASE_KEY}")
             .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "return=minimal")
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
 
@@ -355,27 +358,32 @@ class MainActivity : ComponentActivity() {
 
     private fun getRegistrationRequests(onResult: (String) -> Unit) {
         val request = Request.Builder()
-            .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/registration_requests.json")
+            .url("${BuildConfig.SUPABASE_URL}/rest/v1/registration_requests?select=id,name,phone,office_name,created_at&order=created_at.desc")
+            .addHeader("apikey", BuildConfig.SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer ${BuildConfig.SUPABASE_KEY}")
+            .addHeader("Content-Type", "application/json")
             .get()
             .build()
 
         supabaseClient.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { onResult("{}") }
+                runOnUiThread { onResult("[]") }
             }
 
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     val body = it.body?.string().orEmpty()
-                    runOnUiThread { onResult(if (it.isSuccessful && body != "null") body else "{}") }
+                    runOnUiThread { onResult(if (it.isSuccessful && body.isNotBlank()) body else "[]") }
                 }
             }
         })
     }
-
     private fun deleteRegistrationRequest(id: String, onResult: (Boolean) -> Unit) {
         val request = Request.Builder()
-            .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/registration_requests/$id.json")
+            .url("${BuildConfig.SUPABASE_URL}/rest/v1/registration_requests?id=eq.$id")
+            .addHeader("apikey", BuildConfig.SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer ${BuildConfig.SUPABASE_KEY}")
+            .addHeader("Content-Type", "application/json")
             .delete()
             .build()
 
@@ -391,7 +399,6 @@ class MainActivity : ComponentActivity() {
             }
         })
     }
-
     private fun getOfficeNames(onResult: (List<String>) -> Unit) {
         val request = Request.Builder()
             .url("${BuildConfig.SUPABASE_URL}/rest/v1/rpc/list_offices_for_registration")
