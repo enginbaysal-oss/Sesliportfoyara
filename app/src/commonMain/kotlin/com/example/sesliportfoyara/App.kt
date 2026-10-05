@@ -691,9 +691,9 @@ fun App() {
                                                             onClick = {
                                                                 val token = adminSessionToken
                                                                 adminLoading = true
-                                                                val addJson = """{"action":"add","full_name":${JsonPrimitive(req.name).toString()},"phone":${JsonPrimitive(req.phone).toString()},"office_name":${JsonPrimitive(req.officeName).toString()},"can_use_tools":false,"is_admin":false,"is_office_admin":false}"""
-                                                                platformUtils.adminUsersRequest(token, addJson) { addOk, addResp ->
-                                                                    if (addOk) {
+                                                                val updateJson = """{"action":"update","phone":${JsonPrimitive(req.phone)},"full_name":${JsonPrimitive(req.name)},"office_name":${JsonPrimitive(req.officeName)},"is_active":true}"""
+                                                                platformUtils.adminUsersRequest(token, updateJson) { success, _ ->
+                                                                    if (success) {
                                                                         platformUtils.deleteRegistrationRequest(req.id) { _ ->
                                                                             platformUtils.getRegistrationRequests { resp2 ->
                                                                                 pendingRequests = parsePendingRequests(resp2)
@@ -708,7 +708,7 @@ fun App() {
                                                                         }
                                                                     } else {
                                                                         adminLoading = false
-                                                                        adminMessage = "Onaylama başarısız: $addResp"
+                                                                        adminMessage = "Onaylama başarısız."
                                                                     }
                                                                 }
                                                             },

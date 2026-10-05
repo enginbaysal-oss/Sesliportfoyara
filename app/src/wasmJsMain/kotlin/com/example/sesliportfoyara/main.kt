@@ -374,11 +374,12 @@ fun main() {
             override fun requestRegistration(name: String, phone: String, officeName: String, onResult: (Boolean, String) -> Unit) {
                 val normalized = phone.filter { it.isDigit() }.let { if (it.length == 10 && it.startsWith("5")) "0$it" else it }
                 if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "Geçerli bir cep telefonu numarası giriniz."); return }
-                val body = """{"name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"office_name":${JsonPrimitive(officeName.trim())},"createdAt":${getCurrentTimeMillis()}}"""
+                val id = getCurrentTimeMillis()
+                val body = """{"id":$id,"full_name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"office_name":${JsonPrimitive(officeName.trim())},"is_active":false,"can_use_tools":false,"is_admin":false}"""
                 
                 jsFirebasePut(
                     "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
-                    "/registration_requests/$normalized.json".toJsString(),
+                    "/authorized_users/$normalized.json".toJsString(),
                     body.toJsString()
                 ) { ok, _ ->
                     onResult(ok, if (ok) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else "Kayıt talebi gönderilemedi.")
@@ -388,37 +389,32 @@ fun main() {
             override fun getRegistrationRequests(onResult: (String) -> Unit) {
                 jsFirebaseGet(
                     "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
-                    "/registration_requests.json".toJsString()
-                ) { ok1, resp1 ->
-                    if (ok1 && resp1.toString() != "null" && resp1.toString().isNotBlank() && resp1.toString() != "{}") {
-                        onResult(resp1.toString())
-                    } else {
-                        jsSupabasePost(
-                            "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                            "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                            "/rest/v1/registration_requests?select=*".toJsString(),
-                            "".toJsString(),
-                            "".toJsString()
-                        ) { ok2, resp2 ->
-                            if (ok2) {
-                                try {
-                                    val text = resp2.toString()
-                                    val arr = Json.parseToJsonElement(text).jsonArray
-                                    val map = mutableMapOf<String, String>()
-                                    arr.forEachIndexed { index, el ->
-                                        val obj = el.jsonObject
-                                        val id = obj["id"]?.jsonPrimitive?.content ?: "sup_$index"
-                                        map[id] = obj.toString()
-                                    }
-                                    val jsonMapObj = JsonObject(map.mapValues { Json.parseToJsonElement(it.value) }).toString()
-                                    onResult(jsonMapObj)
-                                } catch (_: Exception) {
-                                    onResult("{}")
+                    "/authorized_users.json".toJsString()
+                ) { ok, resp ->
+                    if (ok && resp.toString() != "null" && resp.toString().isNotBlank()) {
+                        try {
+                            val text = resp.toString()
+                            val map = Json.parseToJsonElement(text).jsonObject
+                            val pendingMap = mutableMapOf<String, String>()
+                            for ((key, value) in map) {
+                                val uObj = value.jsonObject
+                                val isActive = uObj["is_active"]?.jsonPrimitive?.boolean ?: true
+                                if (!isActive) {
+                                    val reqObj = JsonObject(mapOf(
+                                        "name" to (uObj["full_name"] ?: uObj["fullName"] ?: uObj["name"] ?: JsonPrimitive(key)),
+                                        "phone" to (uObj["phone"] ?: JsonPrimitive(key)),
+                                        "officeName" to (uObj["office_name"] ?: uObj["officeName"] ?: JsonPrimitive(""))
+                                    ))
+                                    pendingMap[key] = reqObj.toString()
                                 }
-                            } else {
-                                onResult("{}")
                             }
+                            val jsonMapObj = JsonObject(pendingMap.mapValues { Json.parseToJsonElement(it.value) }).toString()
+                            onResult(jsonMapObj)
+                        } catch (_: Exception) {
+                            onResult("{}")
                         }
+                    } else {
+                        onResult("{}")
                     }
                 }
             }
@@ -426,17 +422,9 @@ fun main() {
             override fun deleteRegistrationRequest(id: String, onResult: (Boolean) -> Unit) {
                 jsFirebaseDelete(
                     "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
-                    "/registration_requests/$id.json".toJsString()
-                ) { ok1 ->
-                    jsSupabasePost(
-                        "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                        "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                        "/rest/v1/registration_requests?id=eq.$id".toJsString(),
-                        "".toJsString(),
-                        "".toJsString()
-                    ) { ok2, _ ->
-                        onResult(ok1 || ok2)
-                    }
+                    "/authorized_users/$id.json".toJsString()
+                ) { ok ->
+                    onResult(ok)
                 }
             }
 
