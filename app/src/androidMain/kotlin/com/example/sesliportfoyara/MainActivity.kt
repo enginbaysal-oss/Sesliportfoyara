@@ -85,6 +85,59 @@ class MainActivity : ComponentActivity() {
             return
         }
 
+        val sanitizedPhone = normalizedPhone.filter { it.isDigit() }
+
+        // 1. Check Firebase Realtime Database first
+        val fbRequest = Request.Builder()
+            .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/authorized_users/$sanitizedPhone.json")
+            .get()
+            .build()
+
+        supabaseClient.newCall(fbRequest).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                fallbackSupabaseAuth(normalizedPhone, onResult)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    try {
+                        val body = it.body?.string().orEmpty()
+                        if (it.isSuccessful && body != "null" && body.isNotBlank()) {
+                            val uObj = JSONObject(body)
+                            val isActive = uObj.optBoolean("is_active", true)
+                            if (isActive) {
+                                val fullName = uObj.optString("full_name", "").ifBlank { uObj.optString("fullName", "").ifBlank { uObj.optString("name", "") } }
+                                val isAdmin = uObj.optBoolean("is_admin", uObj.optBoolean("isAdmin", false))
+                                val canUseTools = uObj.optBoolean("can_use_tools", uObj.optBoolean("canUseTools", false))
+                                val isOfficeAdmin = uObj.optBoolean("is_office_admin", uObj.optBoolean("isOfficeAdmin", false))
+                                val officeName = uObj.optString("office_name", uObj.optString("officeName", ""))
+
+                                runOnUiThread {
+                                    onResult(
+                                        AuthorizationResult(
+                                            authorized = true,
+                                            fullName = fullName,
+                                            isAdmin = isAdmin,
+                                            canUseTools = canUseTools,
+                                            isOfficeAdmin = isOfficeAdmin,
+                                            officeName = officeName
+                                        )
+                                    )
+                                }
+                                return
+                            }
+                        }
+                    } catch (_: Exception) {}
+                    fallbackSupabaseAuth(normalizedPhone, onResult)
+                }
+            }
+        })
+    }
+
+    private fun fallbackSupabaseAuth(
+        normalizedPhone: String,
+        onResult: (AuthorizationResult) -> Unit
+    ) {
         if (BuildConfig.SUPABASE_URL.isBlank() || BuildConfig.SUPABASE_KEY.isBlank()) {
             onResult(
                 AuthorizationResult(
@@ -118,10 +171,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            override fun
-
-
-                    onResponse(call: Call, response: Response) {
+            override fun onResponse(call: Call, response: Response) {
                 response.use {
                     try {
                         if (!it.isSuccessful) {
