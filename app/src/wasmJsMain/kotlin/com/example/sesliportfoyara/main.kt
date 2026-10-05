@@ -147,6 +147,19 @@ external fun jsSupabasePost(url: JsString, key: JsString, path: JsString, body: 
     "}")
 external fun jsSupabasePatch(url: JsString, key: JsString, path: JsString, body: JsString, bearer: JsString, callback: (Boolean, JsString) -> Unit)
 
+@JsFun("(url, key, path, callback) => { " +
+    "const doFetch = (retry) => { " +
+    "  fetch(url + path, { method: 'DELETE', headers: { 'apikey': key, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' } })" +
+    "    .then(async r => { callback(r.ok); })" +
+    "    .catch(e => { " +
+    "      if (retry) { setTimeout(() => doFetch(false), 300); } " +
+    "      else { callback(false); } " +
+    "    }); " +
+    "}; " +
+    "doFetch(true); " +
+    "}")
+external fun jsSupabaseDelete(url: JsString, key: JsString, path: JsString, callback: (Boolean) -> Unit)
+
 @JsFun("(url, path, body, callback) => { fetch(url + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, 'Baglanti hatasi: ' + e.message)); }")
 external fun jsFirebasePost(url: JsString, path: JsString, body: JsString, callback: (Boolean, JsString) -> Unit)
 
@@ -377,36 +390,39 @@ fun main() {
                 val id = getCurrentTimeMillis()
                 val body = """{"id":$id,"full_name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"office_name":${JsonPrimitive(officeName.trim())},"is_active":false,"can_use_tools":false,"is_admin":false}"""
                 
-                jsFirebasePut(
-                    "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
-                    "/authorized_users/$normalized.json".toJsString(),
-                    body.toJsString()
-                ) { ok, _ ->
-                    onResult(ok, if (ok) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else "Kayıt talebi gönderilemedi.")
+                jsSupabasePost(
+                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                    "/rest/v1/users".toJsString(),
+                    body.toJsString(),
+                    "".toJsString()
+                ) { ok, resp ->
+                    onResult(ok, if (ok) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else "Kayıt talebi gönderilemedi: $resp")
                 }
             }
 
             override fun getRegistrationRequests(onResult: (String) -> Unit) {
-                jsFirebaseGet(
-                    "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
-                    "/authorized_users.json".toJsString()
+                jsSupabasePost(
+                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                    "/rest/v1/users?is_active=eq.false&select=*".toJsString(),
+                    "".toJsString(),
+                    "".toJsString()
                 ) { ok, resp ->
-                    if (ok && resp.toString() != "null" && resp.toString().isNotBlank()) {
+                    if (ok) {
                         try {
                             val text = resp.toString()
-                            val map = Json.parseToJsonElement(text).jsonObject
+                            val arr = Json.parseToJsonElement(text).jsonArray
                             val pendingMap = mutableMapOf<String, String>()
-                            for ((key, value) in map) {
-                                val uObj = value.jsonObject
-                                val isActive = uObj["is_active"]?.jsonPrimitive?.boolean ?: true
-                                if (!isActive) {
-                                    val reqObj = JsonObject(mapOf(
-                                        "name" to (uObj["full_name"] ?: uObj["fullName"] ?: uObj["name"] ?: JsonPrimitive(key)),
-                                        "phone" to (uObj["phone"] ?: JsonPrimitive(key)),
-                                        "officeName" to (uObj["office_name"] ?: uObj["officeName"] ?: JsonPrimitive(""))
-                                    ))
-                                    pendingMap[key] = reqObj.toString()
-                                }
+                            arr.forEachIndexed { index, el ->
+                                val obj = el.jsonObject
+                                val phone = obj["phone"]?.jsonPrimitive?.content ?: "user_$index"
+                                val reqObj = JsonObject(mapOf(
+                                    "name" to (obj["full_name"] ?: obj["fullName"] ?: obj["name"] ?: JsonPrimitive(phone)),
+                                    "phone" to JsonPrimitive(phone),
+                                    "officeName" to (obj["office_name"] ?: obj["officeName"] ?: JsonPrimitive(""))
+                                ))
+                                pendingMap[phone] = reqObj.toString()
                             }
                             val jsonMapObj = JsonObject(pendingMap.mapValues { Json.parseToJsonElement(it.value) }).toString()
                             onResult(jsonMapObj)
@@ -420,9 +436,11 @@ fun main() {
             }
 
             override fun deleteRegistrationRequest(id: String, onResult: (Boolean) -> Unit) {
-                jsFirebaseDelete(
-                    "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
-                    "/authorized_users/$id.json".toJsString()
+                val normalizedPhone = id.filter { it.isDigit() }
+                jsSupabaseDelete(
+                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
+                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
+                    "/rest/v1/users?phone=eq.$normalizedPhone".toJsString()
                 ) { ok ->
                     onResult(ok)
                 }
