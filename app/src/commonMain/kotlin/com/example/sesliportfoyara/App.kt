@@ -132,6 +132,7 @@ fun normalizeOfficeName(value: String): String {
 
 fun parsePendingRequests(response: String): List<PendingRequest> {
     return try {
+        if (response.isBlank() || response == "null" || response == "{}") return emptyList()
         val root = Json.parseToJsonElement(response).jsonObject
         root.entries.map { (key, element) ->
             val obj = element.jsonObject
@@ -1485,6 +1486,8 @@ fun ProfileSetupScreen(
     onRegister: (String, String, String) -> Unit,
     onAdminLogin: (String, String, (Boolean, String, String) -> Unit) -> Unit
 ) {
+    var authMode by remember { mutableStateOf(0) } // 0: Giriş Yap (Phone check), 1: Kayıt Ol (Name + Phone + Office), 2: Yönetici Girişi (Email + Password)
+
     var nameValue by remember { mutableStateOf(TextFieldValue(initialName)) }
     var phoneValue by remember { mutableStateOf(TextFieldValue(initialPhone)) }
     var officeNameValue by remember { mutableStateOf(TextFieldValue("Ofissiz / Bağımsız")) }
@@ -1519,7 +1522,6 @@ fun ProfileSetupScreen(
         }
     }
 
-    var showAdminLogin by remember { mutableStateOf(false) }
     var adminEmail by remember { mutableStateOf("engin.baysal@remax-ilyada.com") }
     var adminPassword by remember { mutableStateOf("") }
     var adminMessage by remember { mutableStateOf("") }
@@ -1544,151 +1546,183 @@ fun ProfileSetupScreen(
             Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        Text("Giriş ve Profil", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(
-            "Telefon numaranızla giriş yapın veya kayıt talebi oluşturun.",
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 14.sp, textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp)
-        )
+        Text("EmlakCep Yetkilendirme", color = MaterialTheme.colorScheme.onBackground, fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        if (!showAdminLogin) {
-            CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
-            CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
-            Box(modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = { officeMenuExpanded = true },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(12.dp)
+        // 3 Seçenekli Mod Tabları
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
+                .padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val modes = listOf("Giriş Yap", "Kayıt Başvurusu", "Yönetici Girişi")
+            modes.forEachIndexed { index, label ->
+                val selected = authMode == index
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                        .border(if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(8.dp))
+                        .clickable { authMode = index }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "Ofis: ${officeNameValue.text.ifBlank { "Ofissiz / Bağımsız" }}",
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Start
+                        label,
+                        color = if (selected) Color.White else MaterialTheme.colorScheme.onBackground,
+                        fontSize = 11.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                        textAlign = TextAlign.Center
                     )
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                 }
+            }
+        }
 
-                if (officeMenuExpanded) {
-                    Spacer(Modifier.height(6.dp))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
-                            .padding(6.dp)
+        Spacer(modifier = Modifier.height(24.dp))
+
+        when (authMode) {
+            0 -> {
+                // Danışman Girişi (Telefon Numarası ile yetki kontrolü)
+                Text("Kayıtlı Telefon Numaranız ile Giriş Yapın", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f), fontSize = 13.sp)
+                Spacer(Modifier.height(12.dp))
+                CustomTextFieldValueInput("Telefon Numaranız (05XXXXXXXXX)", phoneValue) { phoneValue = it }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = {
+                        if (phoneValue.text.isNotBlank()) {
+                            onComplete("", phoneValue.text.trim(), "")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
+                    enabled = phoneValue.text.isNotBlank()
+                ) {
+                    Text("Giriş Yap ve Yetkiyi Kontrol Et", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            }
+            1 -> {
+                // Kayıt Başvurusu (Ad Soyad, Telefon ve Ofis Seçimi)
+                Text("Yeni Kullanıcı Kayıt Başvurusunda Bulunun", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f), fontSize = 13.sp)
+                Spacer(Modifier.height(12.dp))
+                CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
+                Spacer(Modifier.height(12.dp))
+                CustomTextFieldValueInput("Telefon Numaranız (05XXXXXXXXX)", phoneValue) { phoneValue = it }
+                Spacer(Modifier.height(12.dp))
+
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { officeMenuExpanded = !officeMenuExpanded },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        officeOptions.forEach { office ->
-                            OutlinedButton(
-                                onClick = {
-                                    officeNameValue = TextFieldValue(office)
-                                    officeMenuExpanded = false
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 3.dp),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Text(office)
+                        Text(
+                            "Ofis: ${officeNameValue.text.ifBlank { "Ofissiz / Bağımsız" }}",
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Start,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    }
+
+                    if (officeMenuExpanded) {
+                        Spacer(Modifier.height(6.dp))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
+                                .padding(6.dp)
+                        ) {
+                            officeOptions.forEach { office ->
+                                OutlinedButton(
+                                    onClick = {
+                                        officeNameValue = TextFieldValue(office)
+                                        officeMenuExpanded = false
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 3.dp),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text(office)
+                                }
                             }
                         }
-
-                        if (officeOptions.size <= 1) {
-                            Text(
-                                "Ofis listesi gelmezse Supabase bağlantısı kontrol edilecek.",
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(6.dp)
-                            )
-                        }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-            Button(
-                onClick = {
-                    if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
-                        onComplete(nameValue.text.trim(), phoneValue.text.trim(), officeNameValue.text.trim())
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
-                enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank() && officeNameValue.text.isNotBlank()
-            ) {
-                Text("Giriş Yap", color = Color.Black, fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            OutlinedButton(
-                onClick = { showAdminLogin = true },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.Lock, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("YÖNETİCİ GİRİŞİ", fontWeight = FontWeight.Bold)
-            }
-        } else {
-            OutlinedTextField(
-                value = adminEmail,
-                onValueChange = { adminEmail = it },
-                label = { Text("Yönetici E-posta") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = adminPassword,
-                onValueChange = { adminPassword = it },
-                label = { Text("Şifre") },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = {
-                    if (adminEmail.isNotBlank() && adminPassword.isNotBlank()) {
-                        adminLoading = true
-                        adminMessage = ""
-                        onAdminLogin(adminEmail, adminPassword) { success, _, msg ->
-                            adminLoading = false
-                            adminMessage = msg
+                Button(
+                    onClick = {
+                        if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
+                            onRegister(nameValue.text.trim(), phoneValue.text.trim(), officeNameValue.text.trim())
                         }
-                    } else {
-                        adminMessage = "E-posta ve şifreyi giriniz."
-                    }
-                },
-                enabled = !adminLoading,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
-            ) {
-                Text(if (adminLoading) "GİRİŞ YAPILIYOR..." else "YÖNETİCİ OLARAK GİRİŞ YAP", color = Color.Black, fontWeight = FontWeight.Bold)
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
+                    enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()
+                ) {
+                    Text("Kayıt Başvurusu Gönder", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
             }
+            2 -> {
+                // Yönetici Girişi (E-posta ve Şifre)
+                OutlinedTextField(
+                    value = adminEmail,
+                    onValueChange = { adminEmail = it },
+                    label = { Text("Yönetici E-posta") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-            if (adminMessage.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(adminMessage, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
-            }
+                Spacer(modifier = Modifier.height(12.dp))
 
-            Spacer(modifier = Modifier.height(14.dp))
+                OutlinedTextField(
+                    value = adminPassword,
+                    onValueChange = { adminPassword = it },
+                    label = { Text("Şifre") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-            TextButton(
-                onClick = { showAdminLogin = false },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("← Danışman Girişine Dön")
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = {
+                        if (adminEmail.isNotBlank() && adminPassword.isNotBlank()) {
+                            adminLoading = true
+                            adminMessage = ""
+                            onAdminLogin(adminEmail, adminPassword) { success, _, msg ->
+                                adminLoading = false
+                                adminMessage = msg
+                            }
+                        } else {
+                            adminMessage = "E-posta ve şifreyi giriniz."
+                        }
+                    },
+                    enabled = !adminLoading,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
+                ) {
+                    Text(if (adminLoading) "GİRİŞ YAPILIYOR..." else "YÖNETİCİ OLARAK GİRİŞ YAP", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+
+                if (adminMessage.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(adminMessage, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                }
             }
         }
     }
