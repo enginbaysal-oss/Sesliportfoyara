@@ -132,16 +132,31 @@ fun normalizeOfficeName(value: String): String {
 
 fun parsePendingRequests(response: String): List<PendingRequest> {
     return try {
-        if (response.isBlank() || response == "null" || response == "{}") return emptyList()
-        val root = Json.parseToJsonElement(response).jsonObject
-        root.entries.map { (key, element) ->
-            val obj = element.jsonObject
-            PendingRequest(
-                id = key,
-                name = obj["name"]?.jsonPrimitive?.content ?: obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: "Kayıt Talebi",
-                phone = obj["phone"]?.jsonPrimitive?.content ?: "",
-                officeName = obj["office_name"]?.jsonPrimitive?.content ?: obj["officeName"]?.jsonPrimitive?.content ?: ""
-            )
+        if (response.isBlank() || response == "null" || response == "{}" || response == "[]") return emptyList()
+
+        val parsed = Json.parseToJsonElement(response)
+
+        if (response.trim().startsWith("[")) {
+            parsed.jsonArray.map { element ->
+                val obj = element.jsonObject
+                PendingRequest(
+                    id = obj["id"]?.jsonPrimitive?.content ?: "",
+                    name = obj["name"]?.jsonPrimitive?.content ?: obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: "Kayıt Talebi",
+                    phone = obj["phone"]?.jsonPrimitive?.content ?: "",
+                    officeName = obj["office_name"]?.jsonPrimitive?.content ?: obj["officeName"]?.jsonPrimitive?.content ?: ""
+                )
+            }
+        } else {
+            val root = parsed.jsonObject
+            root.entries.map { (key, element) ->
+                val obj = element.jsonObject
+                PendingRequest(
+                    id = key,
+                    name = obj["name"]?.jsonPrimitive?.content ?: obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: "Kayıt Talebi",
+                    phone = obj["phone"]?.jsonPrimitive?.content ?: "",
+                    officeName = obj["office_name"]?.jsonPrimitive?.content ?: obj["officeName"]?.jsonPrimitive?.content ?: ""
+                )
+            }
         }
     } catch (_: Exception) {
         emptyList()
