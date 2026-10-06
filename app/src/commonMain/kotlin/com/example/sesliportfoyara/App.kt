@@ -683,6 +683,14 @@ fun App() {
                                         HorizontalDivider()
                                         Spacer(Modifier.height(16.dp))
                                         Text(
+                                            "Bekleyen kayıt sayısı: ${pendingRequests.size}",
+                                            color = Color(0xFFFF9800),
+                                            fontWeight = FontWeight.Bold
+                                        )
+
+                                        Spacer(Modifier.height(8.dp))
+
+                                        Text(
                                             "Bekleyen Kayıt Başvuruları",
                                             fontSize = 20.sp,
                                             fontWeight = FontWeight.Bold,
