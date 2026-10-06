@@ -10,7 +10,6 @@ import kotlinx.serialization.json.*
 import androidx.compose.runtime.staticCompositionLocalOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
 class RemaxService {
@@ -381,8 +380,6 @@ class RemaxService {
         _isSyncing.value = true
         try {
             withTimeoutOrNull(120000L) {
-                val current = try { dbManager.getPortfolios().first() } catch (e: Exception) { emptyList<Portfolio>() }
-                
                 val fetchedPortfolios = mutableListOf<Portfolio>()
                 val fetchedNormLinks = mutableSetOf<String>()
                 var fetchedSuccessfully = false
@@ -405,51 +402,15 @@ class RemaxService {
                 }
 
                 if (fetchedSuccessfully && fetchedPortfolios.isNotEmpty()) {
+                    // Temiz bir senkronizasyon için eski birikmiş/çift kayıtları temizle ve taze listeyi yükle
+                    dbManager.clearAllPortfolios()
+
                     fetchedPortfolios.forEach { p ->
-                        val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/").lowercase()
-                        val existing = current.firstOrNull { 
-                            it.id == p.id || it.link.replace("https://", "").replace("www.", "").removeSuffix("/").lowercase() == norm 
-                        }
-                        if (existing != null) {
-                            val updated = p.copy(
-                                id = existing.id,
-                                consultantName = existing.consultantName.ifBlank { p.consultantName },
-                                consultantPhone = existing.consultantPhone.ifBlank { p.consultantPhone },
-                                createdAt = existing.createdAt,
-                                officeName = existing.officeName.ifBlank { officeName }
-                            )
-                            dbManager.updatePortfolio(updated)
-                        } else {
-                            if (dbManager.addPortfolio(p.copy(officeName = officeName)) != null) {
-                                totalAdded++
-                            }
+                        if (dbManager.addPortfolio(p.copy(officeName = officeName)) != null) {
+                            totalAdded++
                         }
                     }
-
-                    // Remove REMAX portfolios no longer on the website
-                    current.filter { it.link.contains("remax.com.tr", ignoreCase = true) || it.id.startsWith("remax_") }.forEach { existingP ->
-                        val existingNorm = existingP.link.replace("https://", "").replace("www.", "").removeSuffix("/").lowercase()
-                        val stillExists = fetchedNormLinks.contains(existingNorm) || fetchedPortfolios.any { it.id == existingP.id }
-                        if (!stillExists) {
-                            dbManager.deletePortfolio(existingP.id)
-                            println("🗑️ Sync: Remax'ta artık bulunmayan eski ilan silindi: ${existingP.title}")
-                        }
-                    }
-
-                    // Remove duplicates
-                    val latestCurrent = try { dbManager.getPortfolios().first() } catch (e: Exception) { emptyList<Portfolio>() }
-                    val seenLinks = mutableSetOf<String>()
-                    latestCurrent.filter { it.link.contains("remax.com.tr", ignoreCase = true) || it.id.startsWith("remax_") }.forEach { p ->
-                        val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/").lowercase()
-                        if (norm.isNotBlank()) {
-                            if (seenLinks.contains(norm)) {
-                                dbManager.deletePortfolio(p.id)
-                                println("🗑️ Sync: Çift (duplicate) ilan silindi: ${p.title}")
-                            } else {
-                                seenLinks.add(norm)
-                            }
-                        }
-                    }
+                    println("✅ Sync tamamlandı: Toplam ${fetchedPortfolios.size} güncel ilan yüklendi.")
                 }
             }
         } catch (e: Exception) {
