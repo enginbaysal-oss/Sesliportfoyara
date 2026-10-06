@@ -2952,12 +2952,25 @@ fun PortfolioItem(
 
                         if (onPublish != null) {
                             val isLocal = portfolio.id.startsWith("local_")
-                            IconButton(onClick = { onPublish(portfolio) }, modifier = Modifier.size(42.dp).background(Color(0xFF22A447).copy(0.15f), CircleShape)) {
+                            Button(
+                                onClick = { onPublish(portfolio) },
+                                modifier = Modifier.weight(1f).height(42.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = if (isLocal) Color(0xFF2196F3) else Color(0xFF22A447)),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
                                 Icon(
                                     imageVector = if (isLocal) Icons.Default.CloudUpload else Icons.Default.Download,
-                                    contentDescription = if (isLocal) "Ofise Yükle" else "Benim Portföylerime Al",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = if (isLocal) "Ofise Yükle" else "Portföylerime Al",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
