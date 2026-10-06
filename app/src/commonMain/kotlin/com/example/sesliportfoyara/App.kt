@@ -536,6 +536,12 @@ fun App() {
                             var adminSessionToken by remember { mutableStateOf("") }
                             var adminUsers by remember { mutableStateOf<List<AdminUser>>(emptyList()) }
                             var pendingRequests by remember { mutableStateOf<List<PendingRequest>>(emptyList()) }
+                            LaunchedEffect(Unit) {
+                                platformUtils.getRegistrationRequests { reqRespOnOpen ->
+                                    pendingRequests = parsePendingRequests(reqRespOnOpen)
+                                }
+                            }
+
                             var newUserName by remember { mutableStateOf("") }
                             var newUserPhone by remember { mutableStateOf("") }
     var newUserOfficeName by remember { mutableStateOf("Ofissiz / Bağımsız") }
