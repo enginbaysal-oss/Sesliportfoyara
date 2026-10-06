@@ -123,15 +123,15 @@ class FirebaseDatabaseManager : DatabaseManager {
     override suspend fun clearAllPortfolios(): Boolean {
         return try {
             println("🗑️ Tüm ofis portföyleri siliniyor...")
-            val response = client.put("$baseUrl.json") {
-                contentType(ContentType.Application.Json)
-                setBody("null")
-            }
+            val response = client.delete("$baseUrl.json")
             if (response.status.isSuccess()) {
-                println("✅ Tüm ofis portföyleri sıfırlandı.")
+                println("✅ Tüm ofis portföyleri silindi.")
                 true
             } else {
-                val fallbackResponse = client.delete("$baseUrl.json")
+                val fallbackResponse = client.put("$baseUrl.json") {
+                    contentType(ContentType.Application.Json)
+                    setBody("null")
+                }
                 fallbackResponse.status.isSuccess()
             }
         } catch (e: Exception) {

@@ -650,6 +650,22 @@ fun App() {
                                         }
                                     }
 
+                                    Spacer(Modifier.height(12.dp))
+                                    Button(
+                                        onClick = {
+                                            scope.launch {
+                                                adminLoading = true
+                                                val cleared = dbManager.clearAllPortfolios()
+                                                adminLoading = false
+                                                adminMessage = if (cleared) "✅ Firebase veritabanı tamamen sıfırlandı (260 ilan temizlendi)." else "❌ Temizleme başarısız."
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("🗑️ Firebase'deki Tüm Portföyleri Sıfırla (260 İlanı Temizle)", color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+
                                     if (adminMessage.isNotBlank()) {
                                         Spacer(Modifier.height(8.dp))
                                         Text(adminMessage, color = Color(0xFF22A447), textAlign = TextAlign.Center)
