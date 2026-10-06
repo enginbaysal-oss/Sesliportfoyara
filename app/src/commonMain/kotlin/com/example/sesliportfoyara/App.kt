@@ -2586,7 +2586,7 @@ fun MyPortfolioScreen(
     var showImportDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
     var remaxUrl by remember { mutableStateOf("https://remax.com.tr/tr/ofis/detay/ilyada-3") }
-    val currentOfficeForDisplay = currentOfficeName.ifBlank { "Remax İlyada 3" }
+    val currentOfficeForDisplay = "Remax İlyada 3"
     val visibleOfficePortfolios = officePortfolios.filter {
         normalizeOfficeName(it.officeName) == normalizeOfficeName(currentOfficeForDisplay)
     }
