@@ -124,9 +124,12 @@ data class PendingRequest(
 
 fun normalizeOfficeName(value: String): String {
     return value.trim()
+        .replace("İ", "i")
+        .replace("I", "i")
         .lowercase()
         .replace("ı", "i")
-        .replace("İ", "i")
+        .replace("i̇", "i")
+        .replace("\u0307", "")
         .replace("\\s+".toRegex(), " ")
 }
 
@@ -2465,11 +2468,13 @@ fun MyPortfolioScreen(
         val cleanPortfolioName = normalizeOfficeName(portfolio.consultantName)
 
         val phoneMatches = cleanCurrentPhoneForMine.isNotBlank() && cleanPortfolioPhone == cleanCurrentPhoneForMine
+        val currentNameParts = cleanCurrentNameForMine.split(" ").filter { it.length >= 3 }
         val nameMatches = cleanCurrentNameForMine.isNotBlank() &&
             cleanPortfolioName.isNotBlank() &&
             (cleanPortfolioName == cleanCurrentNameForMine ||
                 cleanPortfolioName.contains(cleanCurrentNameForMine) ||
-                cleanCurrentNameForMine.contains(cleanPortfolioName))
+                cleanCurrentNameForMine.contains(cleanPortfolioName) ||
+                currentNameParts.any { cleanPortfolioName.contains(it) })
 
         phoneMatches || nameMatches
     }
