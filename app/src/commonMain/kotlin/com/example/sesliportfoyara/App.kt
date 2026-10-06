@@ -539,6 +539,7 @@ fun App() {
                             LaunchedEffect(Unit) {
                                 platformUtils.getRegistrationRequests { reqRespOnOpen ->
                                     pendingRequests = parsePendingRequests(reqRespOnOpen)
+                                    adminMessage = "Bekleyen kayıt cevabı: " + reqRespOnOpen.take(300)
                                 }
                             }
 
