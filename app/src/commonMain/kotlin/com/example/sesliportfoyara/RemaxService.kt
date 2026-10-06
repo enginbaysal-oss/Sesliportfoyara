@@ -389,6 +389,17 @@ class RemaxService {
                     if (list.isEmpty()) {
                         break
                     }
+
+                    val newItemsInPage = list.filter { p ->
+                        val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/").lowercase()
+                        norm.isNotBlank() && !fetchedNormLinks.contains(norm)
+                    }
+
+                    if (newItemsInPage.isEmpty() && currentPage > 1) {
+                        println("🛑 Sync: Sayfa $currentPage tekrar eden ilanlar döndürdü (pagination loop), döngü sonlandırıldı.")
+                        break
+                    }
+
                     fetchedSuccessfully = true
                     list.forEach { p ->
                         val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/").lowercase()
