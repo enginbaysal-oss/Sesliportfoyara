@@ -85,59 +85,6 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        val sanitizedPhone = normalizedPhone.filter { it.isDigit() }
-
-        // 1. Check Firebase Realtime Database first
-        val fbRequest = Request.Builder()
-            .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/authorized_users/$sanitizedPhone.json")
-            .get()
-            .build()
-
-        supabaseClient.newCall(fbRequest).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                fallbackSupabaseAuth(normalizedPhone, onResult)
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                response.use {
-                    try {
-                        val body = it.body?.string().orEmpty()
-                        if (it.isSuccessful && body != "null" && body.isNotBlank()) {
-                            val uObj = JSONObject(body)
-                            val isActive = uObj.optBoolean("is_active", true)
-                            if (isActive) {
-                                val fullName = uObj.optString("full_name", "").ifBlank { uObj.optString("fullName", "").ifBlank { uObj.optString("name", "") } }
-                                val isAdmin = uObj.optBoolean("is_admin", uObj.optBoolean("isAdmin", false))
-                                val canUseTools = uObj.optBoolean("can_use_tools", uObj.optBoolean("canUseTools", false))
-                                val isOfficeAdmin = uObj.optBoolean("is_office_admin", uObj.optBoolean("isOfficeAdmin", false))
-                                val officeName = uObj.optString("office_name", uObj.optString("officeName", ""))
-
-                                runOnUiThread {
-                                    onResult(
-                                        AuthorizationResult(
-                                            authorized = true,
-                                            fullName = fullName,
-                                            isAdmin = isAdmin,
-                                            canUseTools = canUseTools,
-                                            isOfficeAdmin = isOfficeAdmin,
-                                            officeName = officeName
-                                        )
-                                    )
-                                }
-                                return
-                            }
-                        }
-                    } catch (_: Exception) {}
-                    fallbackSupabaseAuth(normalizedPhone, onResult)
-                }
-            }
-        })
-    }
-
-    private fun fallbackSupabaseAuth(
-        normalizedPhone: String,
-        onResult: (AuthorizationResult) -> Unit
-    ) {
         if (BuildConfig.SUPABASE_URL.isBlank() || BuildConfig.SUPABASE_KEY.isBlank()) {
             onResult(
                 AuthorizationResult(
@@ -171,7 +118,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            override fun onResponse(call: Call, response: Response) {
+            override fun
+
+
+                    onResponse(call: Call, response: Response) {
                 response.use {
                     try {
                         if (!it.isSuccessful) {
@@ -331,11 +281,8 @@ class MainActivity : ComponentActivity() {
             .toString()
 
         val request = Request.Builder()
-            .url("${BuildConfig.SUPABASE_URL}/rest/v1/registration_requests")
-            .addHeader("apikey", BuildConfig.SUPABASE_KEY)
-            .addHeader("Authorization", "Bearer ${BuildConfig.SUPABASE_KEY}")
+            .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/registration_requests.json")
             .addHeader("Content-Type", "application/json")
-            .addHeader("Prefer", "return=minimal")
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
 
@@ -358,32 +305,27 @@ class MainActivity : ComponentActivity() {
 
     private fun getRegistrationRequests(onResult: (String) -> Unit) {
         val request = Request.Builder()
-            .url("${BuildConfig.SUPABASE_URL}/rest/v1/registration_requests?select=id,name,phone,office_name,created_at&order=created_at.desc")
-            .addHeader("apikey", BuildConfig.SUPABASE_KEY)
-            .addHeader("Authorization", "Bearer ${BuildConfig.SUPABASE_KEY}")
-            .addHeader("Content-Type", "application/json")
+            .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/registration_requests.json")
             .get()
             .build()
 
         supabaseClient.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { onResult("[]") }
+                runOnUiThread { onResult("{}") }
             }
 
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     val body = it.body?.string().orEmpty()
-                    runOnUiThread { onResult(if (it.isSuccessful && body.isNotBlank()) body else "[]") }
+                    runOnUiThread { onResult(if (it.isSuccessful && body != "null") body else "{}") }
                 }
             }
         })
     }
+
     private fun deleteRegistrationRequest(id: String, onResult: (Boolean) -> Unit) {
         val request = Request.Builder()
-            .url("${BuildConfig.SUPABASE_URL}/rest/v1/registration_requests?id=eq.$id")
-            .addHeader("apikey", BuildConfig.SUPABASE_KEY)
-            .addHeader("Authorization", "Bearer ${BuildConfig.SUPABASE_KEY}")
-            .addHeader("Content-Type", "application/json")
+            .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/registration_requests/$id.json")
             .delete()
             .build()
 
@@ -399,6 +341,7 @@ class MainActivity : ComponentActivity() {
             }
         })
     }
+
     private fun getOfficeNames(onResult: (List<String>) -> Unit) {
         val request = Request.Builder()
             .url("${BuildConfig.SUPABASE_URL}/rest/v1/rpc/list_offices_for_registration")
@@ -459,234 +402,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun adminUsersRequest(accessToken: String, requestJson: String, onResult: (Boolean, String) -> Unit) {
-        try {
-            val jsonObj = JSONObject(requestJson)
-            val action = jsonObj.optString("action", "")
-            if (action == "list") {
-                val request = Request.Builder()
-                    .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/authorized_users.json")
-                    .get()
-                    .build()
-
-                supabaseClient.newCall(request).enqueue(object : Callback {
-                    override fun onFailure(call: Call, e: IOException) {
-                        runOnUiThread { onResult(false, "{\"users\":[]}") }
-                    }
-
-                    override fun onResponse(call: Call, response: Response) {
-                        response.use {
-                            val body = it.body?.string().orEmpty()
-                            val usersArr = JSONArray()
-                            try {
-                                if (body != "null" && body.isNotBlank()) {
-                                    val map = JSONObject(body)
-                                    val keys = map.keys()
-                                    while (keys.hasNext()) {
-                                        val key = keys.next()
-                                        val uObj = map.optJSONObject(key) ?: continue
-                                        val phone = uObj.optString("phone", "").ifBlank { key }.filter { ch -> ch.isDigit() }
-                                        if (phone.isNotBlank()) {
-                                            uObj.put("phone", phone)
-                                            val name = uObj.optString("full_name", "").ifBlank { uObj.optString("fullName", "").ifBlank { uObj.optString("name", "") } }
-                                            if (name.isBlank()) {
-                                                uObj.put("full_name", phone)
-                                            }
-                                            usersArr.put(uObj)
-                                        }
-                                    }
-                                }
-                            } catch (_: Exception) {}
-
-                            val resultObj = JSONObject().put("users", usersArr).toString()
-                            runOnUiThread { onResult(true, resultObj) }
-                        }
-                    }
-                })
-                return
-            } else if (action == "add") {
-                val fullName = jsonObj.optString("full_name", "").ifBlank { jsonObj.optString("fullName", "").ifBlank { jsonObj.optString("name", "") } }
-                val phone = jsonObj.optString("phone", "")
-                val canUseTools = jsonObj.optBoolean("can_use_tools", jsonObj.optBoolean("canUseTools", false))
-                val isAdmin = jsonObj.optBoolean("is_admin", jsonObj.optBoolean("isAdmin", false))
-                val id = System.currentTimeMillis()
-                val userObj = JSONObject()
-                    .put("id", id)
-                    .put("full_name", fullName)
-                    .put("phone", phone)
-                    .put("is_active", true)
-                    .put("can_use_tools", canUseTools)
-                    .put("is_admin", isAdmin)
-
-                val sanitizedPhone = phone.filter { it.isDigit() }
-                if (sanitizedPhone.isBlank() || sanitizedPhone.length < 10) {
-                    runOnUiThread { onResult(false, "Geçerli bir telefon numarası giriniz.") }
-                    return
-                }
-
-                val request = Request.Builder()
-                    .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/authorized_users/$sanitizedPhone.json")
-                    .addHeader("Content-Type", "application/json")
-                    .put(userObj.toString().toRequestBody("application/json".toMediaType()))
-                    .build()
-
-                supabaseClient.newCall(request).enqueue(object : Callback {
-                    override fun onFailure(call: Call, e: IOException) {
-                        runOnUiThread { onResult(false, "Bağlantı hatası") }
-                    }
-                    override fun onResponse(call: Call, response: Response) {
-                        response.use {
-                            val resp = it.body?.string().orEmpty()
-                            runOnUiThread { onResult(it.isSuccessful, resp) }
-                        }
-                    }
-                })
-                return
-            } else if (action == "update") {
-                val phone = jsonObj.optString("phone", "")
-                val sanitizedPhone = phone.filter { it.isDigit() }
-                val id = jsonObj.optLong("id", -1L)
-
-                val request = Request.Builder()
-                    .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/authorized_users.json")
-                    .get()
-                    .build()
-
-                supabaseClient.newCall(request).enqueue(object : Callback {
-                    override fun onFailure(call: Call, e: IOException) {
-                        runOnUiThread { onResult(false, "Bağlantı hatası") }
-                    }
-                    override fun onResponse(call: Call, response: Response) {
-                        response.use {
-                            val body = it.body?.string().orEmpty()
-                            var targetKey = sanitizedPhone
-                            val finalObj = JSONObject()
-                            try {
-                                if (body != "null" && body.isNotBlank()) {
-                                    val map = JSONObject(body)
-                                    val keys = map.keys()
-                                    while (keys.hasNext()) {
-                                        val key = keys.next()
-                                        val uObj = map.optJSONObject(key) ?: continue
-                                        val uPhone = uObj.optString("phone", "").filter { ch -> ch.isDigit() }
-                                        val uId = uObj.optLong("id", -1L)
-                                        if ((sanitizedPhone.isNotBlank() && uPhone == sanitizedPhone) || (id != -1L && uId == id) || (key == sanitizedPhone)) {
-                                            targetKey = key
-                                            val cellKeys = uObj.keys()
-                                            while (cellKeys.hasNext()) {
-                                                val ck = cellKeys.next()
-                                                finalObj.put(ck, uObj.get(ck))
-                                            }
-                                            break
-                                        }
-                                    }
-                                }
-                            } catch (_: Exception) {}
-
-                            if (targetKey.isBlank()) {
-                                targetKey = sanitizedPhone
-                            }
-
-                            if (jsonObj.has("id")) finalObj.put("id", jsonObj.get("id"))
-                            if (jsonObj.has("full_name")) finalObj.put("full_name", jsonObj.get("full_name"))
-                            if (jsonObj.has("fullName")) finalObj.put("full_name", jsonObj.get("fullName"))
-                            if (jsonObj.has("name")) finalObj.put("full_name", jsonObj.get("name"))
-                            if (jsonObj.has("phone")) finalObj.put("phone", jsonObj.get("phone"))
-                            if (jsonObj.has("is_active")) finalObj.put("is_active", jsonObj.getBoolean("is_active"))
-                            if (jsonObj.has("can_use_tools")) finalObj.put("can_use_tools", jsonObj.getBoolean("can_use_tools"))
-                            if (jsonObj.has("is_admin")) finalObj.put("is_admin", jsonObj.getBoolean("is_admin"))
-
-                            if (!finalObj.has("is_active")) finalObj.put("is_active", true)
-                            if (!finalObj.has("can_use_tools")) finalObj.put("can_use_tools", false)
-                            if (!finalObj.has("is_admin")) finalObj.put("is_admin", false)
-                            if (!finalObj.has("full_name") && sanitizedPhone.isNotBlank()) finalObj.put("full_name", sanitizedPhone)
-                            if (!finalObj.has("phone") && sanitizedPhone.isNotBlank()) finalObj.put("phone", sanitizedPhone)
-
-                            val putReq = Request.Builder()
-                                .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/authorized_users/$targetKey.json")
-                                .addHeader("Content-Type", "application/json")
-                                .put(finalObj.toString().toRequestBody("application/json".toMediaType()))
-                                .build()
-
-                            supabaseClient.newCall(putReq).enqueue(object : Callback {
-                                override fun onFailure(call: Call, e: IOException) {
-                                    runOnUiThread { onResult(false, "Bağlantı hatası") }
-                                }
-                                override fun onResponse(call: Call, response2: Response) {
-                                    response2.use {
-                                        val resp = it.body?.string().orEmpty()
-                                        runOnUiThread { onResult(it.isSuccessful, resp) }
-                                    }
-                                }
-                            })
-                        }
-                    }
-                })
-                return
-            } else if (action == "delete") {
-                val phone = jsonObj.optString("phone", "")
-                val sanitizedPhone = phone.filter { it.isDigit() }
-                val id = jsonObj.optLong("id", -1L)
-
-                val request = Request.Builder()
-                    .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/authorized_users.json")
-                    .get()
-                    .build()
-
-                supabaseClient.newCall(request).enqueue(object : Callback {
-                    override fun onFailure(call: Call, e: IOException) {
-                        runOnUiThread { onResult(false, "Bağlantı hatası") }
-                    }
-                    override fun onResponse(call: Call, response: Response) {
-                        response.use {
-                            val body = it.body?.string().orEmpty()
-                            var targetKey = sanitizedPhone
-                            try {
-                                if (body != "null" && body.isNotBlank()) {
-                                    val map = JSONObject(body)
-                                    val keys = map.keys()
-                                    while (keys.hasNext()) {
-                                        val key = keys.next()
-                                        val uObj = map.optJSONObject(key) ?: continue
-                                        val uPhone = uObj.optString("phone", "").filter { ch -> ch.isDigit() }
-                                        val uId = uObj.optLong("id", -1L)
-                                        if ((sanitizedPhone.isNotBlank() && uPhone == sanitizedPhone) || (id != -1L && uId == id) || (key == sanitizedPhone)) {
-                                            targetKey = key
-                                            break
-                                        }
-                                    }
-                                }
-                            } catch (_: Exception) {}
-
-                            if (targetKey.isBlank()) {
-                                targetKey = sanitizedPhone
-                            }
-
-                            if (targetKey.isNotBlank()) {
-                                val delReq = Request.Builder()
-                                    .url("https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/authorized_users/$targetKey.json")
-                                    .delete()
-                                    .build()
-
-                                supabaseClient.newCall(delReq).enqueue(object : Callback {
-                                    override fun onFailure(call: Call, e: IOException) {
-                                        runOnUiThread { onResult(false, "Bağlantı hatası") }
-                                    }
-                                    override fun onResponse(call: Call, response2: Response) {
-                                        response2.use {
-                                            runOnUiThread { onResult(it.isSuccessful, "{}") }
-                                        }
-                                    }
-                                })
-                            } else {
-                                runOnUiThread { onResult(false, "Kullanıcı bulunamadı") }
-                            }
-                        }
-                    }
-                })
-                return
-            }
-        } catch (_: Exception) {}
-
         val request = Request.Builder()
             .url("${BuildConfig.SUPABASE_URL}/functions/v1/admin-users")
             .addHeader("apikey", BuildConfig.SUPABASE_KEY)

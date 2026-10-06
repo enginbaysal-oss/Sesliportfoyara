@@ -132,31 +132,15 @@ fun normalizeOfficeName(value: String): String {
 
 fun parsePendingRequests(response: String): List<PendingRequest> {
     return try {
-        if (response.isBlank() || response == "null" || response == "{}" || response == "[]") return emptyList()
-
-        val parsed = Json.parseToJsonElement(response)
-
-        if (response.trim().startsWith("[")) {
-            parsed.jsonArray.map { element ->
-                val obj = element.jsonObject
-                PendingRequest(
-                    id = obj["id"]?.jsonPrimitive?.content ?: "",
-                    name = obj["name"]?.jsonPrimitive?.content ?: obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: "Kayıt Talebi",
-                    phone = obj["phone"]?.jsonPrimitive?.content ?: "",
-                    officeName = obj["office_name"]?.jsonPrimitive?.content ?: obj["officeName"]?.jsonPrimitive?.content ?: ""
-                )
-            }
-        } else {
-            val root = parsed.jsonObject
-            root.entries.map { (key, element) ->
-                val obj = element.jsonObject
-                PendingRequest(
-                    id = key,
-                    name = obj["name"]?.jsonPrimitive?.content ?: obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: "Kayıt Talebi",
-                    phone = obj["phone"]?.jsonPrimitive?.content ?: "",
-                    officeName = obj["office_name"]?.jsonPrimitive?.content ?: obj["officeName"]?.jsonPrimitive?.content ?: ""
-                )
-            }
+        val root = Json.parseToJsonElement(response).jsonObject
+        root.entries.map { (key, element) ->
+            val obj = element.jsonObject
+            PendingRequest(
+                id = key,
+                name = obj["name"]?.jsonPrimitive?.content ?: obj["full_name"]?.jsonPrimitive?.content ?: obj["fullName"]?.jsonPrimitive?.content ?: "Kayıt Talebi",
+                phone = obj["phone"]?.jsonPrimitive?.content ?: "",
+                officeName = obj["office_name"]?.jsonPrimitive?.content ?: obj["officeName"]?.jsonPrimitive?.content ?: ""
+            )
         }
     } catch (_: Exception) {
         emptyList()
@@ -255,7 +239,7 @@ fun App() {
                 }
 
                 dbManager.getPortfolios().collectLatest { list ->
-                    val visibleList = list.filter { normalizeOfficeName(it.officeName) == normalizeOfficeName(myOfficeName) || normalizeOfficeName(it.officeName) == normalizeOfficeName("Remax İlyada 3") || myOfficeName.isBlank() || normalizeOfficeName(myOfficeName) == "ofissiz / bağimsiz" }
+                    val visibleList = list.filter { normalizeOfficeName(it.officeName) == normalizeOfficeName(myOfficeName) }
                     officePortfolios.clear()
                     officePortfolios.addAll(visibleList.sortedByDescending { it.createdAt })
                 }
@@ -270,7 +254,7 @@ fun App() {
                             if (isAdmin && currentScreen != Screen.UserManagement) {
                                 Button(
                                     onClick = { currentScreen = Screen.UserManagement },
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)
                                 ) {
                                     Icon(Icons.Default.Lock, contentDescription = null)
                                     Spacer(Modifier.width(8.dp))
@@ -536,13 +520,6 @@ fun App() {
                             var adminSessionToken by remember { mutableStateOf("") }
                             var adminUsers by remember { mutableStateOf<List<AdminUser>>(emptyList()) }
                             var pendingRequests by remember { mutableStateOf<List<PendingRequest>>(emptyList()) }
-                            LaunchedEffect(Unit) {
-                                platformUtils.getRegistrationRequests { reqRespOnOpen ->
-                                    pendingRequests = parsePendingRequests(reqRespOnOpen)
-                                    adminMessage = "Bekleyen kayıt cevabı: " + reqRespOnOpen.take(300)
-                                }
-                            }
-
                             var newUserName by remember { mutableStateOf("") }
                             var newUserPhone by remember { mutableStateOf("") }
     var newUserOfficeName by remember { mutableStateOf("Ofissiz / Bağımsız") }
@@ -682,14 +659,6 @@ fun App() {
                                         Spacer(Modifier.height(16.dp))
                                         HorizontalDivider()
                                         Spacer(Modifier.height(16.dp))
-                                        Text(
-                                            "Bekleyen kayıt sayısı: ${pendingRequests.size}",
-                                            color = Color(0xFFFF9800),
-                                            fontWeight = FontWeight.Bold
-                                        )
-
-                                        Spacer(Modifier.height(8.dp))
-
                                         Text(
                                             "Bekleyen Kayıt Başvuruları",
                                             fontSize = 20.sp,
@@ -1516,8 +1485,6 @@ fun ProfileSetupScreen(
     onRegister: (String, String, String) -> Unit,
     onAdminLogin: (String, String, (Boolean, String, String) -> Unit) -> Unit
 ) {
-    var authMode by remember { mutableStateOf(0) } // 0: Giriş Yap (Phone check), 1: Kayıt Ol (Name + Phone + Office), 2: Yönetici Girişi (Email + Password)
-
     var nameValue by remember { mutableStateOf(TextFieldValue(initialName)) }
     var phoneValue by remember { mutableStateOf(TextFieldValue(initialPhone)) }
     var officeNameValue by remember { mutableStateOf(TextFieldValue("Ofissiz / Bağımsız")) }
@@ -1552,6 +1519,7 @@ fun ProfileSetupScreen(
         }
     }
 
+    var showAdminLogin by remember { mutableStateOf(false) }
     var adminEmail by remember { mutableStateOf("engin.baysal@remax-ilyada.com") }
     var adminPassword by remember { mutableStateOf("") }
     var adminMessage by remember { mutableStateOf("") }
@@ -1576,183 +1544,151 @@ fun ProfileSetupScreen(
             Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        Text("EmlakCep Yetkilendirme", color = MaterialTheme.colorScheme.onBackground, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 3 Seçenekli Mod Tabları
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
-                .padding(3.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            val modes = listOf("Giriş Yap", "Kayıt Başvurusu", "Yönetici Girişi")
-            modes.forEachIndexed { index, label ->
-                val selected = authMode == index
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
-                        .border(if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(8.dp))
-                        .clickable { authMode = index }
-                        .padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        label,
-                        color = if (selected) Color.White else MaterialTheme.colorScheme.onBackground,
-                        fontSize = 11.sp,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-        }
+        Text("Giriş ve Profil", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "Telefon numaranızla giriş yapın veya kayıt talebi oluşturun.",
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 14.sp, textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp)
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        when (authMode) {
-            0 -> {
-                // Danışman Girişi (Telefon Numarası ile yetki kontrolü)
-                Text("Kayıtlı Telefon Numaranız ile Giriş Yapın", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f), fontSize = 13.sp)
-                Spacer(Modifier.height(12.dp))
-                CustomTextFieldValueInput("Telefon Numaranız (05XXXXXXXXX)", phoneValue) { phoneValue = it }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Button(
-                    onClick = {
-                        if (phoneValue.text.isNotBlank()) {
-                            onComplete("", phoneValue.text.trim(), "")
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
-                    enabled = phoneValue.text.isNotBlank()
-                ) {
-                    Text("Giriş Yap ve Yetkiyi Kontrol Et", color = Color.Black, fontWeight = FontWeight.Bold)
-                }
-            }
-            1 -> {
-                // Kayıt Başvurusu (Ad Soyad, Telefon ve Ofis Seçimi)
-                Text("Yeni Kullanıcı Kayıt Başvurusunda Bulunun", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f), fontSize = 13.sp)
-                Spacer(Modifier.height(12.dp))
-                CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
-                Spacer(Modifier.height(12.dp))
-                CustomTextFieldValueInput("Telefon Numaranız (05XXXXXXXXX)", phoneValue) { phoneValue = it }
-                Spacer(Modifier.height(12.dp))
-
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(
-                        onClick = { officeMenuExpanded = !officeMenuExpanded },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            "Ofis: ${officeNameValue.text.ifBlank { "Ofissiz / Bağımsız" }}",
-                            modifier = Modifier.weight(1f),
-                            textAlign = TextAlign.Start,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                    }
-
-                    if (officeMenuExpanded) {
-                        Spacer(Modifier.height(6.dp))
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
-                                .padding(6.dp)
-                        ) {
-                            officeOptions.forEach { office ->
-                                OutlinedButton(
-                                    onClick = {
-                                        officeNameValue = TextFieldValue(office)
-                                        officeMenuExpanded = false
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 3.dp),
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Text(office)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Button(
-                    onClick = {
-                        if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
-                            onRegister(nameValue.text.trim(), phoneValue.text.trim(), officeNameValue.text.trim())
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
-                    enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()
-                ) {
-                    Text("Kayıt Başvurusu Gönder", color = Color.Black, fontWeight = FontWeight.Bold)
-                }
-            }
-            2 -> {
-                // Yönetici Girişi (E-posta ve Şifre)
-                OutlinedTextField(
-                    value = adminEmail,
-                    onValueChange = { adminEmail = it },
-                    label = { Text("Yönetici E-posta") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = adminPassword,
-                    onValueChange = { adminPassword = it },
-                    label = { Text("Şifre") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = {
-                        if (adminEmail.isNotBlank() && adminPassword.isNotBlank()) {
-                            adminLoading = true
-                            adminMessage = ""
-                            onAdminLogin(adminEmail, adminPassword) { success, _, msg ->
-                                adminLoading = false
-                                adminMessage = msg
-                            }
-                        } else {
-                            adminMessage = "E-posta ve şifreyi giriniz."
-                        }
-                    },
-                    enabled = !adminLoading,
+        if (!showAdminLogin) {
+            CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
+            CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = { officeMenuExpanded = true },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(if (adminLoading) "GİRİŞ YAPILIYOR..." else "YÖNETİCİ OLARAK GİRİŞ YAP", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Ofis: ${officeNameValue.text.ifBlank { "Ofissiz / Bağımsız" }}",
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Start
+                    )
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                 }
 
-                if (adminMessage.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(adminMessage, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                if (officeMenuExpanded) {
+                    Spacer(Modifier.height(6.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
+                            .padding(6.dp)
+                    ) {
+                        officeOptions.forEach { office ->
+                            OutlinedButton(
+                                onClick = {
+                                    officeNameValue = TextFieldValue(office)
+                                    officeMenuExpanded = false
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(office)
+                            }
+                        }
+
+                        if (officeOptions.size <= 1) {
+                            Text(
+                                "Ofis listesi gelmezse Supabase bağlantısı kontrol edilecek.",
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(6.dp)
+                            )
+                        }
+                    }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Button(
+                onClick = {
+                    if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
+                        onComplete(nameValue.text.trim(), phoneValue.text.trim(), officeNameValue.text.trim())
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
+                enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank() && officeNameValue.text.isNotBlank()
+            ) {
+                Text("Giriş Yap", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            OutlinedButton(
+                onClick = { showAdminLogin = true },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Lock, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("YÖNETİCİ GİRİŞİ", fontWeight = FontWeight.Bold)
+            }
+        } else {
+            OutlinedTextField(
+                value = adminEmail,
+                onValueChange = { adminEmail = it },
+                label = { Text("Yönetici E-posta") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = adminPassword,
+                onValueChange = { adminPassword = it },
+                label = { Text("Şifre") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    if (adminEmail.isNotBlank() && adminPassword.isNotBlank()) {
+                        adminLoading = true
+                        adminMessage = ""
+                        onAdminLogin(adminEmail, adminPassword) { success, _, msg ->
+                            adminLoading = false
+                            adminMessage = msg
+                        }
+                    } else {
+                        adminMessage = "E-posta ve şifreyi giriniz."
+                    }
+                },
+                enabled = !adminLoading,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
+            ) {
+                Text(if (adminLoading) "GİRİŞ YAPILIYOR..." else "YÖNETİCİ OLARAK GİRİŞ YAP", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+
+            if (adminMessage.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(adminMessage, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            TextButton(
+                onClick = { showAdminLogin = false },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("← Danışman Girişine Dön")
             }
         }
     }
@@ -2143,7 +2079,7 @@ fun VoiceSearchScreen(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(10.dp)) // Boşluk daraltıldı
 
         Box(
             modifier = Modifier.size(100.dp), // Boyut 140'tan 100'e düşürüldü
@@ -2350,12 +2286,12 @@ fun AddPortfolioScreen(
                     val selected = saveLocally == isLocal
                     Box(
                         modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-                            .border(BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)), RoundedCornerShape(8.dp))
-                            .clickable { saveLocally = isLocal }.padding(vertical = 9.dp),
+                            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                            .border(BorderStroke(0.5.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)), RoundedCornerShape(8.dp))
+                            .clickable { saveLocally = isLocal }.padding(vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(label, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                        Text(label, color = if (selected) Color.White else MaterialTheme.colorScheme.onBackground, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -2374,13 +2310,13 @@ fun AddPortfolioScreen(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-                        .border(BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)), RoundedCornerShape(8.dp))
+                        .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                        .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)), RoundedCornerShape(8.dp))
                         .clickable { type = option }
-                        .padding(vertical = 10.dp),
+                        .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(option, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                    Text(option, color = if (selected) Color.White else MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -2583,10 +2519,6 @@ fun MyPortfolioScreen(
     var showImportDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
     var remaxUrl by remember { mutableStateOf("https://remax.com.tr/tr/ofis/detay/ilyada-3") }
-    val currentOfficeForDisplay = "Remax İlyada 3"
-    val visibleOfficePortfolios = officePortfolios.filter {
-        normalizeOfficeName(it.officeName) == normalizeOfficeName(currentOfficeForDisplay)
-    }
 
     if (showClearDialog) {
         AlertDialog(
@@ -2679,92 +2611,72 @@ fun MyPortfolioScreen(
             .padding(horizontal = 16.dp) // Kenar boşlukları daraltıldı
             .padding(top = 4.dp) // Üst boşluk daraltıldı
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Portföylerim", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                if (isAdmin) {
-                    Spacer(Modifier.width(6.dp))
-                    Box(modifier = Modifier.background(Color(0xFFFF5252), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 1.dp)) {
-                        Text("ADMIN", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    Spacer(Modifier.width(10.dp))
-
-                    Button(
-                        onClick = { showImportDialog = true },
-                        modifier = Modifier.width(130.dp).height(34.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp)
-                    ) {
-                        Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(13.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("İçe Aktar", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            // TABLAR (Benim ve Ofisim) aynı hizada
-            Row(
-                modifier = Modifier
-                    .widthIn(max = 380.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
-                    .padding(3.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val tabs = listOf(
-                    "Benim (${localPortfolios.size})",
-                    if (!officePortfoliosLoaded && visibleOfficePortfolios.isEmpty()) "$currentOfficeForDisplay (Yükleniyor...)" else "$currentOfficeForDisplay (${visibleOfficePortfolios.size}/${officePortfolios.size})"
-                )
-                tabs.forEachIndexed { index, title ->
-                    val selected = selectedTab == index
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                if (selected) 
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) 
-                                else 
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
-                            )
-                            .border(
-                                BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.2f)), 
-                                RoundedCornerShape(6.dp)
-                            )
-                            .clickable { selectedTab = index }
-                            .padding(vertical = 9.dp, horizontal = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            title, 
-                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, 
-                            fontSize = 12.sp, 
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, 
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text("Portföylerim", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             if (isAdmin) {
-                Spacer(Modifier.width(8.dp))
-                IconButton(
-                    onClick = { showClearDialog = true },
-                    modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                Spacer(Modifier.width(6.dp))
+                Box(modifier = Modifier.background(Color(0xFFFF5252), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 1.dp)) {
+                    Text("ADMIN", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp)) // Boşluk daraltıldı
+
+        // İŞLEM BUTONLARI (Yalnızca Admin / Ofis Yetkilisi görebilir)
+        if (isAdmin) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { showImportDialog = true },
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
-                    Icon(Icons.Default.DeleteSweep, null, tint = Color(0xFFC0392B), modifier = Modifier.size(17.dp))
+                    Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("İçe Aktar", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = { showClearDialog = true },
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B)),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Icon(Icons.Default.DeleteSweep, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Temizle", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        // TABLAR
+        Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp)) {
+            val tabs = listOf(
+                "Benim (${localPortfolios.size})", // "adet" yazısı kaldırıldı yer kazanmak için
+                if (!officePortfoliosLoaded && officePortfolios.isEmpty()) "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (${officePortfolios.size})"
+            )
+            tabs.forEachIndexed { index, title ->
+                val selected = selectedTab == index
+                Box(
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
+                        .background(if (selected) MaterialTheme.colorScheme.surface else Color.Transparent)
+                        .border(if (selected) BorderStroke(0.5.dp, MaterialTheme.colorScheme.onBackground.copy(0.05f)) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(6.dp))
+                        .clickable { selectedTab = index }.padding(vertical = 8.dp), // Padding 10'dan 8'e düşürüldü
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(title, color = if (selected) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center)
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        val currentList = if (selectedTab == 0) localPortfolios else visibleOfficePortfolios
+        val currentList = if (selectedTab == 0) localPortfolios else officePortfolios
 
         if (currentList.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -3031,24 +2943,14 @@ fun PortfolioItem(
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (portfolio.link.isNotEmpty()) {
-                        if (portfolio.authorityEndDate > 0L) {
-                            Text(
-                                "Yetki bitiş: ${formatTurkishDateMillis(portfolio.authorityEndDate)}",
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(Modifier.height(6.dp))
-                        }
-
                             Button(
                                 onClick = { platformUtils.openUri(portfolio.link) },
-                                modifier = Modifier.width(96.dp).height(34.dp),
+                                modifier = Modifier.weight(1f).height(42.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
                                 shape = RoundedCornerShape(10.dp),
                                 contentPadding = PaddingValues(0.dp)
                             ) {
-                                Text("İlanı Aç", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("İlanı Aç", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 

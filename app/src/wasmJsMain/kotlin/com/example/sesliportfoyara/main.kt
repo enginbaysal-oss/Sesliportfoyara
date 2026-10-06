@@ -146,37 +146,9 @@ external fun jsSupabasePost(url: JsString, key: JsString, path: JsString, body: 
     "doFetch(true); " +
     "}")
 external fun jsSupabasePatch(url: JsString, key: JsString, path: JsString, body: JsString, bearer: JsString, callback: (Boolean, JsString) -> Unit)
-@JsFun("(url, key, path, callback) => { " +
-    "const doFetch = (retry) => { " +
-    "  fetch(url + path, { method: 'GET', headers: { 'apikey': key, 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' } })" +
-    "    .then(async r => { const t = await r.text(); callback(r.ok, t); })" +
-    "    .catch(e => { " +
-    "      if (retry) { setTimeout(() => doFetch(false), 300); } " +
-    "      else { callback(false, '[]'); } " +
-    "    }); " +
-    "}; doFetch(true); " +
-    "}")
-external fun jsSupabaseGet(url: JsString, key: JsString, path: JsString, callback: (Boolean, JsString) -> Unit)
-
-
-@JsFun("(url, key, path, callback) => { " +
-    "const doFetch = (retry) => { " +
-    "  fetch(url + path, { method: 'DELETE', headers: { 'apikey': key, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' } })" +
-    "    .then(async r => { callback(r.ok); })" +
-    "    .catch(e => { " +
-    "      if (retry) { setTimeout(() => doFetch(false), 300); } " +
-    "      else { callback(false); } " +
-    "    }); " +
-    "}; " +
-    "doFetch(true); " +
-    "}")
-external fun jsSupabaseDelete(url: JsString, key: JsString, path: JsString, callback: (Boolean) -> Unit)
 
 @JsFun("(url, path, body, callback) => { fetch(url + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, 'Baglanti hatasi: ' + e.message)); }")
 external fun jsFirebasePost(url: JsString, path: JsString, body: JsString, callback: (Boolean, JsString) -> Unit)
-
-@JsFun("(url, path, body, callback) => { fetch(url + path, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: body }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, 'Baglanti hatasi: ' + e.message)); }")
-external fun jsFirebasePut(url: JsString, path: JsString, body: JsString, callback: (Boolean, JsString) -> Unit)
 
 @JsFun("(url, path, callback) => { fetch(url + path, { method: 'GET' }).then(async r => { const t = await r.text(); callback(r.ok, t); }).catch(e => callback(false, '{}')); }")
 external fun jsFirebaseGet(url: JsString, path: JsString, callback: (Boolean, JsString) -> Unit)
@@ -399,39 +371,34 @@ fun main() {
             override fun requestRegistration(name: String, phone: String, officeName: String, onResult: (Boolean, String) -> Unit) {
                 val normalized = phone.filter { it.isDigit() }.let { if (it.length == 10 && it.startsWith("5")) "0$it" else it }
                 if (normalized.length != 11 || !normalized.startsWith("05")) { onResult(false, "Geçerli bir cep telefonu numarası giriniz."); return }
-
-                val body = """{"name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"office_name":${JsonPrimitive(officeName.trim())}}"""
-
-                jsSupabasePost(
-                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                    "/rest/v1/registration_requests".toJsString(),
-                    body.toJsString(),
-                    "".toJsString()
-                ) { ok, resp ->
-                    onResult(ok, if (ok) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else "Kayıt talebi gönderilemedi: $resp")
+                val body = """{"name":${JsonPrimitive(name.trim())},"phone":${JsonPrimitive(normalized)},"office_name":${JsonPrimitive(officeName.trim())},"createdAt":${getCurrentTimeMillis()}}"""
+                jsFirebasePost(
+                    "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                    "/registration_requests.json".toJsString(),
+                    body.toJsString()
+                ) { ok, response ->
+                    onResult(ok, if (ok) "Kayıt talebiniz alındı. Yönetici onayı bekleniyor." else "Kayıт talebi gönderilemedi.")
                 }
             }
 
             override fun getRegistrationRequests(onResult: (String) -> Unit) {
-                jsSupabaseGet(
-                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                    "/rest/v1/registration_requests?select=id,name,phone,office_name,created_at&order=created_at.desc".toJsString()
-                ) { ok, resp ->
-                    onResult(if (ok && resp.toString().isNotBlank()) resp.toString() else "[]")
+                jsFirebaseGet(
+                    "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                    "/registration_requests.json".toJsString()
+                ) { ok, response ->
+                    if (ok) onResult(response.toString()) else onResult("{}")
                 }
             }
 
             override fun deleteRegistrationRequest(id: String, onResult: (Boolean) -> Unit) {
-                jsSupabaseDelete(
-                    "https://jcjerwvibjetomqeelsy.supabase.co".toJsString(),
-                    "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(),
-                    "/rest/v1/registration_requests?id=eq.$id".toJsString()
+                jsFirebaseDelete(
+                    "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app".toJsString(),
+                    "/registration_requests/$id.json".toJsString()
                 ) { ok ->
                     onResult(ok)
                 }
             }
+
             override fun adminSignUp(email: String, password: String, onResult: (Boolean, String) -> Unit) {
                 val body = """{"email":${kotlinx.serialization.json.JsonPrimitive(email.trim())},"password":${kotlinx.serialization.json.JsonPrimitive(password)}}"""
                 jsSupabasePost(

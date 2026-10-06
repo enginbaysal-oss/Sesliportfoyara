@@ -10,6 +10,7 @@ import kotlinx.serialization.json.*
 import androidx.compose.runtime.staticCompositionLocalOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
 class RemaxService {
@@ -379,49 +380,54 @@ class RemaxService {
         var currentPage = 1
         _isSyncing.value = true
         try {
+            // Senkronizasyon süresini 2 dakikaya çıkardık (Daha fazla sayfa ve silme işlemi için)
             withTimeoutOrNull(120000L) {
-                val fetchedPortfolios = mutableListOf<Portfolio>()
-                val fetchedNormLinks = mutableSetOf<String>()
+                val current = try { dbManager.getPortfolios().first() } catch (e: Exception) { emptyList<Portfolio>() }
+                val existingIds = current.map { it.id }.toMutableSet()
+                val existingLinks = current.map { l ->
+                    l.link.replace("https://", "").replace("www.", "").removeSuffix("/")
+                }.toMutableSet()
+
+                val foundRemaxIds = mutableSetOf<String>()
                 var fetchedSuccessfully = false
 
+                // Sayfa limitini 20'ye çıkardık, büyük ofislerin tüm portföyünü yakalayabilmek için
                 while (currentPage <= 20) {
                     val list = fetchOfficePortfolios(url, currentPage)
                     if (list.isEmpty()) {
+                        // Eğer ilk sayfada bile veri gelmediyse bir sorun olabilir, temizlik yapma
                         break
                     }
-
-                    val newItemsInPage = list.filter { p ->
-                        val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/").lowercase()
-                        norm.isNotBlank() && !fetchedNormLinks.contains(norm)
-                    }
-
-                    if (newItemsInPage.isEmpty() && currentPage > 1) {
-                        println("🛑 Sync: Sayfa $currentPage tekrar eden ilanlar döndürdü (pagination loop), döngü sonlandırıldı.")
-                        break
-                    }
-
+                    
                     fetchedSuccessfully = true
                     list.forEach { p ->
-                        val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/").lowercase()
-                        if (norm.isNotBlank() && !fetchedNormLinks.contains(norm)) {
-                            fetchedNormLinks.add(norm)
-                            fetchedPortfolios.add(p)
+                        foundRemaxIds.add(p.id)
+                        val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/")
+                        val existing = current.firstOrNull { it.id == p.id } ?: current.firstOrNull { it.link.replace("https://", "").replace("www.", "").removeSuffix("/") == norm }; if (existing != null) { val updated = p.copy(id = existing.id, consultantName = existing.consultantName.ifBlank { p.consultantName }, consultantPhone = existing.consultantPhone.ifBlank { p.consultantPhone }, createdAt = existing.createdAt,
+                    officeName = existing.officeName.ifBlank { officeName }); dbManager.updatePortfolio(updated) } else {
+                            if (dbManager.addPortfolio(p.copy(officeName = officeName)) != null) {
+                                existingIds.add(p.id)
+                                existingLinks.add(norm)
+                                totalAdded++
+                            }
                         }
                     }
-                    if (list.size < 10) break
+                    
+                    // Eğer gelen liste tam dolu değilse (genelde bir sayfada 20+ ilan olur) son sayfaya gelmiş olabiliriz
+                    if (list.size < 10) break 
                     currentPage++
                 }
 
-                if (fetchedSuccessfully && fetchedPortfolios.isNotEmpty()) {
-                    // Temiz bir senkronizasyon için eski birikmiş/çift kayıtları temizle ve taze listeyi yükle
-                    dbManager.clearAllPortfolios()
-
-                    fetchedPortfolios.forEach { p ->
-                        if (dbManager.addPortfolio(p.copy(officeName = officeName)) != null) {
-                            totalAdded++
+                // SİLİNENLERİ TEMİZLEME: 
+                // Sadece Remax'tan çekilen ilanları (ID'si remax_ ile başlayanlar) kontrol ediyoruz.
+                // Eğer RE/MAX sitesinde artık yoksa ama bizim DB'de varsa siliyoruz.
+                if (fetchedSuccessfully && foundRemaxIds.isNotEmpty()) {
+                    current.filter { it.link.contains("remax.com.tr", ignoreCase = true) }.forEach { p ->
+                        if (foundRemaxIds.none { rid -> p.link.contains(rid.removePrefix("remax_")) }) {
+                            dbManager.deletePortfolio(p.id)
+                            println("🗑️ Sync: Remax'ta bulunmayan eski ilan silindi: ${p.title}")
                         }
                     }
-                    println("✅ Sync tamamlandı: Toplam ${fetchedPortfolios.size} güncel ilan yüklendi.")
                 }
             }
         } catch (e: Exception) {
