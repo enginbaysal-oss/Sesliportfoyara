@@ -2586,6 +2586,10 @@ fun MyPortfolioScreen(
     var showImportDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
     var remaxUrl by remember { mutableStateOf("https://remax.com.tr/tr/ofis/detay/ilyada-3") }
+    val currentOfficeForDisplay = currentOfficeName.ifBlank { "Remax İlyada 3" }
+    val visibleOfficePortfolios = officePortfolios.filter {
+        normalizeOfficeName(it.officeName) == normalizeOfficeName(currentOfficeForDisplay)
+    }
 
     if (showClearDialog) {
         AlertDialog(
@@ -2717,7 +2721,7 @@ fun MyPortfolioScreen(
             ) {
                 val tabs = listOf(
                     "Benim (${localPortfolios.size})",
-                    if (!officePortfoliosLoaded && officePortfolios.isEmpty()) "${currentOfficeName.ifBlank { "Ofissiz" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Ofissiz" }} (${officePortfolios.size})"
+                    if (!officePortfoliosLoaded && visibleOfficePortfolios.isEmpty()) "$currentOfficeForDisplay (Yükleniyor...)" else "$currentOfficeForDisplay (${visibleOfficePortfolios.size})"
                 )
                 tabs.forEachIndexed { index, title ->
                     val selected = selectedTab == index
@@ -2763,7 +2767,7 @@ fun MyPortfolioScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        val currentList = if (selectedTab == 0) localPortfolios else officePortfolios
+        val currentList = if (selectedTab == 0) localPortfolios else visibleOfficePortfolios
 
         if (currentList.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
