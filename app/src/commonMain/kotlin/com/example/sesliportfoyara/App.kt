@@ -255,11 +255,7 @@ fun App() {
                 }
 
                 dbManager.getPortfolios().collectLatest { list ->
-                    val currentOffice = myOfficeName
-                        .ifBlank { settings.getString("my_office_name", "") }
-                        .ifBlank { "Remax İlyada 3" }
-                    val visibleList = list.filter { normalizeOfficeName(it.officeName) == normalizeOfficeName(currentOffice) }
-                    officePortfolios.clear()
+                    val currentOffice = "Remax İlyada 3"
                     officePortfolios.addAll(visibleList.sortedByDescending { it.createdAt })
                 }
             }
