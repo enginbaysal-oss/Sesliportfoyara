@@ -123,22 +123,19 @@ class FirebaseDatabaseManager : DatabaseManager {
     override suspend fun clearAllPortfolios(): Boolean {
         return try {
             println("🗑️ Tüm ofis portföyleri siliniyor...")
-            // Firebase REST API ile tüm veriyi temizlemek için .json adresine DELETE isteği atıyoruz.
-            val response = client.delete("$baseUrl.json")
+            val response = client.put("$baseUrl.json") {
+                contentType(ContentType.Application.Json)
+                setBody("null")
+            }
             if (response.status.isSuccess()) {
-                println("✅ Tüm ofis portföyleri silindi.")
+                println("✅ Tüm ofis portföyleri sıfırlandı.")
                 true
             } else {
-                // Eğer kural veya CORS engeline takılıyorsa boş bir veri kümesi yazarak sıfırlamayı dene (PUT ile boş nesne)
-                val fallbackResponse = client.put("$baseUrl.json") {
-                    contentType(ContentType.Application.Json)
-                    setBody("{}")
-                }
+                val fallbackResponse = client.delete("$baseUrl.json")
                 fallbackResponse.status.isSuccess()
             }
         } catch (e: Exception) {
             println("❌ Temizleme hatası: ${e.message}")
-            // Eğer HTTP isteği tarayıcı güvenlik politikasından ötürü engellendiyse bile yerel akışı patlatmasın
             false
         }
     }
