@@ -255,7 +255,8 @@ fun App() {
                 }
 
                 dbManager.getPortfolios().collectLatest { list ->
-                    val currentOffice = "Remax İlyada 3"
+                    val visibleList = list.filter { normalizeOfficeName(it.officeName) == normalizeOfficeName(myOfficeName) || normalizeOfficeName(it.officeName) == normalizeOfficeName("Remax İlyada 3") || myOfficeName.isBlank() || normalizeOfficeName(myOfficeName) == "ofissiz / bağimsiz" }
+                    officePortfolios.clear()
                     officePortfolios.addAll(visibleList.sortedByDescending { it.createdAt })
                 }
             }
