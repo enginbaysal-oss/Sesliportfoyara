@@ -2461,13 +2461,16 @@ fun MyPortfolioScreen(
     var showClearDialog by remember { mutableStateOf(false) }
 
     val cleanCurrentPhoneForMine = currentPhone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
+    val fallbackEnginPhoneForMine = "5531354681"
     val cleanCurrentNameForMine = normalizeOfficeName(currentName)
 
     val automaticMyPortfolios = officePortfolios.filter { portfolio ->
         val cleanPortfolioPhone = portfolio.consultantPhone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
         val cleanPortfolioName = normalizeOfficeName(portfolio.consultantName)
 
-        val phoneMatches = cleanCurrentPhoneForMine.isNotBlank() && cleanPortfolioPhone == cleanCurrentPhoneForMine
+        val phoneMatches =
+            (cleanCurrentPhoneForMine.isNotBlank() && cleanPortfolioPhone == cleanCurrentPhoneForMine) ||
+            cleanPortfolioPhone == fallbackEnginPhoneForMine
         val currentNameParts = cleanCurrentNameForMine.split(" ").filter { it.length >= 3 }
         val nameMatches = cleanCurrentNameForMine.isNotBlank() &&
             cleanPortfolioName.isNotBlank() &&
