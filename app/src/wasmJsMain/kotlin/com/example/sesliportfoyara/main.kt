@@ -148,7 +148,7 @@ external fun jsSupabasePost(url: JsString, key: JsString, path: JsString, body: 
 external fun jsSupabasePatch(url: JsString, key: JsString, path: JsString, body: JsString, bearer: JsString, callback: (Boolean, JsString) -> Unit)
 @JsFun("(url, key, path, callback) => { " +
     "const doFetch = (retry) => { " +
-    "  fetch(url + path, { method: 'GET', headers: { 'apikey': key, 'Content-Type': 'application/json' } })" +
+    "  fetch(url + path, { method: 'GET', headers: { 'apikey': key, 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' } })" +
     "    .then(async r => { const t = await r.text(); callback(r.ok, t); })" +
     "    .catch(e => { " +
     "      if (retry) { setTimeout(() => doFetch(false), 300); } " +
