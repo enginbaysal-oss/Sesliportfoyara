@@ -346,25 +346,37 @@ fun App() {
                                 }
                             }
                         )
-                        Screen.VoiceSearch -> VoiceSearchScreen(officePortfolios, localPortfolios) { p ->
-                            scope.launch {
-                                try {
-                                    val officeCopy = p.copy(
-                                        id = "",
-                                        createdAt = Clock.now()
-                                    )
-                                    val newId = dbManager.addPortfolio(officeCopy)
-                                    if (newId != null) {
-                                        snackbarHostState.showSnackbar("✅ Ofise kopyalandı. Yerel kopyanız duruyor.")
-                                    } else {
-                                        snackbarHostState.showSnackbar("❌ Ofise kopyalanamadı (Yetki veya Ağ hatası).")
+                        Screen.VoiceSearch -> VoiceSearchScreen(
+                            officePortfolios = officePortfolios,
+                            localPortfolios = localPortfolios,
+                            onPublishLocal = { p ->
+                                scope.launch {
+                                    try {
+                                        val officeCopy = p.copy(
+                                            id = "",
+                                            createdAt = Clock.now()
+                                        )
+                                        val newId = dbManager.addPortfolio(officeCopy)
+                                        if (newId != null) {
+                                            snackbarHostState.showSnackbar("✅ Ofise kopyalandı. Yerel kopyanız duruyor.")
+                                        } else {
+                                            snackbarHostState.showSnackbar("❌ Ofise kopyalanamadı (Yetki veya Ağ hatası).")
+                                        }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                        snackbarHostState.showSnackbar("❌ Kopyalama hatası: ${e.message}")
                                     }
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                    snackbarHostState.showSnackbar("❌ Kopyalama hatası: ${e.message}")
                                 }
+                            },
+                            onCopyOfficeToLocal = { p ->
+                                val localCopy = p.copy(
+                                    id = "local_${Clock.now()}",
+                                    createdAt = Clock.now()
+                                )
+                                localPortfolioManager.addPortfolio(localCopy)
+                                scope.launch { snackbarHostState.showSnackbar("✅ Portföy benim portföylerime alındı.") }
                             }
-                        }
+                        )
                         Screen.AddPortfolio -> AddPortfolioScreen(editingPortfolio, myName, myPhone, isAdmin) { p, saveLocally ->
                             val wasEditing = editingPortfolio != null
                             val wasEditingLocal = isEditingLocal
@@ -491,6 +503,14 @@ fun App() {
                                         snackbarHostState.showSnackbar("❌ Kopyalama hatası: ${e.message}")
                                     }
                                 }
+                            },
+                            onCopyOfficeToLocal = { p ->
+                                val localCopy = p.copy(
+                                    id = "local_${Clock.now()}",
+                                    createdAt = Clock.now()
+                                )
+                                localPortfolioManager.addPortfolio(localCopy)
+                                scope.launch { snackbarHostState.showSnackbar("✅ Portföy benim portföylerime alındı.") }
                             },
                             onImportRemax = { url ->
                                 if (!(isAdmin || isOfficeAdmin)) {
@@ -1936,7 +1956,8 @@ fun TabNavigation(currentScreen: Screen, canUseTools: Boolean, isAdmin: Boolean,
 fun VoiceSearchScreen(
     officePortfolios: List<Portfolio>,
     localPortfolios: List<Portfolio>,
-    onPublish: (Portfolio) -> Unit
+    onPublishLocal: (Portfolio) -> Unit,
+    onCopyOfficeToLocal: (Portfolio) -> Unit
 ) {
     val scrollState = rememberScrollState()
     var searchResults by remember { mutableStateOf<List<Portfolio>>(emptyList()) }
@@ -2128,11 +2149,12 @@ fun VoiceSearchScreen(
             )
             Spacer(modifier = Modifier.height(10.dp))
             searchResults.forEach { portfolio ->
+                val isLocal = portfolio.id.startsWith("local_")
                 PortfolioItem(
                     portfolio = portfolio,
                     onDelete = null,
                     onEdit = null,
-                    onPublish = if (portfolio.id.startsWith("local_")) onPublish else null
+                    onPublish = if (isLocal) onPublishLocal else onCopyOfficeToLocal
                 )
             }
         }
@@ -2448,6 +2470,7 @@ fun MyPortfolioScreen(
     onEditOffice: (Portfolio) -> Unit,
     onEditLocal: (Portfolio) -> Unit,
     onPublishLocal: (Portfolio) -> Unit,
+    onCopyOfficeToLocal: (Portfolio) -> Unit,
     onImportRemax: (String) -> Unit,
     currentName: String,
     currentPhone: String,
@@ -2667,7 +2690,7 @@ fun MyPortfolioScreen(
                         portfolio = portfolio,
                         onDelete = if (canManage) { { portfolioToDelete = it } } else null,
                         onEdit = if (canManage) (if (selectedTab == 0) onEditLocal else onEditOffice) else null,
-                        onPublish = if (selectedTab == 0) onPublishLocal else null
+                        onPublish = if (selectedTab == 0) onPublishLocal else onCopyOfficeToLocal
                     )
                 }
             }
@@ -2928,8 +2951,14 @@ fun PortfolioItem(
                         }
 
                         if (onPublish != null) {
+                            val isLocal = portfolio.id.startsWith("local_")
                             IconButton(onClick = { onPublish(portfolio) }, modifier = Modifier.size(42.dp).background(Color(0xFF22A447).copy(0.15f), CircleShape)) {
-                                Icon(Icons.Default.CloudUpload, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                Icon(
+                                    imageVector = if (isLocal) Icons.Default.CloudUpload else Icons.Default.Download,
+                                    contentDescription = if (isLocal) "Ofise Yükle" else "Benim Portföylerime Al",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         }
 
