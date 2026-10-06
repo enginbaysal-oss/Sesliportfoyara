@@ -1504,36 +1504,7 @@ fun ProfileSetupScreen(
     var nameValue by remember { mutableStateOf(TextFieldValue(initialName)) }
     var phoneValue by remember { mutableStateOf(TextFieldValue(initialPhone)) }
     var officeNameValue by remember { mutableStateOf(TextFieldValue("Ofissiz / Bağımsız")) }
-    var officeOptions by remember { mutableStateOf(listOf("Ofissiz / Bağımsız")) }
-    var officeMenuExpanded by remember { mutableStateOf(false) }
     val platformUtils = LocalPlatformUtils.current
-
-    LaunchedEffect(Unit) {
-        platformUtils.getOfficeNames { offices ->
-            val cleaned = offices
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .distinctBy { normalizeOfficeName(it) }
-
-            val preferredOffice = cleaned.firstOrNull {
-                normalizeOfficeName(it) == normalizeOfficeName("REMAX İlyada 3")
-            }
-
-            officeOptions = if (cleaned.isEmpty()) {
-                listOf("Ofissiz / Bağımsız")
-            } else {
-                listOfNotNull(preferredOffice) +
-                    cleaned.filter {
-                        normalizeOfficeName(it) != normalizeOfficeName(preferredOffice ?: "") &&
-                            normalizeOfficeName(it) != normalizeOfficeName("Ofissiz / Bağımsız")
-                    } +
-                    listOf("Ofissiz / Bağımsız")
-            }
-            if (officeNameValue.text.isBlank() || officeNameValue.text == "Ofissiz / Bağımsız") {
-                officeNameValue = TextFieldValue(officeOptions.firstOrNull() ?: "Ofissiz / Bağımsız")
-            }
-        }
-    }
 
     var showAdminLogin by remember { mutableStateOf(false) }
     var adminEmail by remember { mutableStateOf("engin.baysal@remax-ilyada.com") }
@@ -1564,7 +1535,7 @@ fun ProfileSetupScreen(
 
         Text("Giriş ve Profil", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Telefon numaranızla giriş yapın veya kayıt talebi oluşturun.",
+            "Ad soyad ve telefon numaranızla giriş yapın.",
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 14.sp, textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp)
         )
@@ -1574,67 +1545,18 @@ fun ProfileSetupScreen(
         if (!showAdminLogin) {
             CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
             CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
-            Box(modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = { officeMenuExpanded = true },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        "Ofis: ${officeNameValue.text.ifBlank { "Ofissiz / Bağımsız" }}",
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Start
-                    )
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                }
-
-                if (officeMenuExpanded) {
-                    Spacer(Modifier.height(6.dp))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
-                            .padding(6.dp)
-                    ) {
-                        officeOptions.forEach { office ->
-                            OutlinedButton(
-                                onClick = {
-                                    officeNameValue = TextFieldValue(office)
-                                    officeMenuExpanded = false
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 3.dp),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Text(office)
-                            }
-                        }
-
-                        if (officeOptions.size <= 1) {
-                            Text(
-                                "Ofis listesi gelmezse Supabase bağlantısı kontrol edilecek.",
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(6.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
                 onClick = {
                     if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
-                        onComplete(nameValue.text.trim(), phoneValue.text.trim(), officeNameValue.text.trim())
+                        onComplete(nameValue.text.trim(), phoneValue.text.trim(), "Ofissiz / Bağımsız")
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
-                enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank() && officeNameValue.text.isNotBlank()
+                enabled = nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()
             ) {
                 Text("Giriş Yap", color = Color.Black, fontWeight = FontWeight.Bold)
             }
@@ -2534,6 +2456,27 @@ fun MyPortfolioScreen(
     var portfolioToDelete by remember { mutableStateOf<Portfolio?>(null) }
     var showImportDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
+
+    val cleanCurrentPhoneForMine = currentPhone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
+    val cleanCurrentNameForMine = normalizeOfficeName(currentName)
+
+    val automaticMyPortfolios = officePortfolios.filter { portfolio ->
+        val cleanPortfolioPhone = portfolio.consultantPhone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
+        val cleanPortfolioName = normalizeOfficeName(portfolio.consultantName)
+
+        val phoneMatches = cleanCurrentPhoneForMine.isNotBlank() && cleanPortfolioPhone == cleanCurrentPhoneForMine
+        val nameMatches = cleanCurrentNameForMine.isNotBlank() &&
+            cleanPortfolioName.isNotBlank() &&
+            (cleanPortfolioName == cleanCurrentNameForMine ||
+                cleanPortfolioName.contains(cleanCurrentNameForMine) ||
+                cleanCurrentNameForMine.contains(cleanPortfolioName))
+
+        phoneMatches || nameMatches
+    }
+
+    val myVisiblePortfolios = (localPortfolios + automaticMyPortfolios)
+        .distinctBy { it.id.ifBlank { it.link.ifBlank { "${it.title}-${it.consultantName}-${it.consultantPhone}" } } }
+
     var remaxUrl by remember { mutableStateOf("https://remax.com.tr/tr/ofis/detay/ilyada-3") }
 
     if (showClearDialog) {
@@ -2673,7 +2616,7 @@ fun MyPortfolioScreen(
         // TABLAR
         Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp)) {
             val tabs = listOf(
-                "Benim (${localPortfolios.size})", // "adet" yazısı kaldırıldı yer kazanmak için
+                "Benim (${myVisiblePortfolios.size})",
                 if (!officePortfoliosLoaded && officePortfolios.isEmpty()) "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (${officePortfolios.size})"
             )
             tabs.forEachIndexed { index, title ->
@@ -2692,7 +2635,7 @@ fun MyPortfolioScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        val currentList = if (selectedTab == 0) localPortfolios else officePortfolios
+        val currentList = if (selectedTab == 0) myVisiblePortfolios else officePortfolios
 
         if (currentList.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
