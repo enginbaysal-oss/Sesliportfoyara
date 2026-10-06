@@ -2721,7 +2721,7 @@ fun MyPortfolioScreen(
             ) {
                 val tabs = listOf(
                     "Benim (${localPortfolios.size})",
-                    if (!officePortfoliosLoaded && visibleOfficePortfolios.isEmpty()) "$currentOfficeForDisplay (Yükleniyor...)" else "$currentOfficeForDisplay (${visibleOfficePortfolios.size})"
+                    if (!officePortfoliosLoaded && visibleOfficePortfolios.isEmpty()) "$currentOfficeForDisplay (Yükleniyor...)" else "$currentOfficeForDisplay (${visibleOfficePortfolios.size}/${officePortfolios.size})"
                 )
                 tabs.forEachIndexed { index, title ->
                     val selected = selectedTab == index
