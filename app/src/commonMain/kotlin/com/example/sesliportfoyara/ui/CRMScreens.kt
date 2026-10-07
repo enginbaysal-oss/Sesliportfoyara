@@ -584,7 +584,7 @@ fun ClientItem(client: Client, matchedCount: Int, onClick: (Client) -> Unit) {
                     val textColor = if (client.dealType == "Kiralık") Color(0xFF1976D2) else Color(0xFF2E7D32)
                     Surface(color = badgeColor, shape = RoundedCornerShape(8.dp)) {
                         Text(
-                            text = "${client.dealType} arıyor",
+                            text = if (client.type == ClientType.SELLER) "${client.dealType} portföy" else "${client.dealType} arıyor",
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                             color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold
                         )
@@ -629,6 +629,17 @@ fun ClientItem(client: Client, matchedCount: Int, onClick: (Client) -> Unit) {
                 fontSize = 15.sp, color = Color.Black
             )
             
+            if (client.type == ClientType.SELLER && (client.inventoryItems.firstOrNull()?.photoUris?.isNotEmpty() == true)) {
+                Spacer(Modifier.height(8.dp))
+                Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(8.dp)) {
+                    Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Photo, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("${client.inventoryItems.firstOrNull()?.photoUris?.size ?: 0} fotoğraf kayıtlı", color = Color(0xFF2E7D32), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
             if (client.note.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -684,10 +695,6 @@ fun AddClientScreen(
     var sharedLinks by remember { mutableStateOf(editingClient?.sharedPortfolioLinks ?: emptyList()) }
 
     val existingInventory = editingClient?.inventoryItems?.firstOrNull()
-    var inventoryTitle by remember { mutableStateOf(existingInventory?.title ?: "") }
-    var inventoryPrice by remember { mutableStateOf(existingInventory?.price ?: "") }
-    var inventoryLocation by remember { mutableStateOf(existingInventory?.location ?: "") }
-    var inventoryDescription by remember { mutableStateOf(existingInventory?.description ?: "") }
     var inventoryPhotoUris by remember { mutableStateOf(existingInventory?.photoUris ?: emptyList()) }
 
     val scrollState = rememberScrollState()
@@ -824,10 +831,6 @@ fun AddClientScreen(
             Spacer(modifier = Modifier.height(18.dp))
             Text("ENVANTER BİLGİSİ", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
 
-            CustomInputField("ENVANTER BAŞLIĞI", inventoryTitle) { inventoryTitle = it }
-            CustomInputField(if (dealType == "Kiralık") "KİRA BEKLENTİSİ" else "FİYAT BEKLENTİSİ", inventoryPrice) { inventoryPrice = it }
-            CustomInputField("KONUM / MAHALLE", inventoryLocation) { inventoryLocation = it }
-            CustomInputField("ENVANTER NOTU / ÖZELLİKLER", inventoryDescription) { inventoryDescription = it }
 
             OutlinedButton(
                 onClick = {
@@ -1136,22 +1139,11 @@ fun AddClientScreen(
                             note = note,
                             reminders = reminders,
                             sharedPortfolioLinks = sharedLinks,
-                            inventoryItems = if (type == ClientType.SELLER && (
-                                    inventoryTitle.isNotBlank() ||
-                                    inventoryPrice.isNotBlank() ||
-                                    inventoryLocation.isNotBlank() ||
-                                    inventoryDescription.isNotBlank() ||
-                                    inventoryPhotoUris.isNotEmpty()
-                                )
-                            ) {
+                            inventoryItems = if (type == ClientType.SELLER && inventoryPhotoUris.isNotEmpty()) {
                                 listOf(
                                     ClientInventoryItem(
                                         id = existingInventory?.id ?: Clock.now().toString(),
                                         dealType = dealType,
-                                        title = inventoryTitle.trim(),
-                                        price = inventoryPrice.trim(),
-                                        location = inventoryLocation.trim(),
-                                        description = inventoryDescription.trim(),
                                         photoUris = inventoryPhotoUris,
                                         createdAt = existingInventory?.createdAt ?: Clock.now()
                                     )
