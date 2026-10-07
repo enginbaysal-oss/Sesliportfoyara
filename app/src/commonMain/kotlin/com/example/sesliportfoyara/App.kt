@@ -2987,7 +2987,7 @@ fun PortfolioItem(
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = if (isLocal) "Ofise Yükle" else "Portföylerime Al",
+                                    text = if (isLocal) "Ofis Portföylerime Aktar" else "Benim Portföylerime Aktar",
                                     color = Color.White,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
