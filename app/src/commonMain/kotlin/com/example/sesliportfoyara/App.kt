@@ -2655,7 +2655,7 @@ fun MyPortfolioScreen(
         Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp)) {
             val tabs = listOf(
                 "Benim (${myVisiblePortfolios.size})",
-                if (!officePortfoliosLoaded && officePortfolios.isEmpty()) "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Ofissiz / Bağımsız" }} (${officePortfolios.size})"
+                if (!officePortfoliosLoaded && officePortfolios.isEmpty()) "${currentOfficeName.ifBlank { "Remax İlyada 3" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Remax İlyada 3" }} (${officePortfolios.size})"
             )
             tabs.forEachIndexed { index, title ->
                 val selected = selectedTab == index
