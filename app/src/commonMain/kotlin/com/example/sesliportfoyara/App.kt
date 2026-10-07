@@ -369,12 +369,22 @@ fun App() {
                                 }
                             },
                             onCopyOfficeToLocal = { p ->
-                                val localCopy = p.copy(
-                                    id = "local_${Clock.now()}",
-                                    createdAt = Clock.now()
-                                )
-                                localPortfolioManager.addPortfolio(localCopy)
-                                scope.launch { snackbarHostState.showSnackbar("✅ Portföy benim portföylerime alındı.") }
+                                val alreadyExists = localPortfolios.any { existing ->
+                                    (p.link.isNotBlank() && existing.link == p.link) ||
+                                        (p.id.isNotBlank() && (existing.id == p.id || existing.id == "local_${p.id}")) ||
+                                        (p.title.isNotBlank() && existing.title == p.title && existing.consultantPhone == p.consultantPhone)
+                                }
+
+                                if (alreadyExists) {
+                                    scope.launch { snackbarHostState.showSnackbar("Bu portföy zaten benim portföylerimde. Değişiklik yok.") }
+                                } else {
+                                    val localCopy = p.copy(
+                                        id = "local_${p.id.ifBlank { Clock.now().toString() }}",
+                                        createdAt = Clock.now()
+                                    )
+                                    localPortfolioManager.addPortfolio(localCopy)
+                                    scope.launch { snackbarHostState.showSnackbar("Portföy benim portföylerime alındı.") }
+                                }
                             }
                         )
                         Screen.AddPortfolio -> AddPortfolioScreen(editingPortfolio, myName, myPhone, isAdmin) { p, saveLocally ->
@@ -505,12 +515,22 @@ fun App() {
                                 }
                             },
                             onCopyOfficeToLocal = { p ->
-                                val localCopy = p.copy(
-                                    id = "local_${Clock.now()}",
-                                    createdAt = Clock.now()
-                                )
-                                localPortfolioManager.addPortfolio(localCopy)
-                                scope.launch { snackbarHostState.showSnackbar("✅ Portföy benim portföylerime alındı.") }
+                                val alreadyExists = localPortfolios.any { existing ->
+                                    (p.link.isNotBlank() && existing.link == p.link) ||
+                                        (p.id.isNotBlank() && (existing.id == p.id || existing.id == "local_${p.id}")) ||
+                                        (p.title.isNotBlank() && existing.title == p.title && existing.consultantPhone == p.consultantPhone)
+                                }
+
+                                if (alreadyExists) {
+                                    scope.launch { snackbarHostState.showSnackbar("Bu portföy zaten benim portföylerimde. Değişiklik yok.") }
+                                } else {
+                                    val localCopy = p.copy(
+                                        id = "local_${p.id.ifBlank { Clock.now().toString() }}",
+                                        createdAt = Clock.now()
+                                    )
+                                    localPortfolioManager.addPortfolio(localCopy)
+                                    scope.launch { snackbarHostState.showSnackbar("Portföy benim portföylerime alındı.") }
+                                }
                             },
                             onImportRemax = { url ->
                                 if (!(isAdmin || isOfficeAdmin)) {
