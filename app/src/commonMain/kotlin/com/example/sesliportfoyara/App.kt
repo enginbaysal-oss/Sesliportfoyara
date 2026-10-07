@@ -533,17 +533,16 @@ fun App() {
                                 }
                             },
                             onImportRemax = { url ->
-                                if (!(isAdmin || isOfficeAdmin)) {
-                                    scope.launch { snackbarHostState.showSnackbar("İçeri aktarma için süper admin veya ofis admin yetkisi gerekir.") }
-                                } else {
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("⌛ Portföyler ofise aktarılıyor...")
-                                        val count = remaxService.syncWithFirebase(url, dbManager, myOfficeName)
-                                        if (count > 0) {
-                                            snackbarHostState.showSnackbar("✅ $count yeni portföy başarıyla aktarıldı.")
-                                        } else {
-                                            snackbarHostState.showSnackbar("ℹ️ Yeni portföy bulunamadı veya hepsi zaten mevcut.")
-                                        }
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("⌛ Portföyler ofise aktarılıyor...")
+                                    val importOfficeName = myOfficeName
+                                        .ifBlank { settings.getString("my_office_name", "") }
+                                        .ifBlank { "Remax İlyada 3" }
+                                    val count = remaxService.syncWithFirebase(url, dbManager, importOfficeName)
+                                    if (count > 0) {
+                                        snackbarHostState.showSnackbar("✅ $count yeni portföy başarıyla aktarıldı.")
+                                    } else {
+                                        snackbarHostState.showSnackbar("ℹ️ Yeni portföy bulunamadı veya hepsi zaten mevcut.")
                                     }
                                 }
                             },
@@ -2503,30 +2502,7 @@ fun MyPortfolioScreen(
     var showImportDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
 
-    val cleanCurrentPhoneForMine = currentPhone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
-    val fallbackEnginPhoneForMine = "5531354681"
-    val cleanCurrentNameForMine = normalizeOfficeName(currentName)
-
-    val automaticMyPortfolios = officePortfolios.filter { portfolio ->
-        val cleanPortfolioPhone = portfolio.consultantPhone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
-        val cleanPortfolioName = normalizeOfficeName(portfolio.consultantName)
-
-        val phoneMatches =
-            (cleanCurrentPhoneForMine.isNotBlank() && cleanPortfolioPhone == cleanCurrentPhoneForMine) ||
-            cleanPortfolioPhone == fallbackEnginPhoneForMine
-        val currentNameParts = cleanCurrentNameForMine.split(" ").filter { it.length >= 3 }
-        val nameMatches = cleanCurrentNameForMine.isNotBlank() &&
-            cleanPortfolioName.isNotBlank() &&
-            (cleanPortfolioName == cleanCurrentNameForMine ||
-                cleanPortfolioName.contains(cleanCurrentNameForMine) ||
-                cleanCurrentNameForMine.contains(cleanPortfolioName) ||
-                currentNameParts.any { cleanPortfolioName.contains(it) })
-
-        phoneMatches || nameMatches
-    }
-
-    val myVisiblePortfolios = (localPortfolios + automaticMyPortfolios)
-        .distinctBy { it.id.ifBlank { it.link.ifBlank { "${it.title}-${it.consultantName}-${it.consultantPhone}" } } }
+    val myVisiblePortfolios = localPortfolios
 
     var remaxUrl by remember { mutableStateOf("https://remax.com.tr/tr/ofis/detay/ilyada-3") }
 
@@ -2633,21 +2609,21 @@ fun MyPortfolioScreen(
 
         Spacer(modifier = Modifier.height(10.dp)) // Boşluk daraltıldı
 
-        // İŞLEM BUTONLARI (Yalnızca Admin / Ofis Yetkilisi görebilir)
-        if (isAdmin) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { showImportDialog = true },
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp)
-                ) {
-                    Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("İçe Aktar", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
+        // İŞLEM BUTONLARI
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { showImportDialog = true },
+                modifier = Modifier.weight(1f).height(36.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp)
+            ) {
+                Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("İçe Aktar", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
 
+            if (isAdmin) {
                 Button(
                     onClick = { showClearDialog = true },
                     modifier = Modifier.weight(1f).height(36.dp),
@@ -2660,9 +2636,9 @@ fun MyPortfolioScreen(
                     Text("Temizle", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
         }
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         // TABLAR
         Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp)) {
