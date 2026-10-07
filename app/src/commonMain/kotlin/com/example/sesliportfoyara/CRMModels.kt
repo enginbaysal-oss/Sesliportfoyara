@@ -21,6 +21,18 @@ data class SharedPortfolioLink(
 )
 
 @Serializable
+data class ClientInventoryItem(
+    val id: String = "",
+    val dealType: String = "Satılık",
+    val title: String = "",
+    val price: String = "",
+    val location: String = "",
+    val description: String = "",
+    val photoUris: List<String> = emptyList(),
+    val createdAt: Long = 0
+)
+
+@Serializable
 data class Client(
     val id: String = "",
     val name: String = "",
@@ -36,4 +48,6 @@ data class Client(
     val note: String = "",
     val createdAt: Long = 0,
     val reminders: List<CRMReminder> = emptyList(),
-    val sharedPortfolioLinks: List<SharedPortfolioLink> = emptyList())
+    val sharedPortfolioLinks: List<SharedPortfolioLink> = emptyList(),
+    val inventoryItems: List<ClientInventoryItem> = emptyList()
+)

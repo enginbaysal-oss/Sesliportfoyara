@@ -683,6 +683,13 @@ fun AddClientScreen(
     var sharedLinkNote by remember { mutableStateOf("") }
     var sharedLinks by remember { mutableStateOf(editingClient?.sharedPortfolioLinks ?: emptyList()) }
 
+    val existingInventory = editingClient?.inventoryItems?.firstOrNull()
+    var inventoryTitle by remember { mutableStateOf(existingInventory?.title ?: "") }
+    var inventoryPrice by remember { mutableStateOf(existingInventory?.price ?: "") }
+    var inventoryLocation by remember { mutableStateOf(existingInventory?.location ?: "") }
+    var inventoryDescription by remember { mutableStateOf(existingInventory?.description ?: "") }
+    var inventoryPhotoUris by remember { mutableStateOf(existingInventory?.photoUris ?: emptyList()) }
+
     val scrollState = rememberScrollState()
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(scrollState).padding(20.dp)) {
@@ -813,6 +820,47 @@ fun AddClientScreen(
         }
 
         CustomInputField("NOTLAR", note) { note = it }
+        if (type == ClientType.SELLER) {
+            Spacer(modifier = Modifier.height(18.dp))
+            Text("ENVANTER BİLGİSİ", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+            CustomInputField("ENVANTER BAŞLIĞI", inventoryTitle) { inventoryTitle = it }
+            CustomInputField(if (dealType == "Kiralık") "KİRA BEKLENTİSİ" else "FİYAT BEKLENTİSİ", inventoryPrice) { inventoryPrice = it }
+            CustomInputField("KONUM / MAHALLE", inventoryLocation) { inventoryLocation = it }
+            CustomInputField("ENVANTER NOTU / ÖZELLİKLER", inventoryDescription) { inventoryDescription = it }
+
+            OutlinedButton(
+                onClick = {
+                    platformUtils.pickFile { picked ->
+                        if (!picked.isNullOrBlank()) {
+                            inventoryPhotoUris = inventoryPhotoUris + picked
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Photo, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Fotoğraf Ekle")
+            }
+
+            if (inventoryPhotoUris.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("${inventoryPhotoUris.size} fotoğraf eklendi", color = Color(0xFF22A447), fontSize = 12.sp)
+                    Text(
+                        "Fotoğrafları temizle",
+                        color = Color.Red,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { inventoryPhotoUris = emptyList() }
+                    )
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -1088,6 +1136,29 @@ fun AddClientScreen(
                             note = note,
                             reminders = reminders,
                             sharedPortfolioLinks = sharedLinks,
+                            inventoryItems = if (type == ClientType.SELLER && (
+                                    inventoryTitle.isNotBlank() ||
+                                    inventoryPrice.isNotBlank() ||
+                                    inventoryLocation.isNotBlank() ||
+                                    inventoryDescription.isNotBlank() ||
+                                    inventoryPhotoUris.isNotEmpty()
+                                )
+                            ) {
+                                listOf(
+                                    ClientInventoryItem(
+                                        id = existingInventory?.id ?: Clock.now().toString(),
+                                        dealType = dealType,
+                                        title = inventoryTitle.trim(),
+                                        price = inventoryPrice.trim(),
+                                        location = inventoryLocation.trim(),
+                                        description = inventoryDescription.trim(),
+                                        photoUris = inventoryPhotoUris,
+                                        createdAt = existingInventory?.createdAt ?: Clock.now()
+                                    )
+                                )
+                            } else {
+                                emptyList()
+                            },
                             createdAt = editingClient?.createdAt ?: Clock.now()
                         ))
                     }
