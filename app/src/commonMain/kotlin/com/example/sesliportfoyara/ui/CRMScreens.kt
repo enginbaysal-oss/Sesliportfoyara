@@ -629,17 +629,6 @@ fun ClientItem(client: Client, matchedCount: Int, onClick: (Client) -> Unit) {
                 fontSize = 15.sp, color = Color.Black
             )
             
-            if (client.type == ClientType.SELLER && (client.inventoryItems.firstOrNull()?.photoUris?.isNotEmpty() == true)) {
-                Spacer(Modifier.height(8.dp))
-                Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(8.dp)) {
-                    Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Photo, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("${client.inventoryItems.firstOrNull()?.photoUris?.size ?: 0} fotoğraf kayıtlı", color = Color(0xFF2E7D32), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
             if (client.note.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -694,8 +683,6 @@ fun AddClientScreen(
     var sharedLinkNote by remember { mutableStateOf("") }
     var sharedLinks by remember { mutableStateOf(editingClient?.sharedPortfolioLinks ?: emptyList()) }
 
-    val existingInventory = editingClient?.inventoryItems?.firstOrNull()
-    var inventoryPhotoUris by remember { mutableStateOf(existingInventory?.photoUris ?: emptyList()) }
 
     val scrollState = rememberScrollState()
 
@@ -827,44 +814,6 @@ fun AddClientScreen(
         }
 
         CustomInputField("NOTLAR", note) { note = it }
-        if (type == ClientType.SELLER) {
-            Spacer(modifier = Modifier.height(18.dp))
-            Text("ENVANTER BİLGİSİ", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-
-
-            OutlinedButton(
-                onClick = {
-                    platformUtils.pickFile { picked ->
-                        if (!picked.isNullOrBlank()) {
-                            inventoryPhotoUris = inventoryPhotoUris + picked
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Photo, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Fotoğraf Ekle")
-            }
-
-            if (inventoryPhotoUris.isNotEmpty()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("${inventoryPhotoUris.size} fotoğraf eklendi", color = Color(0xFF22A447), fontSize = 12.sp)
-                    Text(
-                        "Fotoğrafları temizle",
-                        color = Color.Red,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { inventoryPhotoUris = emptyList() }
-                    )
-                }
-            }
-        }
-
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
@@ -1139,18 +1088,6 @@ fun AddClientScreen(
                             note = note,
                             reminders = reminders,
                             sharedPortfolioLinks = sharedLinks,
-                            inventoryItems = if (type == ClientType.SELLER && inventoryPhotoUris.isNotEmpty()) {
-                                listOf(
-                                    ClientInventoryItem(
-                                        id = existingInventory?.id ?: Clock.now().toString(),
-                                        dealType = dealType,
-                                        photoUris = inventoryPhotoUris,
-                                        createdAt = existingInventory?.createdAt ?: Clock.now()
-                                    )
-                                )
-                            } else {
-                                emptyList()
-                            },
                             createdAt = editingClient?.createdAt ?: Clock.now()
                         ))
                     }
