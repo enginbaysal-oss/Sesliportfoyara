@@ -18,42 +18,59 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 @JsFun("(onResult, onError) => { " +
-    "console.log('🎤 Web Speech API initiation...'); " +
+    "console.log('🎤 Web Speech API initiation (Continuous Mode)...'); " +
     "if (!window.isSecureContext) { " +
     "  onError('Sesli arama için güvenli bağlantı (HTTPS) gereklidir.'); " +
     "  return; " +
     "} " +
     "const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; " +
     "if (!SpeechRecognition) { " +
-    "  onError('Bu tarayıcı Web Speech API desteklemiyor. Lütfen Chrome veya Edge kullanın.'); " +
+    "  onError('Bu tarayıcı ses tanıma desteklemiyor. Lütfen Chrome kullanın.'); " +
     "  return; " +
     "} " +
     "navigator.mediaDevices.getUserMedia({ audio: true }) " +
     "  .then((stream) => { " +
-    "    console.log('✅ Mikrofon izni alındı, ses tanıma başlatılıyor...'); " +
+    "    console.log('✅ Mikrofon izni alındı, sürekli dinleme başlatılıyor...'); " +
     "    stream.getTracks().forEach(track => track.stop()); " +
     "    try { " +
+    "      if (window._currentRecognition) { " +
+    "        try { window._currentRecognition.stop(); } catch(e) {} " +
+    "        window._currentRecognition = null; " +
+    "      } " +
     "      const recognition = new SpeechRecognition(); " +
     "      recognition.lang = 'tr-TR'; " +
-    "      recognition.interimResults = false; " +
-    "      recognition.maxAlternatives = 1; " +
+    "      recognition.continuous = true; " +
+    "      recognition.interimResults = true; " +
+    "      recognition.maxAlternatives = 3; " +
+    "      let finalTranscript = ''; " +
     "      recognition.onresult = (event) => { " +
-    "        const text = event.results[0][0].transcript; " +
-    "        console.log('🎤 Algılanan ses:', text); " +
-    "        onResult(text); " +
+    "        let interim = ''; " +
+    "        for (let i = event.resultIndex; i < event.results.length; ++i) { " +
+    "          if (event.results[i].isFinal) { " +
+    "            finalTranscript += event.results[i][0].transcript; " +
+    "          } else { " +
+    "            interim += event.results[i][0].transcript; " +
+    "          } " +
+    "        } " +
+    "        const currentText = finalTranscript || interim; " +
+    "        console.log('🎤 Algılanan metin:', currentText); " +
+    "        if (currentText.trim().length > 0) { " +
+    "          onResult(currentText.trim()); " +
+    "          try { recognition.stop(); } catch(e) {} " +
+    "        } " +
     "      }; " +
     "      recognition.onerror = (event) => { " +
     "        console.error('❌ SpeechRecognition hatası:', event.error); " +
     "        if (event.error === 'no-speech') { " +
-    "          onError('Ses algılanamadı. Lütfen mikrofona yaklaşarak tekrar konuşun.'); " +
+    "          console.warn('⚠️ Ses algılanamadı, ancak dinlemeye devam ediliyor...'); " +
     "        } else if (event.error === 'not-allowed') { " +
-    "          onError('Mikrofon izni reddedildi. Tarayıcı ayarlarından izin verin.'); " +
-    "        } else { " +
+    "          onError('Mikrofon izni reddedildi. Tarayıcı izinlerini kontrol edin.'); " +
+    "        } else if (event.error !== 'aborted') { " +
     "          onError('Ses tanıma hatası: ' + event.error); " +
     "        } " +
     "      }; " +
     "      recognition.onend = () => { " +
-    "        console.log('🎤 Dinleme bitti'); " +
+    "        console.log('🎤 Dinleme sonlandırıldı'); " +
     "        window._currentRecognition = null; " +
     "      }; " +
     "      recognition.start(); " +
