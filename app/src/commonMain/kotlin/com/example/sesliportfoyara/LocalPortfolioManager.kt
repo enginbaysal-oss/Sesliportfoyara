@@ -31,16 +31,19 @@ class LocalPortfolioManager(private val settings: Settings) {
         }
     }
 
-    fun savePortfolios(list: List<Portfolio>) {
+    fun savePortfolios(list: List<Portfolio>, allowEmpty: Boolean = false) {
+        if (list.isEmpty() && _portfolios.value.isNotEmpty() && !allowEmpty) {
+            println("Yerel portfoyler bos listeyle ezilmedi.")
+            return
+        }
+
         try {
             val jsonString = json.encodeToString(list)
-            // Sınırı aşmamak için güvenli kayıt
             settings.putString(PORTFOLIOS_KEY, jsonString)
             _portfolios.value = list
         } catch (e: Exception) {
             e.printStackTrace()
-            // Hata durumunda en azından arayüzü güncelleyelim
-            _portfolios.value = list
+            println("Yerel portfoyler kalici olarak kaydedilemedi. Mevcut liste korundu.")
         }
     }
 
@@ -64,11 +67,11 @@ class LocalPortfolioManager(private val settings: Settings) {
 
     fun deletePortfolio(id: String) {
         val current = _portfolios.value.filter { it.id != id }
-        savePortfolios(current)
+        savePortfolios(current, allowEmpty = true)
     }
 
     fun clearAllPortfolios() {
-        savePortfolios(emptyList())
+        savePortfolios(emptyList(), allowEmpty = true)
     }
 
     fun getAllPortfolios(): List<Portfolio> = _portfolios.value
