@@ -226,7 +226,11 @@ class RemaxService {
                 rawJson = extractObjectStringByKey(flight, key)
                 if (rawJson != null) break
             }
-            if (rawJson == null) return emptyList()
+            if (rawJson == null) {
+                println("RemaxService DEBUG: rawJson bulunamadi. URL=$pagedUrl")
+                println("RemaxService DEBUG: flight ilk 2000=" + flight.take(2000))
+                return emptyList()
+            }
 
             val root = json.parseToJsonElement(rawJson)
             val resolved = resolveRefs(root, rows)
