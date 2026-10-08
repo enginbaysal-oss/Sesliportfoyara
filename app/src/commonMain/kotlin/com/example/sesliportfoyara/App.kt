@@ -2749,6 +2749,19 @@ fun PortfolioItem(
     val cleanMyPhone = currentConsultant.phone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
     val cleanConsultantPhone = portfolio.consultantPhone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
 
+    val authorityDaysLeft = if (portfolio.authorityEndDate > 0L) ((portfolio.authorityEndDate - Clock.now()) / DAY_MS).toInt() else Int.MAX_VALUE
+    val authorityLabel = when {
+        portfolio.authorityEndDate <= 0L -> ""
+        authorityDaysLeft < 0 -> "Yetki doldu: ${formatTurkishDateMillis(portfolio.authorityEndDate)}"
+        authorityDaysLeft <= 3 -> "Yetki bitiyor: ${formatTurkishDateMillis(portfolio.authorityEndDate)}"
+        else -> "Yetki: ${formatTurkishDateMillis(portfolio.authorityEndDate)}"
+    }
+    val authorityColor = when {
+        authorityDaysLeft < 0 -> Color(0xFFC0392B)
+        authorityDaysLeft <= 3 -> Color(0xFFFF9800)
+        else -> Color(0xFF22A447)
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(
@@ -2786,7 +2799,7 @@ fun PortfolioItem(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 // İlan Tipi Etiketi (Satılık/Kiralık) - Hafif renkli altlık ve belirgin yazı
                                 val typeColor = if (portfolio.type == "Satılık") MaterialTheme.colorScheme.primary else Color(0xFF4CAF50)
                                 Surface(
