@@ -561,7 +561,7 @@ fun App() {
                                     if (count > 0) {
                                         snackbarHostState.showSnackbar("✅ $count yeni portföy başarıyla aktarıldı.")
                                     } else {
-                                        snackbarHostState.showSnackbar("ℹ️ Yeni portföy bulunamadı veya hepsi zaten mevcut.")
+                                        snackbarHostState.showSnackbar(remaxService.lastSyncMessage.ifBlank { "ℹ️ Yeni portföy bulunamadı veya hepsi zaten mevcut." })
                                     }
                                 }
                             },

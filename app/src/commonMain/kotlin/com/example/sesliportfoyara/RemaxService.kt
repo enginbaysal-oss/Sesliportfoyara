@@ -218,7 +218,10 @@ class RemaxService {
 
             val html = response.bodyAsText()
             val flight = decodeFlight(html)
-            if (flight.isEmpty()) return emptyList()
+            if (flight.isEmpty()) {
+                lastSyncMessage = "Sayfa okundu ama REMAX veri bloğu bulunamadı."
+                return emptyList()
+            }
 
             val rows = parseFlightRows(flight)
             var rawJson: String? = null
@@ -227,8 +230,7 @@ class RemaxService {
                 if (rawJson != null) break
             }
             if (rawJson == null) {
-                println("RemaxService DEBUG: rawJson bulunamadi. URL=$pagedUrl")
-                println("RemaxService DEBUG: flight ilk 2000=" + flight.take(2000))
+                lastSyncMessage = "Sayfa okundu ama ilan listesi verisi bulunamadı. Bu link tipi henüz desteklenmiyor olabilir."
                 return emptyList()
             }
 
