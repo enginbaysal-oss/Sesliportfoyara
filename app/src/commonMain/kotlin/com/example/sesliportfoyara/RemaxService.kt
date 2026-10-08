@@ -15,6 +15,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 class RemaxService {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing
+    var lastSyncMessage: String = ""
 
     // CORS PROXY: Web (wasmJs) tarafında Remax'ın sunucusu doğrudan istek
     // atmamıza CORS politikası nedeniyle izin vermiyor. Bu yüzden istekleri
@@ -381,45 +382,47 @@ class RemaxService {
 
     suspend fun syncWithFirebase(url: String, dbManager: DatabaseManager, officeName: String): Int {
         if (url.isBlank() || _isSyncing.value) return 0
+        val urls = url.split(",", ";", "|", "\n").map { it.trim() }.filter { it.isNotBlank() }
+        if (urls.isEmpty()) return 0
+
         var totalAdded = 0
-        var currentPage = 1
         _isSyncing.value = true
         try {
-            withTimeoutOrNull(120000L) {
+            withTimeoutOrNull(180000L) {
                 val fetchedPortfolios = mutableListOf<Portfolio>()
                 val fetchedNormLinks = mutableSetOf<String>()
-                var fetchedSuccessfully = false
 
-                while (currentPage <= 20) {
-                    val list = fetchOfficePortfolios(url, currentPage)
-                    if (list.isEmpty()) {
-                        break
-                    }
+                for (url in urls) {
+                    var currentPage = 1
 
-                    val newItemsInPage = list.filter { p ->
-                        val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/").lowercase()
-                        norm.isNotBlank() && !fetchedNormLinks.contains(norm)
-                    }
-
-                    if (newItemsInPage.isEmpty() && currentPage > 1) {
-                        println("🛑 Sync: Sayfa $currentPage tekrar eden ilanlar döndürdü (pagination loop), döngü sonlandırıldı.")
-                        break
-                    }
-
-                    fetchedSuccessfully = true
-                    list.forEach { p ->
-                        val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/").lowercase()
-                        if (norm.isNotBlank() && !fetchedNormLinks.contains(norm)) {
-                            fetchedNormLinks.add(norm)
-                            fetchedPortfolios.add(p)
+                    while (currentPage <= 20) {
+                        val list = fetchOfficePortfolios(url, currentPage)
+                        if (list.isEmpty()) {
+                            break
                         }
+
+                        val newItemsInPage = list.filter { p ->
+                            val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/").lowercase()
+                            norm.isNotBlank() && !fetchedNormLinks.contains(norm)
+                        }
+
+                        if (newItemsInPage.isEmpty() && currentPage > 1) {
+                            break
+                        }
+
+                        list.forEach { p ->
+                            val norm = p.link.replace("https://", "").replace("www.", "").removeSuffix("/").lowercase()
+                            if (norm.isNotBlank() && !fetchedNormLinks.contains(norm)) {
+                                fetchedNormLinks.add(norm)
+                                fetchedPortfolios.add(p)
+                            }
+                        }
+                        if (list.size < 10) break
+                        currentPage++
                     }
-                    if (list.size < 10) break
-                    currentPage++
                 }
 
-                if (fetchedSuccessfully && fetchedPortfolios.isNotEmpty()) {
-                    // Temiz bir senkronizasyon için eski birikmiş/çift kayıtları temizle ve taze listeyi yükle
+                if (fetchedPortfolios.isNotEmpty()) {
                     dbManager.clearAllPortfolios()
 
                     fetchedPortfolios.forEach { p ->
@@ -427,7 +430,6 @@ class RemaxService {
                             totalAdded++
                         }
                     }
-                    println("✅ Sync tamamlandı: Toplam ${fetchedPortfolios.size} güncel ilan yüklendi.")
                 }
             }
         } catch (e: Exception) {
