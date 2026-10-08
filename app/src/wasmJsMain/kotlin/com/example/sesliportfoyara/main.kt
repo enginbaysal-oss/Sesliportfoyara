@@ -39,8 +39,8 @@ import kotlinx.serialization.json.JsonPrimitive
     "      } " +
     "      const recognition = new SpeechRecognition(); " +
     "      recognition.lang = 'tr-TR'; " +
-    "      recognition.continuous = true; " +
-    "      recognition.interimResults = true; " +
+    "      recognition.continuous = false; " +
+    "      recognition.interimResults = false; " +
     "      recognition.maxAlternatives = 3; " +
     "      let finalTranscript = ''; " +
     "      recognition.onresult = (event) => { " +
