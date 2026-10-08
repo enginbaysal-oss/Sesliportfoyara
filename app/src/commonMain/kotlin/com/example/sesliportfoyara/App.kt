@@ -162,7 +162,10 @@ fun App() {
     // Uygulamanın hatırladığı danışman bilgileri (Sizin kimliğiniz)
     var myName by remember { mutableStateOf(settings.getString("my_consultant_name", "")) }
     var myPhone by remember { mutableStateOf(settings.getString("my_consultant_phone", "")) }
-    var remaxUrl by remember { mutableStateOf(settings.getString("remax_office_url", "")) }
+    var remaxUrl by remember {
+        val savedRemaxUrl = settings.getString("remax_office_url", "")
+        mutableStateOf(if (savedRemaxUrl.startsWith("http")) savedRemaxUrl else "https://remax.com.tr/tr/ofis/detay/ilyada-3")
+    }
     var isAdmin by remember { mutableStateOf(settings.getBoolean("is_admin", false)) }
     var canUseTools by remember { mutableStateOf(settings.getBoolean("can_use_tools", false)) }
     var isOfficeAdmin by remember { mutableStateOf(settings.getBoolean("is_office_admin", false)) }
@@ -543,10 +546,10 @@ fun App() {
                                     scope.launch { snackbarHostState.showSnackbar("Portföy benim portföylerime alındı.") }
                                 }
                             },
-                            remaxImportUrl = remaxUrl.ifBlank { "https://remax.com.tr/tr/ofis/detay/ilyada-3" },
+                            remaxImportUrl = if (remaxUrl.startsWith("http")) remaxUrl else "https://remax.com.tr/tr/ofis/detay/ilyada-3",
                             onRemaxImportUrlChange = { url: String ->
                                 remaxUrl = url
-                                settings.putString("remax_office_url", url)
+                                settings.putString("remax_office_url", url.trim())
                             },
                             onImportRemax = { url ->
                                 scope.launch {
