@@ -543,6 +543,11 @@ fun App() {
                                     scope.launch { snackbarHostState.showSnackbar("Portföy benim portföylerime alındı.") }
                                 }
                             },
+                            remaxImportUrl = remaxUrl.ifBlank { "https://remax.com.tr/tr/ofis/detay/ilyada-3" },
+                            onRemaxImportUrlChange = { url: String ->
+                                remaxUrl = url
+                                settings.putString("remax_office_url", url)
+                            },
                             onImportRemax = { url ->
                                 scope.launch {
                                     snackbarHostState.showSnackbar("⌛ Portföyler ofise aktarılıyor...")
@@ -2501,6 +2506,8 @@ fun MyPortfolioScreen(
     onEditLocal: (Portfolio) -> Unit,
     onPublishLocal: (Portfolio) -> Unit,
     onCopyOfficeToLocal: (Portfolio) -> Unit,
+    remaxImportUrl: String,
+    onRemaxImportUrlChange: (String) -> Unit,
     onImportRemax: (String) -> Unit,
     currentName: String,
     currentPhone: String,
@@ -2515,7 +2522,7 @@ fun MyPortfolioScreen(
 
     val myVisiblePortfolios = localPortfolios
 
-    var remaxUrl by remember { mutableStateOf("https://remax.com.tr/tr/ofis/detay/ilyada-3") }
+    var remaxUrl by remember(remaxImportUrl) { mutableStateOf(remaxImportUrl.ifBlank { "https://remax.com.tr/tr/ofis/detay/ilyada-3" }) }
 
     if (showClearDialog) {
         AlertDialog(
@@ -2556,7 +2563,7 @@ fun MyPortfolioScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        onImportRemax(remaxUrl)
+                        onImportRemax(remaxUrl.trim())
                         showImportDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
