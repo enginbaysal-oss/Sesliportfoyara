@@ -18,72 +18,38 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 @JsFun("(onResult, onError) => { " +
-    "console.log('🎤 Web Speech API initiation (Continuous Mode)...'); " +
-    "if (!window.isSecureContext) { " +
-    "  onError('Sesli arama için güvenli bağlantı (HTTPS) gereklidir.'); " +
-    "  return; " +
-    "} " +
+    "console.log('Web Speech API baslatiliyor...'); " +
+    "if (!window.isSecureContext) { onError('Sesli arama için HTTPS gereklidir.'); return; } " +
     "const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; " +
-    "if (!SpeechRecognition) { " +
-    "  onError('Bu tarayıcı ses tanıma desteklemiyor. Lütfen Chrome kullanın.'); " +
-    "  return; " +
+    "if (!SpeechRecognition) { onError('Bu tarayıcı ses tanıma desteklemiyor. Chrome veya Edge kullanın.'); return; } " +
+    "try { " +
+    "  if (window._currentRecognition) { try { window._currentRecognition.abort(); } catch(e) {} window._currentRecognition = null; } " +
+    "  const recognition = new SpeechRecognition(); " +
+    "  recognition.lang = 'tr-TR'; " +
+    "  recognition.continuous = false; " +
+    "  recognition.interimResults = false; " +
+    "  recognition.maxAlternatives = 1; " +
+    "  let sent = false; " +
+    "  recognition.onresult = (event) => { " +
+    "    let text = ''; " +
+    "    try { text = event.results[0][0].transcript || ''; } catch(e) {} " +
+    "    text = text.trim(); " +
+    "    console.log('Algilanan metin:', text); " +
+    "    if (text.length > 0 && !sent) { sent = true; onResult(text); } " +
+    "  }; " +
+    "  recognition.onerror = (event) => { " +
+    "    console.error('SpeechRecognition hatasi:', event.error); " +
+    "    if (event.error === 'no-speech') onError('Ses algılanamadı. Tekrar deneyin.'); " +
+    "    else if (event.error === 'not-allowed') onError('Mikrofon izni reddedildi. Tarayıcı izinlerini kontrol edin.'); " +
+    "    else if (event.error !== 'aborted') onError('Ses tanıma hatası: ' + event.error); " +
+    "  }; " +
+    "  recognition.onend = () => { window._currentRecognition = null; }; " +
+    "  window._currentRecognition = recognition; " +
+    "  recognition.start(); " +
+    "} catch (err) { " +
+    "  console.error('SpeechRecognition baslatilamadi:', err); " +
+    "  onError('Ses tanıma başlatılamadı: ' + (err && err.message ? err.message : err)); " +
     "} " +
-    "navigator.mediaDevices.getUserMedia({ audio: true }) " +
-    "  .then((stream) => { " +
-    "    console.log('✅ Mikrofon izni alındı, sürekli dinleme başlatılıyor...'); " +
-    "    stream.getTracks().forEach(track => track.stop()); " +
-    "    try { " +
-    "      if (window._currentRecognition) { " +
-    "        try { window._currentRecognition.stop(); } catch(e) {} " +
-    "        window._currentRecognition = null; " +
-    "      } " +
-    "      const recognition = new SpeechRecognition(); " +
-    "      recognition.lang = 'tr-TR'; " +
-    "      recognition.continuous = false; " +
-    "      recognition.interimResults = false; " +
-    "      recognition.maxAlternatives = 3; " +
-    "      let finalTranscript = ''; " +
-    "      recognition.onresult = (event) => { " +
-    "        let interim = ''; " +
-    "        for (let i = event.resultIndex; i < event.results.length; ++i) { " +
-    "          if (event.results[i].isFinal) { " +
-    "            finalTranscript += event.results[i][0].transcript; " +
-    "          } else { " +
-    "            interim += event.results[i][0].transcript; " +
-    "          } " +
-    "        } " +
-    "        const currentText = finalTranscript || interim; " +
-    "        console.log('🎤 Algılanan metin:', currentText); " +
-    "        if (currentText.trim().length > 0) { " +
-    "          onResult(currentText.trim()); " +
-    "          try { recognition.stop(); } catch(e) {} " +
-    "        } " +
-    "      }; " +
-    "      recognition.onerror = (event) => { " +
-    "        console.error('❌ SpeechRecognition hatası:', event.error); " +
-    "        if (event.error === 'no-speech') { " +
-    "          console.warn('⚠️ Ses algılanamadı, ancak dinlemeye devam ediliyor...'); " +
-    "        } else if (event.error === 'not-allowed') { " +
-    "          onError('Mikrofon izni reddedildi. Tarayıcı izinlerini kontrol edin.'); " +
-    "        } else if (event.error !== 'aborted') { " +
-    "          onError('Ses tanıma hatası: ' + event.error); " +
-    "        } " +
-    "      }; " +
-    "      recognition.onend = () => { " +
-    "        console.log('🎤 Dinleme sonlandırıldı'); " +
-    "        window._currentRecognition = null; " +
-    "      }; " +
-    "      recognition.start(); " +
-    "      window._currentRecognition = recognition; " +
-    "    } catch (err) { " +
-    "      console.error('❌ SpeechRecognition başlatılamadı:', err); " +
-    "      onError('Ses tanıma başlatılamadı: ' + err.message); " +
-    "    } " +
-    "  }) " +
-    "  .catch((err) => { " +
-    "    console.error('❌ Mikrofon erişim hatası:', err); " +
-    "    onError('Mikrofon izni verilmedi veya erişilemiyor.'); " +
-    "  }); " +
     "}")
 external fun jsStartVoiceRecognition(onResult: (JsString) -> Unit, onError: (JsString) -> Unit)
 
