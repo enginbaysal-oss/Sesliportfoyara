@@ -579,10 +579,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 
   var DEFAULT_APP_PASSWORD = '';
   function getAppPassword(){
-    try{
-      var custom = localStorage.getItem('app-password');
-      return custom || DEFAULT_APP_PASSWORD;
-    }catch(e){ return DEFAULT_APP_PASSWORD; }
+    return '';
   }
 
   function renderLockScreen(){
