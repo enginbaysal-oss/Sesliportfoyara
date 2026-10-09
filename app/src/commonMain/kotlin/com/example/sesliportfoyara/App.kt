@@ -2834,6 +2834,34 @@ fun PortfolioItem(
                                         modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                                     )
                                 }
+
+                                // Yetki Süresi Etiketi (Mavi: Süresi var, Turuncu: Yaklaşıyor, Kırmızı: Doldu)
+                                if (portfolio.authorityEndDate > 0L) {
+                                    val daysLeft = ((portfolio.authorityEndDate - Clock.now()) / DAY_MS).toInt()
+                                    val authorityText = when {
+                                        daysLeft < 0 -> "Yetki Bitti (${formatTurkishDateMillis(portfolio.authorityEndDate)})"
+                                        daysLeft == 0 -> "Yetki Son Gün (${formatTurkishDateMillis(portfolio.authorityEndDate)})"
+                                        else -> "Yetki: $daysLeft gün (${formatTurkishDateMillis(portfolio.authorityEndDate)})"
+                                    }
+                                    val authorityColor = when {
+                                        daysLeft < 0 -> Color(0xFFC0392B) // Kırmızı
+                                        daysLeft <= 3 -> Color(0xFFFF9800) // Turuncu
+                                        else -> Color(0xFF2196F3) // Mavi
+                                    }
+                                    Surface(
+                                        color = authorityColor.copy(alpha = 0.12f),
+                                        shape = RoundedCornerShape(4.dp),
+                                        border = BorderStroke(0.5.dp, authorityColor.copy(alpha = 0.3f))
+                                    ) {
+                                        Text(
+                                            text = authorityText,
+                                            color = authorityColor,
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                         
