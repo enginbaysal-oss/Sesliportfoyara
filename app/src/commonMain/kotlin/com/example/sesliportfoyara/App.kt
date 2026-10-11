@@ -318,7 +318,7 @@ fun App() {
                 if (currentScreen != Screen.ProfileSetup) {
                     while (true) {
                         val announcement = dbManager.getAnnouncement()
-                        val seenAnnouncementKey = "last_seen_announcement_id_" + myPhone.filter { it.isDigit() }.ifBlank { "anonymous" }
+                        val seenAnnouncementKey = "last_seen_announcement_id_" + myPhone.filter { it.isDigit() }
                         val seenAnnouncementId = settings.getString(seenAnnouncementKey, "")
                         if (
                             announcement?.active == true &&
@@ -380,7 +380,7 @@ fun App() {
                             ) {
                                 Button(
                                     onClick = {
-                                        val seenAnnouncementKey = "last_seen_announcement_id_" + myPhone.filter { it.isDigit() }.ifBlank { "anonymous" }
+                                        val seenAnnouncementKey = "last_seen_announcement_id_" + myPhone.filter { it.isDigit() }
                             settings.putString(seenAnnouncementKey, announcement.id)
                                         activeAnnouncement = null
                                     }
