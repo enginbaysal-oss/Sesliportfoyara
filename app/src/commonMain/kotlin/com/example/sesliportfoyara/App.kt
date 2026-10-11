@@ -899,6 +899,25 @@ fun App() {
                                                 ) {
                                                     Text("Pasifleştir")
                                                 }
+
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        scope.launch {
+                                                            adminLoading = true
+                                                            val ok = dbManager.clearAnnouncement()
+                                                            if (ok) {
+                                                                announcementTitle = ""
+                                                                announcementMessage = ""
+                                                            }
+                                                            adminLoading = false
+                                                            adminMessage = if (ok) "Duyuru silindi." else "Duyuru silinemedi."
+                                                        }
+                                                    },
+                                                    modifier = Modifier.weight(1f),
+                                                    enabled = !adminLoading
+                                                ) {
+                                                    Text("Sil")
+                                                }
                                             }
                                         }
                                     }
@@ -1031,6 +1050,25 @@ fun App() {
                                                     enabled = !adminLoading
                                                 ) {
                                                     Text("Pasifleştir")
+                                                }
+
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        scope.launch {
+                                                            adminLoading = true
+                                                            val ok = dbManager.clearAnnouncement()
+                                                            if (ok) {
+                                                                announcementTitle = ""
+                                                                announcementMessage = ""
+                                                            }
+                                                            adminLoading = false
+                                                            adminMessage = if (ok) "Duyuru silindi." else "Duyuru silinemedi."
+                                                        }
+                                                    },
+                                                    modifier = Modifier.weight(1f),
+                                                    enabled = !adminLoading
+                                                ) {
+                                                    Text("Sil")
                                                 }
                                             }
                                         }
@@ -1832,6 +1870,25 @@ fun App() {
                                                     enabled = !adminLoading
                                                 ) {
                                                     Text("Pasifleştir")
+                                                }
+
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        scope.launch {
+                                                            adminLoading = true
+                                                            val ok = dbManager.clearAnnouncement()
+                                                            if (ok) {
+                                                                announcementTitle = ""
+                                                                announcementMessage = ""
+                                                            }
+                                                            adminLoading = false
+                                                            adminMessage = if (ok) "Duyuru silindi." else "Duyuru silinemedi."
+                                                        }
+                                                    },
+                                                    modifier = Modifier.weight(1f),
+                                                    enabled = !adminLoading
+                                                ) {
+                                                    Text("Sil")
                                                 }
                                             }
                                         }
