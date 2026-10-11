@@ -201,7 +201,7 @@ fun App() {
             var isEditingLocal by remember { mutableStateOf(false) }
             var selectedClient by remember { mutableStateOf<Client?>(null) }
 
-            val scope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
             val onLogout = {
                 platformUtils.setActiveSession(false)
                 settings.putString("my_consultant_name", "")
@@ -2359,7 +2359,7 @@ fun HeaderSection(onLogout: () -> Unit) {
 
         // ANA SAYFAYA TAŞINAN YEDEKLEME BUTONLARI
         val snackbarHostState = LocalSnackbarHostState.current
-        val scope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = {
