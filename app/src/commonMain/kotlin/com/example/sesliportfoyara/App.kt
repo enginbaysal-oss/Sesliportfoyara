@@ -170,6 +170,9 @@ fun App() {
     var canUseTools by remember { mutableStateOf(settings.getBoolean("can_use_tools", false)) }
     var isOfficeAdmin by remember { mutableStateOf(settings.getBoolean("is_office_admin", false)) }
     var myOfficeName by remember { mutableStateOf(settings.getString("my_office_name", "")) }
+    var pendingRegistrationNotice by remember { mutableStateOf<String?>(null) }
+    var pendingRegistrationSignature by remember { mutableStateOf(settings.getString("last_pending_registration_signature", "")) }
+    var activeAnnouncement by remember { mutableStateOf<AppAnnouncement?>(null) }
 
     // Oturum ve başlangıç ekranı kontrolü (Oturum yoksa ilk kayıt/giriş ekranını göster)
     var currentScreen by remember {
@@ -262,6 +265,84 @@ fun App() {
                 }
             }
 
+
+            // Bekleyen kayıt başvurusu kontrolü: admin uygulamayı açınca ve açıkken uyarır.
+            LaunchedEffect(isAdmin, currentScreen) {
+                if (isAdmin && currentScreen != Screen.ProfileSetup) {
+                    while (true) {
+                        platformUtils.getRegistrationRequests { response ->
+                            val pendingCount = Regex("\"id\"").findAll(response).count()
+                            val signature = "$pendingCount:${response.hashCode()}"
+                            if (pendingCount > 0 && signature != pendingRegistrationSignature) {
+                                pendingRegistrationSignature = signature
+                                pendingRegistrationNotice = "Onay bekleyen $pendingCount kayıt başvurusu var."
+                            }
+                        }
+                        delay(60000L)
+                    }
+                }
+            }
+
+            pendingRegistrationNotice?.let { notice ->
+                AlertDialog(
+                    onDismissRequest = { },
+                    title = { Text("Kayıt Başvurusu") },
+                    text = { Text(notice) },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                settings.putString("last_pending_registration_signature", pendingRegistrationSignature)
+                                pendingRegistrationNotice = null
+                                currentScreen = Screen.UserManagement
+                            }
+                        ) {
+                            Text("Yönetim Paneline Git")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                settings.putString("last_pending_registration_signature", pendingRegistrationSignature)
+                                pendingRegistrationNotice = null
+                            }
+                        ) {
+                            Text("Tamam")
+                        }
+                    }
+                )
+            }
+
+            // Uygulama duyurusu kontrolü: aktif duyuru varsa ve kullanıcı daha önce okumadıysa gösterir.
+            LaunchedEffect(Unit) {
+                val announcement = dbManager.getAnnouncement()
+                val seenAnnouncementId = settings.getString("last_seen_announcement_id", "")
+                if (
+                    announcement?.active == true &&
+                    announcement.id.isNotBlank() &&
+                    announcement.id != seenAnnouncementId &&
+                    announcement.message.isNotBlank()
+                ) {
+                    activeAnnouncement = announcement
+                }
+            }
+
+            activeAnnouncement?.let { announcement ->
+                AlertDialog(
+                    onDismissRequest = { },
+                    title = { Text(announcement.title.ifBlank { "Duyuru" }) },
+                    text = { Text(announcement.message) },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                settings.putString("last_seen_announcement_id", announcement.id)
+                                activeAnnouncement = null
+                            }
+                        ) {
+                            Text("Okudum")
+                        }
+                    }
+                )
+            }
             Scaffold(
                 topBar = {
                     if (currentScreen != Screen.ProfileSetup && currentScreen != Screen.AddClient && currentScreen != Screen.ClientDetails) {
@@ -586,6 +667,8 @@ fun App() {
     var newUserOfficeName by remember { mutableStateOf("Ofissiz / Bağımsız") }
                             var newUserTools by remember { mutableStateOf(false) }
                             var newUserAdmin by remember { mutableStateOf(false) }
+                var announcementTitle by remember { mutableStateOf("") }
+                var announcementMessage by remember { mutableStateOf("") }
 
                             Column(
                                 modifier = Modifier
@@ -683,7 +766,96 @@ fun App() {
                                         Text(if (adminLoading) "GİRİŞ YAPILIYOR... LÜTFEN BEKLEYİN" else "YÖNETİCİ GİRİŞİ")
                                     }
 
-                                    if (adminMessage.isNotBlank()) {
+    
+                                    Spacer(Modifier.height(16.dp))
+
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Text(
+                                                "Uygulama Duyurusu",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 18.sp
+                                            )
+
+                                            Spacer(Modifier.height(8.dp))
+
+                                            OutlinedTextField(
+                                                value = announcementTitle,
+                                                onValueChange = { announcementTitle = it },
+                                                label = { Text("Duyuru Başlığı") },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                singleLine = true
+                                            )
+
+                                            Spacer(Modifier.height(8.dp))
+
+                                            OutlinedTextField(
+                                                value = announcementMessage,
+                                                onValueChange = { announcementMessage = it },
+                                                label = { Text("Duyuru Mesajı") },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                minLines = 3
+                                            )
+
+                                            Spacer(Modifier.height(10.dp))
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Button(
+                                                    onClick = {
+                                                        if (announcementMessage.isBlank()) {
+                                                            adminMessage = "Duyuru mesajı boş olamaz."
+                                                        } else {
+                                                            scope.launch {
+                                                                adminLoading = true
+                                                                val now = Clock.now()
+                                                                val ok = dbManager.saveAnnouncement(
+                                                                    AppAnnouncement(
+                                                                        id = now.toString(),
+                                                                        title = announcementTitle.trim().ifBlank { "Duyuru" },
+                                                                        message = announcementMessage.trim(),
+                                                                        active = true,
+                                                                        createdAt = now
+                                                                    )
+                                                                )
+                                                                adminLoading = false
+                                                                adminMessage = if (ok) "Duyuru yayınlandı." else "Duyuru yayınlanamadı."
+                                                            }
+                                                        }
+                                                    },
+                                                    modifier = Modifier.weight(1f),
+                                                    enabled = !adminLoading,
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
+                                                ) {
+                                                    Text("Duyuru Yayınla", color = Color.White, fontWeight = FontWeight.Bold)
+                                                }
+
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        scope.launch {
+                                                            adminLoading = true
+                                                            val ok = dbManager.clearAnnouncement()
+                                                            adminLoading = false
+                                                            adminMessage = if (ok) "Duyuru pasifleştirildi." else "Duyuru pasifleştirilemedi."
+                                                        }
+                                                    },
+                                                    modifier = Modifier.weight(1f),
+                                                    enabled = !adminLoading
+                                                ) {
+                                                    Text("Pasifleştir")
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                if (adminMessage.isNotBlank()) {
                                         Spacer(Modifier.height(12.dp))
                                         Text(adminMessage, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
                                     }
@@ -727,7 +899,96 @@ fun App() {
                                         Text("🗑️ Firebase'deki Tüm Portföyleri Sıfırla (260 İlanı Temizle)", color = Color.White, fontWeight = FontWeight.Bold)
                                     }
 
-                                    if (adminMessage.isNotBlank()) {
+    
+                                    Spacer(Modifier.height(16.dp))
+
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Text(
+                                                "Uygulama Duyurusu",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 18.sp
+                                            )
+
+                                            Spacer(Modifier.height(8.dp))
+
+                                            OutlinedTextField(
+                                                value = announcementTitle,
+                                                onValueChange = { announcementTitle = it },
+                                                label = { Text("Duyuru Başlığı") },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                singleLine = true
+                                            )
+
+                                            Spacer(Modifier.height(8.dp))
+
+                                            OutlinedTextField(
+                                                value = announcementMessage,
+                                                onValueChange = { announcementMessage = it },
+                                                label = { Text("Duyuru Mesajı") },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                minLines = 3
+                                            )
+
+                                            Spacer(Modifier.height(10.dp))
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Button(
+                                                    onClick = {
+                                                        if (announcementMessage.isBlank()) {
+                                                            adminMessage = "Duyuru mesajı boş olamaz."
+                                                        } else {
+                                                            scope.launch {
+                                                                adminLoading = true
+                                                                val now = Clock.now()
+                                                                val ok = dbManager.saveAnnouncement(
+                                                                    AppAnnouncement(
+                                                                        id = now.toString(),
+                                                                        title = announcementTitle.trim().ifBlank { "Duyuru" },
+                                                                        message = announcementMessage.trim(),
+                                                                        active = true,
+                                                                        createdAt = now
+                                                                    )
+                                                                )
+                                                                adminLoading = false
+                                                                adminMessage = if (ok) "Duyuru yayınlandı." else "Duyuru yayınlanamadı."
+                                                            }
+                                                        }
+                                                    },
+                                                    modifier = Modifier.weight(1f),
+                                                    enabled = !adminLoading,
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
+                                                ) {
+                                                    Text("Duyuru Yayınla", color = Color.White, fontWeight = FontWeight.Bold)
+                                                }
+
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        scope.launch {
+                                                            adminLoading = true
+                                                            val ok = dbManager.clearAnnouncement()
+                                                            adminLoading = false
+                                                            adminMessage = if (ok) "Duyuru pasifleştirildi." else "Duyuru pasifleştirilemedi."
+                                                        }
+                                                    },
+                                                    modifier = Modifier.weight(1f),
+                                                    enabled = !adminLoading
+                                                ) {
+                                                    Text("Pasifleştir")
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                if (adminMessage.isNotBlank()) {
                                         Spacer(Modifier.height(8.dp))
                                         Text(adminMessage, color = Color(0xFF22A447), textAlign = TextAlign.Center)
                                     }
@@ -1439,6 +1700,95 @@ fun App() {
                                         )
                                     }
                                 }
+
+                                    Spacer(Modifier.height(16.dp))
+
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Text(
+                                                "Uygulama Duyurusu",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 18.sp
+                                            )
+
+                                            Spacer(Modifier.height(8.dp))
+
+                                            OutlinedTextField(
+                                                value = announcementTitle,
+                                                onValueChange = { announcementTitle = it },
+                                                label = { Text("Duyuru Başlığı") },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                singleLine = true
+                                            )
+
+                                            Spacer(Modifier.height(8.dp))
+
+                                            OutlinedTextField(
+                                                value = announcementMessage,
+                                                onValueChange = { announcementMessage = it },
+                                                label = { Text("Duyuru Mesajı") },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                minLines = 3
+                                            )
+
+                                            Spacer(Modifier.height(10.dp))
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Button(
+                                                    onClick = {
+                                                        if (announcementMessage.isBlank()) {
+                                                            adminMessage = "Duyuru mesajı boş olamaz."
+                                                        } else {
+                                                            scope.launch {
+                                                                adminLoading = true
+                                                                val now = Clock.now()
+                                                                val ok = dbManager.saveAnnouncement(
+                                                                    AppAnnouncement(
+                                                                        id = now.toString(),
+                                                                        title = announcementTitle.trim().ifBlank { "Duyuru" },
+                                                                        message = announcementMessage.trim(),
+                                                                        active = true,
+                                                                        createdAt = now
+                                                                    )
+                                                                )
+                                                                adminLoading = false
+                                                                adminMessage = if (ok) "Duyuru yayınlandı." else "Duyuru yayınlanamadı."
+                                                            }
+                                                        }
+                                                    },
+                                                    modifier = Modifier.weight(1f),
+                                                    enabled = !adminLoading,
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
+                                                ) {
+                                                    Text("Duyuru Yayınla", color = Color.White, fontWeight = FontWeight.Bold)
+                                                }
+
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        scope.launch {
+                                                            adminLoading = true
+                                                            val ok = dbManager.clearAnnouncement()
+                                                            adminLoading = false
+                                                            adminMessage = if (ok) "Duyuru pasifleştirildi." else "Duyuru pasifleştirilemedi."
+                                                        }
+                                                    },
+                                                    modifier = Modifier.weight(1f),
+                                                    enabled = !adminLoading
+                                                ) {
+                                                    Text("Pasifleştir")
+                                                }
+                                            }
+                                        }
+                                    }
+
                                 if (adminMessage.isNotBlank()) {
                                     Spacer(Modifier.height(16.dp))
                                     Text(

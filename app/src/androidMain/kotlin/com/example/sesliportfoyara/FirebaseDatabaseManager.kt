@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.map
 
 class FirebaseDatabaseManager : DatabaseManager {
     private val db = Firebase.database.reference("listings")
+    private val announcementDb = Firebase.database.reference("announcements/current")
 
     override fun getPortfolios(): Flow<List<Portfolio>> {
         return db.valueEvents.map { snap ->
@@ -49,6 +50,26 @@ class FirebaseDatabaseManager : DatabaseManager {
     override suspend fun clearAllPortfolios(): Boolean {
         return try {
             db.removeValue()
+            true
+        } catch (e: Exception) { false }
+    }
+
+    override suspend fun getAnnouncement(): AppAnnouncement? {
+        return try {
+            announcementDb.value<AppAnnouncement>()
+        } catch (e: Exception) { null }
+    }
+
+    override suspend fun saveAnnouncement(announcement: AppAnnouncement): Boolean {
+        return try {
+            announcementDb.setValue(announcement)
+            true
+        } catch (e: Exception) { false }
+    }
+
+    override suspend fun clearAnnouncement(): Boolean {
+        return try {
+            announcementDb.removeValue()
             true
         } catch (e: Exception) { false }
     }

@@ -22,7 +22,9 @@ class FirebaseDatabaseManager : DatabaseManager {
         }
     }
 
-    private val baseUrl = "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/listings"
+    private val rootUrl = "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app"
+    private val baseUrl = "$rootUrl/listings"
+    private val announcementUrl = "$rootUrl/announcements/current"
 
     override fun getPortfolios(): Flow<List<Portfolio>> = flow {
         while (true) {
@@ -138,5 +140,30 @@ class FirebaseDatabaseManager : DatabaseManager {
             println("❌ Temizleme hatası: ${e.message}")
             false
         }
+    }
+
+    override suspend fun getAnnouncement(): AppAnnouncement? {
+        return try {
+            val timestamp = getCurrentTimeMillis()
+            val response = client.get("$announcementUrl.json?t=$timestamp")
+            if (response.status.isSuccess()) response.body<AppAnnouncement?>() else null
+        } catch (e: Exception) { null }
+    }
+
+    override suspend fun saveAnnouncement(announcement: AppAnnouncement): Boolean {
+        return try {
+            val response = client.put("$announcementUrl.json") {
+                contentType(ContentType.Application.Json)
+                setBody(announcement)
+            }
+            response.status.isSuccess()
+        } catch (e: Exception) { false }
+    }
+
+    override suspend fun clearAnnouncement(): Boolean {
+        return try {
+            val response = client.delete("$announcementUrl.json")
+            response.status.isSuccess()
+        } catch (e: Exception) { false }
     }
 }
