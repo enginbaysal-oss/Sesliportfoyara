@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.sesliportfoyara.ui.CRMMainScreen
 import com.example.sesliportfoyara.ui.AddClientScreen
 import com.example.sesliportfoyara.ui.ClientDetailScreen
@@ -335,36 +336,59 @@ fun App() {
                 val markdownAnnouncementLink = Regex("""\[[^\]]+]\((https?://[^)\s]+)\)""").find(announcement.message)?.groupValues?.getOrNull(1)
                 val plainAnnouncementLink = Regex("""https?://[^\s)\]]+""").find(announcement.message)?.value
                 val announcementLink = (markdownAnnouncementLink ?: plainAnnouncementLink)?.trimEnd('.', ',', ')')
-                AlertDialog(
-                    onDismissRequest = { },
-                    title = { Text(announcement.title.ifBlank { "Duyuru" }, color = Color.Black, fontWeight = FontWeight.Bold) },
-                    text = {
-                        Column {
-                            Text(announcement.message, color = Color.Black)
+
+                Dialog(onDismissRequest = { }) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(0.94f),
+                        color = Color.White,
+                        shape = RoundedCornerShape(18.dp),
+                        shadowElevation = 12.dp
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(
+                                text = announcement.title.ifBlank { "Duyuru" },
+                                color = Color.Black,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Spacer(Modifier.height(12.dp))
+
+                            Text(
+                                text = announcement.message,
+                                color = Color.Black,
+                                fontSize = 15.sp
+                            )
+
                             if (!announcementLink.isNullOrBlank()) {
-                                Spacer(Modifier.height(10.dp))
+                                Spacer(Modifier.height(12.dp))
                                 Text(
                                     text = announcementLink,
                                     color = Color(0xFF0D47A1),
+                                    fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.clickable { platformUtils.openUri(announcementLink) }
                                 )
                             }
-                        }
-                    },
-                    confirmButton = {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = {
-                                    settings.putString("last_seen_announcement_id", announcement.id)
-                                    activeAnnouncement = null
-                                }
+
+                            Spacer(Modifier.height(18.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
                             ) {
-                                Text("Okudum")
+                                Button(
+                                    onClick = {
+                                        settings.putString("last_seen_announcement_id", announcement.id)
+                                        activeAnnouncement = null
+                                    }
+                                ) {
+                                    Text("Okudum", color = Color.White)
+                                }
                             }
                         }
                     }
-                )
+                }
             }
 
             Scaffold(
