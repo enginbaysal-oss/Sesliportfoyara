@@ -337,15 +337,15 @@ fun App() {
                 val announcementLink = (markdownAnnouncementLink ?: plainAnnouncementLink)?.trimEnd('.', ',', ')')
                 AlertDialog(
                     onDismissRequest = { },
-                    title = { Text(announcement.title.ifBlank { "Duyuru" }, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+                    title = { Text(announcement.title.ifBlank { "Duyuru" }, color = Color.Black, fontWeight = FontWeight.Bold) },
                     text = {
                         Column {
-                            Text(announcement.message, color = MaterialTheme.colorScheme.onSurface)
+                            Text(announcement.message, color = Color.Black)
                             if (!announcementLink.isNullOrBlank()) {
                                 Spacer(Modifier.height(10.dp))
                                 Text(
                                     text = announcementLink,
-                                    color = Color(0xFF1565C0),
+                                    color = Color(0xFF0D47A1),
                                     fontWeight = FontWeight.Bold,
                                     textDecoration = TextDecoration.Underline,
                                     modifier = Modifier.clickable { platformUtils.openUri(announcementLink) }
