@@ -4,6 +4,7 @@ import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.database.database
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 
 class FirebaseDatabaseManager : DatabaseManager {
     private val db = Firebase.database.reference("listings")
@@ -56,8 +57,10 @@ class FirebaseDatabaseManager : DatabaseManager {
 
     override suspend fun getAnnouncement(): AppAnnouncement? {
         return try {
-            announcementDb.value<AppAnnouncement>()
-        } catch (e: Exception) { null }
+            announcementDb.valueEvents.first().value<AppAnnouncement>()
+        } catch (e: Exception) {
+            null
+        }
     }
 
     override suspend fun saveAnnouncement(announcement: AppAnnouncement): Boolean {
