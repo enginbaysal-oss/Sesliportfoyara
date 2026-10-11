@@ -271,7 +271,7 @@ fun App() {
                 if (isAdmin && currentScreen != Screen.ProfileSetup) {
                     while (true) {
                         platformUtils.getRegistrationRequests { response ->
-                            val pendingCount = Regex("\"id\"").findAll(response).count()
+                            val pendingCount = parsePendingRequests(response).size
                             val signature = "$pendingCount:${response.hashCode()}"
                             if (pendingCount > 0 && signature != pendingRegistrationSignature) {
                                 pendingRegistrationSignature = signature
@@ -332,18 +332,29 @@ fun App() {
             }
 
             activeAnnouncement?.let { announcement ->
-                val announcementLink = Regex("""https?://\S+""").find(announcement.message)?.value?.trimEnd('.', ',', ')')
+                val markdownAnnouncementLink = Regex("""\[[^\]]+]\((https?://[^)\s]+)\)""").find(announcement.message)?.groupValues?.getOrNull(1)
+                val plainAnnouncementLink = Regex("""https?://[^\s)\]]+""").find(announcement.message)?.value
+                val announcementLink = (markdownAnnouncementLink ?: plainAnnouncementLink)?.trimEnd('.', ',', ')')
                 AlertDialog(
                     onDismissRequest = { },
-                    title = { Text(announcement.title.ifBlank { "Duyuru" }) },
-                    text = { Text(announcement.message) },
+                    title = { Text(announcement.title.ifBlank { "Duyuru" }, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column {
+                            Text(announcement.message, color = MaterialTheme.colorScheme.onSurface)
+                            if (!announcementLink.isNullOrBlank()) {
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    text = announcementLink,
+                                    color = Color(0xFF1565C0),
+                                    fontWeight = FontWeight.Bold,
+                                    textDecoration = TextDecoration.Underline,
+                                    modifier = Modifier.clickable { platformUtils.openUri(announcementLink) }
+                                )
+                            }
+                        }
+                    },
                     confirmButton = {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (!announcementLink.isNullOrBlank()) {
-                                OutlinedButton(onClick = { platformUtils.openUri(announcementLink) }) {
-                                    Text("Linki Aç")
-                                }
-                            }
                             Button(
                                 onClick = {
                                     settings.putString("last_seen_announcement_id", announcement.id)
