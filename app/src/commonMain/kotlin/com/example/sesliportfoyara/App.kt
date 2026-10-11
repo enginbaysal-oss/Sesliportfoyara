@@ -340,7 +340,7 @@ fun App() {
                 Dialog(onDismissRequest = { }) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(0.94f),
-                        color = Color.White,
+                        color = Color(0xFFFFF176),
                         shape = RoundedCornerShape(18.dp),
                         shadowElevation = 12.dp
                     ) {
@@ -348,7 +348,7 @@ fun App() {
                             Text(
                                 text = announcement.title.ifBlank { "Duyuru" },
                                 color = Color.Black,
-                                fontSize = 20.sp,
+                                fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold
                             )
 
@@ -357,15 +357,15 @@ fun App() {
                             Text(
                                 text = announcement.message,
                                 color = Color.Black,
-                                fontSize = 15.sp
+                                fontSize = 18.sp
                             )
 
                             if (!announcementLink.isNullOrBlank()) {
                                 Spacer(Modifier.height(12.dp))
                                 Text(
                                     text = announcementLink,
-                                    color = Color(0xFF0D47A1),
-                                    fontSize = 14.sp,
+                                    color = Color(0xFFB00020),
+                                    fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.clickable { platformUtils.openUri(announcementLink) }
                                 )
@@ -1047,7 +1047,7 @@ fun App() {
                                         Spacer(Modifier.height(16.dp))
                                         Text(
                                             "Bekleyen Kayıt Başvuruları",
-                                            fontSize = 20.sp,
+                                            fontSize = 24.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color(0xFFFF9800)
                                         )
@@ -1133,7 +1133,7 @@ fun App() {
 
                                     Text(
                                         "Yetkili Kullanıcılar",
-                                        fontSize = 20.sp,
+                                        fontSize = 24.sp,
                                         fontWeight = FontWeight.Bold
                                     )
 
@@ -1869,7 +1869,7 @@ fun App() {
 
                                         Text(
                                             "Araçlar İçin Yetkiniz Bulunmuyor",
-                                            fontSize = 20.sp,
+                                            fontSize = 24.sp,
                                             fontWeight = FontWeight.Bold,
                                             textAlign = TextAlign.Center
                                         )
@@ -3411,7 +3411,7 @@ fun PortfolioItem(
                                 Spacer(Modifier.width(6.dp))
                                 Text(
                                     text = if (isLocal) "Ofis Portföylerime Aktar" else "Benim Portföylerime Aktar",
-                                    color = Color.White,
+                                    color = Color(0xFFFFF176),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
