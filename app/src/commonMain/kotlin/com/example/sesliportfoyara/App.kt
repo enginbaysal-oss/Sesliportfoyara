@@ -312,37 +312,51 @@ fun App() {
                 )
             }
 
-            // Uygulama duyurusu kontrolü: aktif duyuru varsa ve kullanıcı daha önce okumadıysa gösterir.
-            LaunchedEffect(Unit) {
-                val announcement = dbManager.getAnnouncement()
-                val seenAnnouncementId = settings.getString("last_seen_announcement_id", "")
-                if (
-                    announcement?.active == true &&
-                    announcement.id.isNotBlank() &&
-                    announcement.id != seenAnnouncementId &&
-                    announcement.message.isNotBlank()
-                ) {
-                    activeAnnouncement = announcement
+            // Uygulama duyurusu kontrolü: aktif duyuruyu açılışta ve kısa aralıklarla kontrol eder.
+            LaunchedEffect(currentScreen) {
+                if (currentScreen != Screen.ProfileSetup) {
+                    while (true) {
+                        val announcement = dbManager.getAnnouncement()
+                        val seenAnnouncementId = settings.getString("last_seen_announcement_id", "")
+                        if (
+                            announcement?.active == true &&
+                            announcement.id.isNotBlank() &&
+                            announcement.id != seenAnnouncementId &&
+                            announcement.message.isNotBlank()
+                        ) {
+                            activeAnnouncement = announcement
+                        }
+                        delay(60000L)
+                    }
                 }
             }
 
             activeAnnouncement?.let { announcement ->
+                val announcementLink = Regex("""https?://\S+""").find(announcement.message)?.value?.trimEnd('.', ',', ')')
                 AlertDialog(
                     onDismissRequest = { },
                     title = { Text(announcement.title.ifBlank { "Duyuru" }) },
                     text = { Text(announcement.message) },
                     confirmButton = {
-                        Button(
-                            onClick = {
-                                settings.putString("last_seen_announcement_id", announcement.id)
-                                activeAnnouncement = null
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (!announcementLink.isNullOrBlank()) {
+                                OutlinedButton(onClick = { platformUtils.openUri(announcementLink) }) {
+                                    Text("Linki Aç")
+                                }
                             }
-                        ) {
-                            Text("Okudum")
+                            Button(
+                                onClick = {
+                                    settings.putString("last_seen_announcement_id", announcement.id)
+                                    activeAnnouncement = null
+                                }
+                            ) {
+                                Text("Okudum")
+                            }
                         }
                     }
                 )
             }
+
             Scaffold(
                 topBar = {
                     if (currentScreen != Screen.ProfileSetup && currentScreen != Screen.AddClient && currentScreen != Screen.ClientDetails) {
