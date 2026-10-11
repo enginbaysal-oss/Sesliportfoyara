@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="UTF-8" />
@@ -246,7 +246,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
         try{
           var v = localStorage.getItem(key);
           resolve(v === null ? null : { key:key, value:v });
-        }catch(e){ resolve(null); }
+        }catch(e){
+          console.error("Depolama hatası:", e);
+          resolve(null);
+        }
       });
     },
     set: function(key, value){
@@ -254,7 +257,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
         try{
           localStorage.setItem(key, value);
           resolve({ key:key, value:value });
-        }catch(e){ resolve(null); }
+        }catch(e){
+          console.error("Depolama hatası:", e);
+          resolve(null);
+        }
       });
     },
     delete: function(key){
@@ -362,7 +368,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
       if(!metaOk) return false;
       for(var i=0;i<tpl.pages.length;i++){
         var pageOk = await storage.set('template-page:'+tpl.id+':'+i, tpl.pages[i]);
-        if(!pageOk) return false;
+        if(!pageOk) {
+          alert("Bu PDF şablonu tarayıcı hafızasına sığmadı. PDF çok büyükse sayfaları ayrı ayrı yükleyin veya daha düşük boyutlu PDF kullanın.");
+          return false;
+        }
       }
       return true;
     }catch(e){ console.error('şablon kaydedilemedi', e); return false; }
@@ -422,7 +431,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
       canvas.height = viewport.height;
       var ctx = canvas.getContext('2d');
       await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-      images.push(canvas.toDataURL('image/jpeg', 0.78));
+      images.push(canvas.toDataURL('image/jpeg', 0.58));
     }
     return images;
   }
@@ -478,7 +487,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
         ctx.restore();
       }
     }
-    return canvas.toDataURL('image/jpeg', 0.85);
+    return canvas.toDataURL('image/jpeg', 0.68);
   }
 
   async function generatePdfBlob(){
@@ -1465,7 +1474,7 @@ function renderDone(){
       if(line){ ctx.fillText(line, marginX+10, y); y += 22; }
     }
 
-    var dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    var dataUrl = canvas.toDataURL('image/jpeg', 0.72);
     var jsPDFClass = window.jspdf ? window.jspdf.jsPDF : null;
     if(!jsPDFClass){ throw new Error('PDF kütüphanesi yüklenemedi. Lütfen internet bağlantınızı kontrol edin.'); }
     var doc = new jsPDFClass({ unit:'px', format:[W,H], compress:true });
