@@ -347,7 +347,6 @@ fun App() {
                                     text = announcementLink,
                                     color = Color(0xFF0D47A1),
                                     fontWeight = FontWeight.Bold,
-                                    textDecoration = TextDecoration.Underline,
                                     modifier = Modifier.clickable { platformUtils.openUri(announcementLink) }
                                 )
                             }
