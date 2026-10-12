@@ -589,8 +589,9 @@ fun App() {
                                 scope.launch { snackbarHostState.showSnackbar("✅ Yerel portföy silindi.") }
                             },
                             onClearOffice = {
-                                if (!(isAdmin || isOfficeAdmin)) {
-                                    scope.launch { snackbarHostState.showSnackbar("Tüm ofis portföylerini silmek için süper admin veya ofis admin yetkisi gerekir.") }
+                                val isSuperAdmin = myPhone.filter { it.isDigit() }.endsWith("5531354681") || myName.contains("Engin", true)
+                                if (!isSuperAdmin) {
+                                    scope.launch { snackbarHostState.showSnackbar("Bu işlem yalnızca süper yetki sahibine özeldir.") }
                                 } else if (myOfficeName.isBlank()) {
                                     scope.launch { snackbarHostState.showSnackbar("Ofis adı bulunamadı. Önce kullanıcıya ofis adı atanmalı.") }
                                 } else {
@@ -2980,6 +2981,8 @@ fun MyPortfolioScreen(
     var showImportDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
 
+    val isSuperAdmin = currentPhone.filter { it.isDigit() }.endsWith("5531354681") || currentName.contains("Engin", true)
+
     val myVisiblePortfolios = localPortfolios
 
     var remaxUrl by remember(remaxImportUrl) { mutableStateOf(remaxImportUrl.ifBlank { "https://remax.com.tr/tr/ofis/detay/ilyada-3" }) }
@@ -3012,10 +3015,10 @@ fun MyPortfolioScreen(
     if (showImportDialog) {
         AlertDialog(
             onDismissRequest = { showImportDialog = false },
-            title = { Text("Ofis İlanlarını İçe Aktar", color = MaterialTheme.colorScheme.onSurface) },
+            title = { Text("Portföyleri Güncelle", color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 Column {
-                    Text("Ofis veya arama sayfası linkini girin:", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp)
+                    Text("Ofis veya arama sayfası linkini girin (birden fazla ise virgül ile ayırın):", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp)
                     Spacer(Modifier.height(8.dp))
                     CustomInputField("URL", remaxUrl) { remaxUrl = it }
                 }
@@ -3028,7 +3031,7 @@ fun MyPortfolioScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
                 ) {
-                    Text("Aktar", color = Color.Black)
+                    Text("Güncelle", color = Color.Black)
                 }
             },
             dismissButton = {
@@ -3098,10 +3101,10 @@ fun MyPortfolioScreen(
             ) {
                 Icon(Icons.Default.Download, null, tint = Color.White, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("İçe Aktar", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text("Portföyleri Güncelle", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
 
-            if (isAdmin) {
+            if (isSuperAdmin) {
                 Button(
                     onClick = { showClearDialog = true },
                     modifier = Modifier.weight(1f).height(36.dp),
