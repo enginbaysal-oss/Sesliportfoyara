@@ -698,7 +698,7 @@ fun App() {
                             },
                             currentName = myName,
                             currentPhone = myPhone,
-                            currentOfficeName = myOfficeName,
+                            currentOfficeName = myOfficeName.ifBlank { settings.getString("my_office_name", "") }.ifBlank { "Remax İlyada 3" },
                             officePortfoliosLoaded = officePortfoliosLoaded,
                             isAdmin = isAdmin || isOfficeAdmin
                         )
