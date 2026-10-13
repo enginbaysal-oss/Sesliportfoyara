@@ -1113,6 +1113,7 @@ fun ClientDetailScreen(
     val platformUtils = LocalPlatformUtils.current
     val crmManager = LocalCRMManagerProvider.current
     var hiddenIdsOnScreen by remember(client.id) { mutableStateOf(client.hiddenMatchPortfolioIds.toSet()) }
+    var sharedLinksOnScreen by remember(client.id) { mutableStateOf(client.sharedPortfolioLinks) }
     val matchedPortfolios = remember(client, allPortfolios, hiddenIdsOnScreen) {
         MatchingEngine.findMatches(client, allPortfolios)
             .filter { it.id !in hiddenIdsOnScreen }
@@ -1361,21 +1362,21 @@ fun ClientDetailScreen(
 
         item {
             Text(
-                "SUNULAN PORTFÖYLER (${client.sharedPortfolioLinks.size})",
+                "SUNULAN PORTFÖYLER (${sharedLinksOnScreen.size})",
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
             )
 
-            if (client.sharedPortfolioLinks.isEmpty()) {
+            if (sharedLinksOnScreen.isEmpty()) {
                 Text(
                     "Bu müşteriye henüz portföy linki eklenmemiş.",
                     color = Color.Gray,
                     fontSize = 14.sp
                 )
             } else {
-                client.sharedPortfolioLinks.forEach { link ->
+                sharedLinksOnScreen.forEach { link ->
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1449,8 +1450,26 @@ fun ClientDetailScreen(
                                 onClick = {
                                     val updatedHiddenIds = (hiddenIdsOnScreen + portfolio.id)
                                     hiddenIdsOnScreen = updatedHiddenIds
+
+                                    val portfolioUrl = portfolio.link.ifBlank { portfolio.title }
+                                    val updatedSharedLinks =
+                                        if (statusLabel == "Sunuldu" && portfolioUrl.isNotBlank() &&
+                                            sharedLinksOnScreen.none { it.url == portfolioUrl }
+                                        ) {
+                                            sharedLinksOnScreen + SharedPortfolioLink(
+                                                url = portfolioUrl,
+                                                note = portfolio.title.ifBlank { "Sunulan portföy" }
+                                            )
+                                        } else {
+                                            sharedLinksOnScreen
+                                        }
+
+                                    sharedLinksOnScreen = updatedSharedLinks
                                     crmManager.updateClient(
-                                        client.copy(hiddenMatchPortfolioIds = updatedHiddenIds.toList())
+                                        client.copy(
+                                            hiddenMatchPortfolioIds = updatedHiddenIds.toList(),
+                                            sharedPortfolioLinks = updatedSharedLinks
+                                        )
                                     )
                                 },
                                 modifier = Modifier.weight(1f).height(34.dp),
