@@ -1112,6 +1112,7 @@ fun ClientDetailScreen(
 ) {
     val platformUtils = LocalPlatformUtils.current
     val crmManager = LocalCRMManagerProvider.current
+    var visibleClient by remember(client.id) { mutableStateOf(client) }
     val matchedPortfolios = remember(client, allPortfolios) {
         MatchingEngine.findMatches(client, allPortfolios)
     }
