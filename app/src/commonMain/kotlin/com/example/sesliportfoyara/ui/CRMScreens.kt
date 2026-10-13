@@ -1112,9 +1112,10 @@ fun ClientDetailScreen(
 ) {
     val platformUtils = LocalPlatformUtils.current
     val crmManager = LocalCRMManagerProvider.current
-    var visibleClient by remember(client.id) { mutableStateOf(client) }
-    val matchedPortfolios = remember(client, allPortfolios) {
+    var hiddenIdsOnScreen by remember(client.id) { mutableStateOf(client.hiddenMatchPortfolioIds.toSet()) }
+    val matchedPortfolios = remember(client, allPortfolios, hiddenIdsOnScreen) {
         MatchingEngine.findMatches(client, allPortfolios)
+            .filter { it.id !in hiddenIdsOnScreen }
     }
 
     LazyColumn(
@@ -1446,9 +1447,10 @@ fun ClientDetailScreen(
                         listOf("Görüldü", "Sunuldu", "Talep dışı").forEach { statusLabel ->
                             OutlinedButton(
                                 onClick = {
-                                    val updatedHiddenIds = (client.hiddenMatchPortfolioIds + portfolio.id).distinct()
+                                    val updatedHiddenIds = (hiddenIdsOnScreen + portfolio.id)
+                                    hiddenIdsOnScreen = updatedHiddenIds
                                     crmManager.updateClient(
-                                        client.copy(hiddenMatchPortfolioIds = updatedHiddenIds)
+                                        client.copy(hiddenMatchPortfolioIds = updatedHiddenIds.toList())
                                     )
                                 },
                                 modifier = Modifier.weight(1f).height(34.dp),
