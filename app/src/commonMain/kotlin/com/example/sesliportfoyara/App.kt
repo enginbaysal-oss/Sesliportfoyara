@@ -220,7 +220,7 @@ fun App() {
             }
 
             LaunchedEffect(Unit) {
-                if (myPhone.isNotBlank()) {
+                if (myPhone.isNotBlank() || platformUtils.hasActiveSession()) {
                     platformUtils.setActiveSession(true)
                     platformUtils.checkAppAuthorization(myPhone) { authorized, serverName, serverIsAdmin, serverCanUseTools, serverIsOfficeAdmin, serverOfficeName, _ ->
                         if (authorized) {
