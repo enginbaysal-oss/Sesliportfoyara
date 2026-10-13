@@ -220,7 +220,8 @@ fun App() {
             }
 
             LaunchedEffect(Unit) {
-                if (platformUtils.hasActiveSession() && myPhone.isNotBlank()) {
+                if (myPhone.isNotBlank()) {
+                    platformUtils.setActiveSession(true)
                     platformUtils.checkAppAuthorization(myPhone) { authorized, serverName, serverIsAdmin, serverCanUseTools, serverIsOfficeAdmin, serverOfficeName, _ ->
                         if (authorized) {
                             val finalName = serverName.ifBlank { myName }
