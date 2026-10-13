@@ -1111,6 +1111,7 @@ fun ClientDetailScreen(
     onBack: () -> Unit
 ) {
     val platformUtils = LocalPlatformUtils.current
+    val crmManager = LocalCRMManagerProvider.current
     val matchedPortfolios = remember(client, allPortfolios) {
         MatchingEngine.findMatches(client, allPortfolios)
     }
@@ -1428,11 +1429,36 @@ fun ClientDetailScreen(
             }
 
             items(matchedPortfolios) { portfolio ->
-                PortfolioItem(
-                    portfolio,
-                    onDelete = null,
-                    onEdit = null
-                )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    PortfolioItem(
+                        portfolio,
+                        onDelete = null,
+                        onEdit = null
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 4.dp, end = 4.dp, bottom = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("Görüldü", "Sunuldu", "Talep dışı").forEach { statusLabel ->
+                            OutlinedButton(
+                                onClick = {
+                                    val updatedHiddenIds = (client.hiddenMatchPortfolioIds + portfolio.id).distinct()
+                                    crmManager.updateClient(
+                                        client.copy(hiddenMatchPortfolioIds = updatedHiddenIds)
+                                    )
+                                },
+                                modifier = Modifier.weight(1f).height(34.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp)
+                            ) {
+                                Text(statusLabel, fontSize = 10.sp, maxLines = 1)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

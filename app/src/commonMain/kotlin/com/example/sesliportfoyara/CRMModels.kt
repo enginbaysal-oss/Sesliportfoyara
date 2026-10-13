@@ -36,5 +36,6 @@ data class Client(
     val note: String = "",
     val createdAt: Long = 0,
     val reminders: List<CRMReminder> = emptyList(),
-    val sharedPortfolioLinks: List<SharedPortfolioLink> = emptyList()
+    val sharedPortfolioLinks: List<SharedPortfolioLink> = emptyList(),
+    val hiddenMatchPortfolioIds: List<String> = emptyList()
 )
