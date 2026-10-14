@@ -17,6 +17,10 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
+
+@JsFun("(html) => { const w = window.open('', '_blank'); if (!w) return false; w.document.open(); w.document.write(html); w.document.close(); w.opener = null; return true; }")
+external fun jsShowProgressReport(html: JsString): Boolean
+
 @JsFun("(onResult, onError) => { " +
     "console.log('Web Speech API baslatiliyor...'); " +
     "if (!window.isSecureContext) { onError('Sesli arama için HTTPS gereklidir.'); return; } " +
@@ -234,6 +238,13 @@ external fun jsOpenOverlay(url: JsString)
 fun main() {
     CanvasBasedWindow(canvasElementId = "ComposeTarget") {
         val platformUtils = object : PlatformUtils {
+            override fun showProgressReport(html: String, title: String, onResult: (Boolean, String) -> Unit) {
+                try {
+                    val ok = jsShowProgressReport(html.toJsString())
+                    onResult(ok, if (ok) "Rapor açıldı." else "Tarayıcı açılır pencereyi engelledi. Bu site için açılır pencerelere izin verin; raporu Geçmiş sekmesinden açın.")
+                } catch (e: Exception) { onResult(false, "Rapor açılamadı: " + e.message) }
+            }
+
             override fun openUri(uri: String) {
                 kotlinx.browser.window.open(uri, "_blank")
             }

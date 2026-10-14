@@ -533,6 +533,62 @@ class MainActivity : ComponentActivity() {
         checkPermissions()
 
         val platformUtils = object : PlatformUtils {
+            override fun showProgressReport(html: String, title: String, onResult: (Boolean, String) -> Unit) {
+                this@MainActivity.runOnUiThread {
+                    try {
+                        val webView = android.webkit.WebView(this@MainActivity)
+                        webView.settings.javaScriptEnabled = false
+                        val layout = android.widget.LinearLayout(this@MainActivity)
+                        layout.orientation = android.widget.LinearLayout.VERTICAL
+                        val printButton = android.widget.Button(this@MainActivity)
+                        printButton.text = "PDF olarak kaydet / Yazdır"
+                        printButton.isEnabled = false
+                        layout.addView(printButton)
+                        layout.addView(webView, android.widget.LinearLayout.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+                        val dialog = android.app.Dialog(this@MainActivity)
+                        dialog.setContentView(layout)
+                        dialog.setOnDismissListener { webView.destroy() }
+                        webView.webViewClient = object : android.webkit.WebViewClient() {
+                            override fun onPageFinished(view: android.webkit.WebView, url: String) {
+                                printButton.isEnabled = true
+                            }
+                        }
+                        printButton.setOnClickListener {
+                            try {
+                                val manager = getSystemService(android.content.Context.PRINT_SERVICE) as android.print.PrintManager
+                                manager.print(title, webView.createPrintDocumentAdapter(title),
+                                    android.print.PrintAttributes.Builder()
+                                        .setMediaSize(android.print.PrintAttributes.MediaSize.ISO_A4)
+                                        .setColorMode(android.print.PrintAttributes.COLOR_MODE_COLOR)
+                                        .build())
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(this@MainActivity, "PDF açılamadı: " + e.message, android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }
+                        dialog.show()
+                        dialog.window?.setLayout(android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+                        webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+                        onResult(true, "Önizleme açıldı. PDF olarak kaydet düğmesini kullanın.")
+                    } catch (e: Exception) { onResult(false, "Rapor açılamadı: " + e.message) }
+                }
+            }
+
+            override fun hasActiveSession(): Boolean {
+                return this@MainActivity
+                    .getSharedPreferences("ceptemlak_session", android.content.Context.MODE_PRIVATE)
+                    .getBoolean("active_session", false)
+            }
+
+            override fun setActiveSession(active: Boolean) {
+                this@MainActivity
+                    .getSharedPreferences("ceptemlak_session", android.content.Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("active_session", active)
+                    .commit()
+            }
+
             override fun scheduleReminder(dateTime: String, note: String): Boolean {
                 return ReminderScheduler.schedule(this@MainActivity, dateTime, note)
             }

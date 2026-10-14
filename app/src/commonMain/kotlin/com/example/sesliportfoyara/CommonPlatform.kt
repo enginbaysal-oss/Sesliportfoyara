@@ -5,6 +5,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 expect fun getCurrentTimeMillis(): Long
 
 interface PlatformUtils {
+    fun showProgressReport(html: String, title: String, onResult: (Boolean, String) -> Unit) {
+        onResult(false, "Bu platformda rapor önizleme desteklenmiyor.")
+    }
     fun openUri(uri: String)
     fun openEmlakAsistan()
     fun openArsaTakip()

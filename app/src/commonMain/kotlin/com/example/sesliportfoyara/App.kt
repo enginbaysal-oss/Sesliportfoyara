@@ -178,7 +178,7 @@ fun App() {
     // Oturum ve başlangıç ekranı kontrolü (Oturum yoksa ilk kayıt/giriş ekranını göster)
     var currentScreen by remember {
         mutableStateOf<Screen>(
-            if (platformUtils.hasActiveSession() && myPhone.isNotBlank() && myName.isNotBlank()) {
+            if (myPhone.isNotBlank() || platformUtils.hasActiveSession()) {
                 Screen.VoiceSearch
             } else {
                 Screen.ProfileSetup
@@ -3170,6 +3170,9 @@ fun MyPortfolioScreen(
                         onEdit = if (canManage) (if (selectedTab == 0) onEditLocal else onEditOffice) else null,
                         onPublish = if (selectedTab == 0) onPublishLocal else onCopyOfficeToLocal
                     )
+                    if (selectedTab == 0) {
+                        PortfolioProgressButton(portfolio, currentName, currentPhone, currentOfficeName)
+                    }
                 }
             }
         }
