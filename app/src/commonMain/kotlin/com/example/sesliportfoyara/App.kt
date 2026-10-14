@@ -346,7 +346,12 @@ fun App() {
                         shape = RoundedCornerShape(18.dp),
                         shadowElevation = 12.dp
                     ) {
-                        Column(modifier = Modifier.padding(20.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .padding(20.dp)
+                                .heightIn(max = 450.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
                             Text(
                                 text = announcement.title.ifBlank { "Duyuru" },
                                 color = Color.Black,
