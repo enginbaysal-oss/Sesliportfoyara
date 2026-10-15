@@ -150,6 +150,8 @@ fun parsePendingRequests(response: String): List<PendingRequest> {
         emptyList()
     }
 }
+private val appJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
 @Composable
 fun App() {
     val dbManager = LocalDatabaseManager.current
@@ -192,8 +194,16 @@ fun App() {
         LocalRemaxServiceProvider provides remaxService
     ) {
         SesliportfoyaraTheme(darkTheme = false) {
-            val officePortfolios = remember { mutableStateListOf<Portfolio>() }
-            var officePortfoliosLoaded by remember { mutableStateOf(false) }
+            val cachedOfficeJson = remember { settings.getString("cached_office_portfolios_json", "") }
+            val initialOfficePortfolios = remember {
+                if (cachedOfficeJson.isNotBlank()) {
+                    try {
+                        appJson.decodeFromString<List<Portfolio>>(cachedOfficeJson)
+                    } catch(_: Exception) { emptyList() }
+                } else emptyList()
+            }
+            val officePortfolios = remember { mutableStateListOf<Portfolio>().apply { addAll(initialOfficePortfolios) } }
+            var officePortfoliosLoaded by remember { mutableStateOf(initialOfficePortfolios.isNotEmpty()) }
             val localPortfolios by localPortfolioManager.portfolios.collectAsState()
             val clients by crmManager.clients.collectAsState()
 
@@ -253,16 +263,20 @@ fun App() {
 
             LaunchedEffect(myOfficeName) {
                 dbManager.getPortfolios().collectLatest { list ->
-                    val currentOfficeForLoad = myOfficeName
-                        .ifBlank { settings.getString("my_office_name", "") }
-                        .ifBlank { "Remax İlyada 3" }
+                    if (list.isNotEmpty()) {
+                        val currentOfficeForLoad = myOfficeName
+                            .ifBlank { settings.getString("my_office_name", "") }
+                            .ifBlank { "Remax İlyada 3" }
 
-                    val visibleList = list.filter {
-                        normalizeOfficeName(it.officeName) == normalizeOfficeName(currentOfficeForLoad) || it.officeName.isBlank()
+                        val visibleList = list.filter {
+                            normalizeOfficeName(it.officeName) == normalizeOfficeName(currentOfficeForLoad) || it.officeName.isBlank()
+                        }
+
+                        if (visibleList.isNotEmpty()) {
+                            officePortfolios.clear()
+                            officePortfolios.addAll(visibleList.sortedByDescending { it.createdAt })
+                        }
                     }
-
-                    officePortfolios.clear()
-                    officePortfolios.addAll(visibleList.sortedByDescending { it.createdAt })
                     officePortfoliosLoaded = true
                 }
             }
