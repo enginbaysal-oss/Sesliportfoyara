@@ -28,7 +28,7 @@ interface PlatformUtils {
     fun requestRegistration(name: String, phone: String, officeName: String, onResult: (Boolean, String) -> Unit) { onResult(false, "Bu platformda kayıt talebi desteklenmiyor.") }
     fun getRegistrationRequests(onResult: (String) -> Unit) { onResult("{}") }
     fun deleteRegistrationRequest(id: String, onResult: (Boolean) -> Unit) { onResult(false) }
-    fun getOfficeNames(onResult: (List<String>) -> Unit) { onResult(listOf("Ofissiz / Bağımsız")) }
+    fun getOfficeNames(onResult: (List<String>) -> Unit) { onResult(listOf("Remax İlyada 3")) }
 }
 
 val LocalPlatformUtils = staticCompositionLocalOf<PlatformUtils> {

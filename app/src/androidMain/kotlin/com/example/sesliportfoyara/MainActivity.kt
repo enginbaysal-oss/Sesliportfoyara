@@ -276,7 +276,7 @@ class MainActivity : ComponentActivity() {
         val body = JSONObject()
             .put("name", name.trim())
             .put("phone", normalized)
-            .put("office_name", officeName.trim().ifBlank { "Ofissiz / Bağımsız" })
+            .put("office_name", officeName.trim().ifBlank { "Remax İlyada 3" })
             .put("createdAt", System.currentTimeMillis())
             .toString()
 

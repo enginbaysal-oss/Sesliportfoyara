@@ -1032,7 +1032,8 @@ function renderDone(){
         (state.shareError ? ('<div style="background:rgba(184,92,74,0.15);border:1px solid var(--rose);color:#F0B7AC;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5;">'+escapeHtml(state.shareError)+'</div>') : '') +
         (state.shareNotice ? ('<div style="background:rgba(91,122,99,0.18);border:1px solid var(--sage);color:#CFE0D3;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5;">'+escapeHtml(state.shareNotice)+'</div>') : '') +
         '<button class="btn btn-primary" '+(state.pdfBusy?'disabled':'')+' onclick="app.downloadPdf()">'+(state.pdfBusy?'Hazırlanıyor…':'PDF Oluştur ve Arşive Kaydet')+'</button>' +
-        '<button class="btn btn-ghost" '+(state.pdfBusy?'disabled':'')+' onclick="app.sharePdf()">Paylaş (WhatsApp vb.)</button>' +
+        '<button class="btn btn-primary" style="background:#25D366;color:#fff;" '+(state.pdfBusy?'disabled':'')+' onclick="app.shareWhatsApp()">WhatsApp\'tan Gönder</button>' +
+        '<button class="btn btn-ghost" '+(state.pdfBusy?'disabled':'')+' onclick="app.sharePdf()">Paylaş (Diğer)</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="window.print()">Yazdır…</button>' +
         '<button class="btn btn-ghost" onclick="app.goLibrary()">Kütüphaneye Dön</button>' +
       '</div>' +

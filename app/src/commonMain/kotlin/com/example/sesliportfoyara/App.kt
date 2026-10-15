@@ -735,7 +735,7 @@ fun App() {
                             var pendingRequests by remember { mutableStateOf<List<PendingRequest>>(emptyList()) }
                             var newUserName by remember { mutableStateOf("") }
                             var newUserPhone by remember { mutableStateOf("") }
-    var newUserOfficeName by remember { mutableStateOf("Ofissiz / Bağımsız") }
+    var newUserOfficeName by remember { mutableStateOf("Remax İlyada 3") }
                             var newUserTools by remember { mutableStateOf(false) }
                             var newUserAdmin by remember { mutableStateOf(false) }
                 var announcementTitle by remember { mutableStateOf("") }
@@ -2042,7 +2042,7 @@ fun ProfileSetupScreen(
 ) {
     var nameValue by remember { mutableStateOf(TextFieldValue(initialName)) }
     var phoneValue by remember { mutableStateOf(TextFieldValue(initialPhone)) }
-    var officeNameValue by remember { mutableStateOf(TextFieldValue("Ofissiz / Bağımsız")) }
+    var officeNameValue by remember { mutableStateOf(TextFieldValue("Remax İlyada 3")) }
     val platformUtils = LocalPlatformUtils.current
 
     var showAdminLogin by remember { mutableStateOf(false) }
@@ -2084,12 +2084,13 @@ fun ProfileSetupScreen(
         if (!showAdminLogin) {
             CustomTextFieldValueInput("Adınız Soyadınız", nameValue) { nameValue = it }
             CustomTextFieldValueInput("Telefon Numaranız", phoneValue) { phoneValue = it }
+            CustomTextFieldValueInput("Ofis Adı", officeNameValue) { officeNameValue = it }
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
                 onClick = {
                     if (nameValue.text.isNotBlank() && phoneValue.text.isNotBlank()) {
-                        onComplete(nameValue.text.trim(), phoneValue.text.trim(), "Ofissiz / Bağımsız")
+                        onComplete(nameValue.text.trim(), phoneValue.text.trim(), officeNameValue.text.trim().ifBlank { "Remax İlyada 3" })
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -2734,6 +2735,7 @@ fun AddPortfolioScreen(
     var propertyType by remember(editingPortfolio) { mutableStateOf(editingPortfolio?.propertyType ?: "Daire") }
     var features by remember(editingPortfolio) { mutableStateOf(editingPortfolio?.features?.joinToString(", ") ?: "") }
     var link by remember(editingPortfolio) { mutableStateOf(editingPortfolio?.link ?: "") }
+    var imageUrl by remember(editingPortfolio) { mutableStateOf(editingPortfolio?.imageUrl ?: "") }
     var authorityStartDateText by remember(editingPortfolio) { mutableStateOf(formatTurkishDateMillis(editingPortfolio?.authorityStartDate ?: 0L)) }
     var authorityDurationDaysText by remember(editingPortfolio) { mutableStateOf(if ((editingPortfolio?.authorityDurationDays ?: 0) > 0) editingPortfolio?.authorityDurationDays.toString() else "") }
     val authorityStartMillis = parseTurkishDateMillis(authorityStartDateText)
@@ -2855,6 +2857,7 @@ fun AddPortfolioScreen(
         }
         CustomInputField("Özellikler (virgülle ayırın)", features) { features = it }
         CustomInputField("İlan Linki", link) { link = it }
+        CustomInputField("Görsel Fotoğraf URL'si", imageUrl) { imageUrl = it }
 
         HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f).copy(0.2f))
         Text("YETKİ SÖZLEŞMESİ", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -2894,6 +2897,7 @@ fun AddPortfolioScreen(
                         propertyType = propertyType,
                         features = features.split(",").map { it.trim() }.filter { it.isNotEmpty() },
                         link = link,
+                        imageUrl = imageUrl,
                         authorityStartDate = authorityStartMillis,
                         authorityDurationDays = authorityDurationDays,
                         authorityEndDate = authorityEndMillis,
@@ -3249,7 +3253,7 @@ fun PortfolioItem(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.Top
                 ) {
-                    // SOL TARAF: DİKDÖRTGEN GÜZEL KAPAK FOTOĞRAFI
+                    // SOL TARAF: DİKDÖRTGEN GÜZEL KAPAK FOTOĞRAFI VEYA YER TUTUCU
                     if (portfolio.imageUrl.isNotEmpty()) {
                         AsyncImage(
                             model = portfolio.imageUrl,
@@ -3260,6 +3264,22 @@ fun PortfolioItem(
                                 .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f), RoundedCornerShape(10.dp)),
                             contentScale = ContentScale.Crop
                         )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 140.dp, height = 100.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                                .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Home,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
                     }
 
                     // SAĞ TARAF: ETİKETLER VE FİYAT
