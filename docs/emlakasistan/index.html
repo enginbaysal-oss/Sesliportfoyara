@@ -28,6 +28,7 @@
   body{margin:0;font-family:'Inter',sans-serif;background:#EFEAE0;color:var(--ink);min-height:100vh;}
   button{font-family:inherit;cursor:pointer;border:none;}
   input, textarea{font-family:inherit;}
+  textarea:focus, input:focus { scroll-margin-bottom: 250px; }
 
   #app{display:flex;min-height:100vh;}
   .panel{
@@ -35,7 +36,7 @@
     padding:32px 30px;display:flex;flex-direction:column;gap:18px;
     position:sticky;top:53px;align-self:flex-start;max-height:calc(100vh - 53px);overflow-y:auto;
   }
-  .stage{flex:1;padding:48px 40px;display:flex;justify-content:center;align-items:flex-start;}
+  .stage{flex:1;padding:48px 40px;display:flex;justify-content:center;align-items:flex-start;padding-bottom:220px !important;}
   .brand{font-family:'Lora',serif;font-weight:600;font-size:20px;display:flex;align-items:center;gap:10px;color:#F4F1EA;}
   .brand .mark{width:28px;height:28px;border-radius:50%;border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--gold);}
   .sub{color:#B7C0C9;font-size:13px;line-height:1.55;}
@@ -175,7 +176,7 @@
 </style>
 </head>
 <body>
-<div id="topnav"></div><button onclick="if(window.parent && window.parent.document.getElementById('cepte_overlay')) { window.parent.document.getElementById('cepte_overlay').remove(); } else { window.location.href='../index.html'; }" style="position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:9999;background:#1f2d3d;color:white;border:1px solid #d39a00;border-radius:24px;padding:11px 22px;font-size:12px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.35);">← ANA MENÜ</button>
+<div id="topnav"></div><button onclick="window.location.href='../index.html'" style="position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:9999;background:#1f2d3d;color:white;border:1px solid #d39a00;border-radius:24px;padding:11px 22px;font-size:12px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.35);">← ANA MENÜ</button>
 <div id="app"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -1580,35 +1581,49 @@ function renderDone(){
   };
   app.goLibrary = function(){ state.screen = 'library'; state.confirmDeleteId = null; state.editingTemplateId = null; state.editingDraftFieldId = null; render(); };
 
-  app.refreshArchive = function(){
+  app.refreshArchive = async function(){
     state.archiveBusy = true;
     render();
     var allFiles = [];
 
-    // 1. Android'den gelen dosyalar
     if(window.AndroidInterface){
       try {
         var json = window.AndroidInterface.getArchiveList();
-        allFiles = JSON.parse(json);
+        allFiles = allFiles.concat(JSON.parse(json || '[]'));
       } catch(e) { console.error(e); }
     }
 
-    // 2. Yerel tarayıcı hafızasından (EXE/Web) gelen dosyalar
     var localArchive = JSON.parse(localStorage.getItem('app_local_archive') || '[]');
     allFiles = allFiles.concat(localArchive);
 
-    // Tarihe göre sırala
-    allFiles.sort(function(a,b){ return (parseInt(b.date,10)||0) - (parseInt(a.date,10)||0); });
-    state.archiveFiles = allFiles;
+    try {
+      var res = await fetch('https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/emlak_asistan_archives.json');
+      if(res.ok){
+        var data = await res.json();
+        if(data){
+          Object.keys(data).forEach(function(k){
+            if(data[k]) allFiles.push(data[k]);
+          });
+        }
+      }
+    } catch(e){ console.error('Cloud archive fetch error', e); }
 
+    var seen = {};
+    var uniqueFiles = [];
+    allFiles.forEach(function(f){
+      var key = f.name + '_' + f.date;
+      if(!seen[key]){ seen[key] = true; uniqueFiles.push(f); }
+    });
+
+    uniqueFiles.sort(function(a,b){ return (parseInt(b.date,10)||0) - (parseInt(a.date,10)||0); });
+    state.archiveFiles = uniqueFiles;
     state.archiveBusy = false;
     render();
   };
 
   app.openArchiveFile = function(fileName){
-    // Önce yerel hafızada ara
     var localArchive = JSON.parse(localStorage.getItem('app_local_archive') || '[]');
-    var localFile = localArchive.find(function(f){ return f.name === fileName; });
+    var localFile = localArchive.find(function(f){ return f.name === fileName; }) || (state.archiveFiles || []).find(function(f){ return f.name === fileName; });
 
     if(localFile && localFile.content){
       app.loadCalculationFromJson(localFile.content);
@@ -2117,7 +2132,7 @@ function renderDone(){
     refreshCalcResultsDom(type);
   };
 
-  app.saveCalculation = function(type, silent){
+  app.saveCalculation = async function(type, silent){
     var meta = CALC_META[type];
     var data = {
       type: type,
@@ -2126,25 +2141,27 @@ function renderDone(){
       date: Date.now()
     };
     var json = JSON.stringify(data);
+    var timeStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    var filename = safeFileName(meta.title) + '_' + timeStr + '.json';
+    var fileObj = { name: filename, date: Date.now(), size: json.length, content: json };
+
+    var localArchive = JSON.parse(localStorage.getItem('app_local_archive') || '[]');
+    localArchive.push(fileObj);
+    localStorage.setItem('app_local_archive', JSON.stringify(localArchive));
+
+    try {
+      await fetch('https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app/emlak_asistan_archives.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fileObj)
+      });
+    } catch(e){ console.error('Cloud archive sync error', e); }
 
     if(window.AndroidInterface) {
       var base64data = btoa(unescape(encodeURIComponent(json)));
-      var filename = safeFileName(meta.title) + '.json';
       window.AndroidInterface.downloadFile(base64data, filename, 'application/json');
     } else {
-      // EXE / Web Fallback
-      var localArchive = JSON.parse(localStorage.getItem('app_local_archive') || '[]');
-      var timeStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      var filename = safeFileName(meta.title) + '_' + timeStr + '.json';
-
-      localArchive.push({
-        name: filename,
-        date: Date.now(),
-        size: json.length,
-        content: json
-      });
-      localStorage.setItem('app_local_archive', JSON.stringify(localArchive));
-      if(!silent) alert('Hesaplama bilgisayar hafızasına kaydedildi.');
+      if(!silent) alert('Hesaplama buluta ve hafızaya kaydedildi.');
     }
   };
 

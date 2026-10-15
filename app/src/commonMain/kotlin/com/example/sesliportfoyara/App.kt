@@ -249,20 +249,20 @@ fun App() {
                     currentScreen = Screen.ProfileSetup
                 }
 
+            }
+
+            LaunchedEffect(myOfficeName) {
                 dbManager.getPortfolios().collectLatest { list ->
                     val currentOfficeForLoad = myOfficeName
                         .ifBlank { settings.getString("my_office_name", "") }
                         .ifBlank { "Remax İlyada 3" }
 
                     val visibleList = list.filter {
-                        normalizeOfficeName(it.officeName) == normalizeOfficeName(currentOfficeForLoad)
+                        normalizeOfficeName(it.officeName) == normalizeOfficeName(currentOfficeForLoad) || it.officeName.isBlank()
                     }
 
-                    if (visibleList.isNotEmpty()) {
-                        officePortfolios.clear()
-                        officePortfolios.addAll(visibleList.sortedByDescending { it.createdAt })
-                    }
-
+                    officePortfolios.clear()
+                    officePortfolios.addAll(visibleList.sortedByDescending { it.createdAt })
                     officePortfoliosLoaded = true
                 }
             }
