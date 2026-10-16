@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -177,12 +178,37 @@ private fun PortfolioProgressDialog(
                                     }
                                 }
                             }) { Text("Hazırla • Önizle / PDF") }
+                            if (data.reports.isNotEmpty()) {
+                                val latest = data.reports.maxByOrNull { it.end }!!
+                                Button(
+                                    onClick = {
+                                        val text = "Sayın Mülk Sahibimiz,\n\n${portfolio.title} ilanınız için ${formatTurkishDateMillis(latest.start)} – ${formatTurkishDateMillis(latest.end)} dönemine ait haftalık ilerleme raporumuz hazırlanmıştır.\n\nDanışman: ${advisor.name} (${advisor.phone})\nOfis: ${advisor.office}"
+                                        platform.openUri("https://wa.me/?text=" + text)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
+                                ) {
+                                    Text("📱 Son Raporu WhatsApp'ta Paylaş", color = Color.White)
+                                }
+                            }
                         }
                         2 -> {
                             if (data.reports.isEmpty()) Text("Henüz hazırlanmış rapor yok.")
                             data.reports.sortedByDescending { it.end }.forEach { report ->
-                                OutlinedButton(onClick = { platform.showProgressReport(report.html, "İlerleme Raporu") { _, message -> notice = message } }, modifier = Modifier.fillMaxWidth()) {
-                                    Text("${formatTurkishDateMillis(report.start)} – ${formatTurkishDateMillis(report.end)} • Aç / PDF")
+                                Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    OutlinedButton(onClick = { platform.showProgressReport(report.html, "İlerleme Raporu") { _, message -> notice = message } }, modifier = Modifier.fillMaxWidth()) {
+                                        Text("${formatTurkishDateMillis(report.start)} – ${formatTurkishDateMillis(report.end)} • Aç / PDF")
+                                    }
+                                    Button(
+                                        onClick = {
+                                            val text = "Sayın Mülk Sahibimiz,\n\n${portfolio.title} ilanınız için ${formatTurkishDateMillis(report.start)} – ${formatTurkishDateMillis(report.end)} dönemine ait haftalık ilerleme raporumuz hazırlanmıştır.\n\nDanışman: ${advisor.name} (${advisor.phone})\nOfis: ${advisor.office}"
+                                            platform.openUri("https://wa.me/?text=" + text)
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
+                                    ) {
+                                        Text("📱 Raporu WhatsApp'ta Paylaş", color = Color.White)
+                                    }
                                 }
                             }
                         }
