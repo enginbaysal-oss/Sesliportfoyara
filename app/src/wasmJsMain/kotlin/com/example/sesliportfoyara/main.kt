@@ -285,6 +285,7 @@ fun main() {
                     var fbAdmin = false
                     var fbTools = false
                     var fbOfficeAdmin = false
+                    var fbOfficeName = ""
                     if (ok) {
                         try {
                             val text = response.toString()
@@ -301,6 +302,7 @@ fun main() {
                                             fbAdmin = uObj["is_admin"]?.jsonPrimitive?.boolean ?: uObj["isAdmin"]?.jsonPrimitive?.boolean ?: false
                                             fbTools = uObj["can_use_tools"]?.jsonPrimitive?.boolean ?: uObj["canUseTools"]?.jsonPrimitive?.boolean ?: false
                                             fbOfficeAdmin = uObj["is_office_admin"]?.jsonPrimitive?.boolean ?: uObj["isOfficeAdmin"]?.jsonPrimitive?.boolean ?: false
+                                            fbOfficeName = uObj["office_name"]?.jsonPrimitive?.content ?: uObj["officeName"]?.jsonPrimitive?.content ?: ""
                                         }
                                         break
                                     }
@@ -310,7 +312,7 @@ fun main() {
                     }
 
                     if (fbAuthorized) {
-                        onResult(true, fbName, fbAdmin, fbTools, fbOfficeAdmin, "", "")
+                        onResult(true, fbName, fbAdmin, fbTools, fbOfficeAdmin, fbOfficeName, "")
                     } else {
                         val body = """{"p_phone":${JsonPrimitive(normalized)}}"""
                         jsSupabasePost("https://jcjerwvibjetomqeelsy.supabase.co".toJsString(), "sb_publishable_tz0ZMLExOcLCDnGudSnS6A_ko8TD4Ig".toJsString(), "/rest/v1/rpc/check_app_authorization".toJsString(), body.toJsString(), "".toJsString()) { supOk, supResp ->
@@ -324,8 +326,9 @@ fun main() {
                                     val isAdmin = o["is_admin"]?.jsonPrimitive?.boolean ?: false
                                     val canUseTools = o["can_use_tools"]?.jsonPrimitive?.boolean ?: false
                                     val isOfficeAdmin = o["is_office_admin"]?.jsonPrimitive?.boolean ?: false
+                                    val officeName = o["office_name"]?.jsonPrimitive?.content ?: o["officeName"]?.jsonPrimitive?.content ?: ""
                                     if (authorized) {
-                                        onResult(true, fullName, isAdmin, canUseTools, isOfficeAdmin, "", "")
+                                        onResult(true, fullName, isAdmin, canUseTools, isOfficeAdmin, officeName, "")
                                         return@jsSupabasePost
                                     }
                                 }
