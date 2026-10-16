@@ -478,7 +478,9 @@ fun App() {
                                         settings.putBoolean("is_admin", serverIsAdmin)
                                         settings.putBoolean("can_use_tools", serverCanUseTools)
                                         settings.putBoolean("is_office_admin", serverIsOfficeAdmin)
-                                        val finalOfficeName = serverOfficeName.ifBlank { officeName }
+                                        val rawOfficeAuth = serverOfficeName.ifBlank { officeName }
+                                        val isOffissizAuth = rawOfficeAuth.isBlank() || rawOfficeAuth.contains("Ofissiz", true) || rawOfficeAuth.contains("Bağımsız", true) || rawOfficeAuth.contains("bagimsiz", true)
+                                        val finalOfficeName = if (isOffissizAuth) "Remax İlyada 3" else rawOfficeAuth
                                         if (finalOfficeName.isNotBlank()) settings.putString("my_office_name", finalOfficeName)
                                         myName = finalName
                                         myPhone = phone
