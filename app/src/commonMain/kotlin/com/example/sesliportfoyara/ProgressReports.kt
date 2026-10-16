@@ -5,12 +5,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.russhwolf.settings.Settings
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -20,7 +23,20 @@ data class ProgressActivity(val id: String, val date: Long, val kind: String, va
 @Serializable
 data class ProgressMetric(val site: String, val views: Int? = null, val favorites: Int? = null)
 @Serializable
-data class ProgressArchive(val id: String, val start: Long, val end: Long, val metrics: List<ProgressMetric>, val html: String)
+data class ProgressArchive(val id: String, val start: Long, val end: Long, val metrics: List<ProgressMetric>, val html: String, val evaluation: String = "")
+
+private fun buildReportWhatsAppText(portfolio: Portfolio, report: ProgressArchive, advisor: ProgressAdvisor): String {
+    val metricsStr = report.metrics.joinToString("\n") { m ->
+        "• ${m.site}: Görüntülenme: ${m.views ?: 0}, Favori: ${m.favorites ?: 0}"
+    }
+    return "*HAFTALIK İLERLEME RAPORU*\n\n" +
+        "🏠 *İlan:* ${portfolio.title}\n" +
+        "📅 *Dönem:* ${formatTurkishDateMillis(report.start)} – ${formatTurkishDateMillis(report.end)}\n\n" +
+        "📊 *İLAN İSTATİSTİKLERİ:*\n$metricsStr\n\n" +
+        (if (report.evaluation.length > 0) "📝 *DEĞERLENDİRME:*\n${report.evaluation}\n\n" else "") +
+        "👤 *Danışman:* ${advisor.name} (${advisor.phone})\n" +
+        "🏢 *Ofis:* ${advisor.office}"
+}
 @Serializable
 data class ProgressData(
     val trackingStart: Long = 0,
@@ -49,21 +65,35 @@ private fun progressDue(data: ProgressData): Boolean {
 @Composable
 fun PortfolioProgressButton(portfolio: Portfolio, name: String, phone: String, office: String) {
     val settings = remember { Settings() }
+    val dbManager = LocalDatabaseManager.current
+    val scope = rememberCoroutineScope()
     val key = progressKey(phone, portfolio.id)
     var open by remember(key) { mutableStateOf(false) }
     var data by remember(key) { mutableStateOf<ProgressData?>(try { progressLoad(settings, key) } catch (_: Exception) { null }) }
+
+    LaunchedEffect(portfolio.id) {
+        try {
+            val remote = dbManager.getProgressData(portfolio.id)
+            if (remote != null) {
+                settings.putString(key, progressJson.encodeToString(remote))
+                data = remote
+            }
+        } catch (_: Exception) {}
+    }
+
     OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
         Text(if (data?.let { progressDue(it) } == true) "Haftalık rapor zamanı • Hareketler / Rapor" else "Hareketler / Haftalık Rapor")
     }
     if (open) {
-        PortfolioProgressDialog(portfolio, name, phone, office, settings, key, onChanged = { data = it }, onClose = { open = false })
+        PortfolioProgressDialog(portfolio, name, phone, office, settings, dbManager, scope, key, onChanged = { data = it }, onClose = { open = false })
     }
 }
 
 @Composable
 private fun PortfolioProgressDialog(
     portfolio: Portfolio, name: String, phone: String, office: String,
-    settings: Settings, key: String, onChanged: (ProgressData) -> Unit, onClose: () -> Unit
+    settings: Settings, dbManager: DatabaseManager, scope: kotlinx.coroutines.CoroutineScope,
+    key: String, onChanged: (ProgressData) -> Unit, onClose: () -> Unit
 ) {
     val platform = LocalPlatformUtils.current
     var loadError by remember(key) { mutableStateOf("") }
@@ -76,7 +106,11 @@ private fun PortfolioProgressDialog(
         if (loadError.isNotBlank()) return false
         return try {
             settings.putString(key, progressJson.encodeToString(next))
-            data = next; onChanged(next); notice = "Kaydedildi."; true
+            data = next; onChanged(next); notice = "Kaydedildi."
+            scope.launch {
+                try { dbManager.saveProgressData(portfolio.id, next) } catch (_: Exception) {}
+            }
+            true
         } catch (_: Exception) { notice = "Kayıt yapılamadı. Depolama alanını kontrol edin; mevcut kayıt korundu."; false }
     }
     val advisorKey = "progress_advisor_v1_${phone.filter { it.isDigit() }}"
@@ -171,7 +205,7 @@ private fun PortfolioProgressDialog(
                                     numbers != null -> {
                                         val previous = data.reports.filter { it.end < from }.maxByOrNull { it.end }
                                         val html = progressHtml(portfolio, advisor, from, until, numbers, previous?.metrics, data.activities.filter { it.date in from..until }, evaluation)
-                                        val report = ProgressArchive(Clock.now().toString(), from, until, numbers, html)
+                                        val report = ProgressArchive(Clock.now().toString(), from, until, numbers, html, evaluation)
                                         if (persist(data.copy(reports = data.reports + report, draftMetrics = numbers, draftEvaluation = evaluation))) {
                                             platform.showProgressReport(html, "İlerleme Raporu") { ok, message -> notice = if (ok) "Rapor arşivlendi. Önizlemeden PDF olarak kaydedebilirsiniz." else message }
                                         }
@@ -182,7 +216,7 @@ private fun PortfolioProgressDialog(
                                 val latest = data.reports.maxByOrNull { it.end }!!
                                 Button(
                                     onClick = {
-                                        val text = "Sayın Mülk Sahibimiz,\n\n${portfolio.title} ilanınız için ${formatTurkishDateMillis(latest.start)} – ${formatTurkishDateMillis(latest.end)} dönemine ait haftalık ilerleme raporumuz hazırlanmıştır.\n\nDanışman: ${advisor.name} (${advisor.phone})\nOfis: ${advisor.office}"
+                                        val text = buildReportWhatsAppText(portfolio, latest, advisor)
                                         platform.openUri("https://wa.me/?text=" + text)
                                     },
                                     modifier = Modifier.fillMaxWidth(),
@@ -201,7 +235,7 @@ private fun PortfolioProgressDialog(
                                     }
                                     Button(
                                         onClick = {
-                                            val text = "Sayın Mülk Sahibimiz,\n\n${portfolio.title} ilanınız için ${formatTurkishDateMillis(report.start)} – ${formatTurkishDateMillis(report.end)} dönemine ait haftalık ilerleme raporumuz hazırlanmıştır.\n\nDanışman: ${advisor.name} (${advisor.phone})\nOfis: ${advisor.office}"
+                                            val text = buildReportWhatsAppText(portfolio, report, advisor)
                                             platform.openUri("https://wa.me/?text=" + text)
                                         },
                                         modifier = Modifier.fillMaxWidth(),

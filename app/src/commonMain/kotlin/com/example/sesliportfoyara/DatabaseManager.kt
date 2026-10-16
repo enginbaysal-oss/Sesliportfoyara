@@ -2,6 +2,7 @@ package com.example.sesliportfoyara
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -22,6 +23,14 @@ interface DatabaseManager {
     suspend fun getAnnouncement(): AppAnnouncement?
     suspend fun saveAnnouncement(announcement: AppAnnouncement): Boolean
     suspend fun clearAnnouncement(): Boolean
+
+    // CRM & Progress Cloud Sync
+    fun getClients(): Flow<List<Client>> = kotlinx.coroutines.flow.flowOf(emptyList())
+    suspend fun saveClients(clients: List<Client>): Boolean = false
+    fun getGeneralReminders(): Flow<List<CRMReminder>> = kotlinx.coroutines.flow.flowOf(emptyList())
+    suspend fun saveGeneralReminders(reminders: List<CRMReminder>): Boolean = false
+    suspend fun getProgressData(portfolioId: String): ProgressData? = null
+    suspend fun saveProgressData(portfolioId: String, data: ProgressData): Boolean = false
 }
 
 // Bunu App() içine dışarıdan vereceğiz

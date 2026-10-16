@@ -25,6 +25,7 @@ class FirebaseDatabaseManager : DatabaseManager {
     private val rootUrl = "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app"
     private val baseUrl = "$rootUrl/listings"
     private val announcementUrl = "$rootUrl/announcements/current"
+    private val progressUrl = "$rootUrl/portfolio_progress"
 
     override fun getPortfolios(): Flow<List<Portfolio>> = flow {
         while (true) {
@@ -163,6 +164,24 @@ class FirebaseDatabaseManager : DatabaseManager {
     override suspend fun clearAnnouncement(): Boolean {
         return try {
             val response = client.delete("$announcementUrl.json")
+            response.status.isSuccess()
+        } catch (e: Exception) { false }
+    }
+
+    override suspend fun getProgressData(portfolioId: String): ProgressData? {
+        return try {
+            val timestamp = getCurrentTimeMillis()
+            val response = client.get("$progressUrl/$portfolioId.json?t=$timestamp")
+            if (response.status.isSuccess()) response.body<ProgressData?>() else null
+        } catch (e: Exception) { null }
+    }
+
+    override suspend fun saveProgressData(portfolioId: String, data: ProgressData): Boolean {
+        return try {
+            val response = client.put("$progressUrl/$portfolioId.json") {
+                contentType(ContentType.Application.Json)
+                setBody(data)
+            }
             response.status.isSuccess()
         } catch (e: Exception) { false }
     }
