@@ -8,6 +8,9 @@ interface PlatformUtils {
     fun showProgressReport(html: String, title: String, onResult: (Boolean, String) -> Unit) {
         onResult(false, "Bu platformda rapor önizleme desteklenmiyor.")
     }
+    fun shareReport(title: String, htmlContent: String) {
+        showProgressReport(htmlContent, title) { _, _ -> }
+    }
     fun openUri(uri: String)
     fun openEmlakAsistan()
     fun openArsaTakip()

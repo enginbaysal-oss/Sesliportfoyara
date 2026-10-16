@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.remember
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.russhwolf.settings.Settings
 import okhttp3.Call
 import okhttp3.Callback
@@ -43,6 +45,7 @@ import java.io.IOException
 import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.FirebaseOptions
 import dev.gitlive.firebase.initialize
+import java.io.File
 
 class MainActivity : ComponentActivity() {
     private val supabaseClient = OkHttpClient()
@@ -572,6 +575,25 @@ class MainActivity : ComponentActivity() {
                         webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
                         onResult(true, "Önizleme açıldı. PDF olarak kaydet düğmesini kullanın.")
                     } catch (e: Exception) { onResult(false, "Rapor açılamadı: " + e.message) }
+                }
+            }
+
+            override fun shareReport(title: String, htmlContent: String) {
+                this@MainActivity.runOnUiThread {
+                    try {
+                        val file = File(cacheDir, "ilerleme_raporu.html")
+                        file.writeText(htmlContent)
+                        val uri = FileProvider.getUriForFile(this@MainActivity, "${packageName}.fileprovider", file)
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/html"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            putExtra(Intent.EXTRA_SUBJECT, title)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        startActivity(Intent.createChooser(intent, "Raporu Paylaş"))
+                    } catch (e: Exception) {
+                        Toast.makeText(this@MainActivity, "Paylaşım hatası: " + e.message, Toast.LENGTH_LONG).show()
+                    }
                 }
             }
 

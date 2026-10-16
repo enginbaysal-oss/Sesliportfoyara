@@ -214,22 +214,33 @@ private fun PortfolioProgressDialog(
                             }) { Text("Hazırla • Önizle / PDF") }
                             if (data.reports.isNotEmpty()) {
                                 val latest = data.reports.maxByOrNull { it.end }!!
-                                Button(
-                                    onClick = {
-                                        val text = buildReportWhatsAppText(portfolio, latest, advisor)
-                                        platform.openUri("https://wa.me/?text=" + text)
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
-                                ) {
-                                    Text("📱 Son Raporu WhatsApp'ta Paylaş", color = Color.White)
+                                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Button(
+                                        onClick = {
+                                            val text = buildReportWhatsAppText(portfolio, latest, advisor)
+                                            platform.openUri("https://wa.me/?text=" + text)
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
+                                    ) {
+                                        Text("📱 Son Raporu WhatsApp'ta Paylaş", color = Color.White)
+                                    }
+                                    Button(
+                                        onClick = {
+                                            platform.shareReport("İlerleme Raporu", latest.html)
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF128C7E))
+                                    ) {
+                                        Text("📎 Rapor Dosyasını Paylaş (WhatsApp / Dosya)", color = Color.White)
+                                    }
                                 }
                             }
                         }
                         2 -> {
                             if (data.reports.isEmpty()) Text("Henüz hazırlanmış rapor yok.")
                             data.reports.sortedByDescending { it.end }.forEach { report ->
-                                Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     OutlinedButton(onClick = { platform.showProgressReport(report.html, "İlerleme Raporu") { _, message -> notice = message } }, modifier = Modifier.fillMaxWidth()) {
                                         Text("${formatTurkishDateMillis(report.start)} – ${formatTurkishDateMillis(report.end)} • Aç / PDF")
                                     }
@@ -242,6 +253,15 @@ private fun PortfolioProgressDialog(
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
                                     ) {
                                         Text("📱 Raporu WhatsApp'ta Paylaş", color = Color.White)
+                                    }
+                                    Button(
+                                        onClick = {
+                                            platform.shareReport("İlerleme Raporu", report.html)
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF128C7E))
+                                    ) {
+                                        Text("📎 Rapor Dosyasını Paylaş (WhatsApp / Dosya)", color = Color.White)
                                     }
                                 }
                             }
