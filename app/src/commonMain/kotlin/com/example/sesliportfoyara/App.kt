@@ -174,8 +174,9 @@ fun App() {
     var isOfficeAdmin by remember { mutableStateOf(settings.getBoolean("is_office_admin", false)) }
     var myOfficeName by remember {
         val saved = settings.getString("my_office_name", "")
-        val resolved = if (saved.isBlank() || saved.equals("Ofissiz / Bağımsız", true)) "Remax İlyada 3" else saved
-        if (saved.equals("Ofissiz / Bağımsız", true) || saved.isBlank()) {
+        val isOfissiz = saved.isBlank() || saved.contains("Ofissiz", true) || saved.contains("Bağımsız", true) || saved.contains("bagimsiz", true)
+        val resolved = if (isOfissiz) "Remax İlyada 3" else saved
+        if (isOfissiz) {
             settings.putString("my_office_name", resolved)
         }
         mutableStateOf(resolved)
@@ -250,7 +251,8 @@ fun App() {
                             canUseTools = serverCanUseTools
                             isOfficeAdmin = serverIsOfficeAdmin
                             val rawOffice = serverOfficeName.ifBlank { myOfficeName }.ifBlank { settings.getString("my_office_name", "") }
-                            val finalOfficeName = if (rawOffice.isBlank() || rawOffice.equals("Ofissiz / Bağımsız", true)) "Remax İlyada 3" else rawOffice
+                            val isOfissiz = rawOffice.isBlank() || rawOffice.contains("Ofissiz", true) || rawOffice.contains("Bağımsız", true) || rawOffice.contains("bagimsiz", true)
+                            val finalOfficeName = if (isOfissiz) "Remax İlyada 3" else rawOffice
                             myOfficeName = finalOfficeName
                             settings.putBoolean("is_admin", serverIsAdmin)
                             settings.putBoolean("can_use_tools", serverCanUseTools)
@@ -273,10 +275,14 @@ fun App() {
                 dbManager.getPortfolios().collectLatest { list ->
                     if (list.isNotEmpty()) {
                         val rawOffice = myOfficeName.ifBlank { settings.getString("my_office_name", "") }
-                        val currentOfficeForLoad = if (rawOffice.isBlank() || rawOffice.equals("Ofissiz / Bağımsız", true)) "Remax İlyada 3" else rawOffice
+                        val isOfissiz = rawOffice.isBlank() || rawOffice.contains("Ofissiz", true) || rawOffice.contains("Bağımsız", true) || rawOffice.contains("bagimsiz", true)
+                        val currentOfficeForLoad = if (isOfissiz) "Remax İlyada 3" else rawOffice
 
                         val visibleList = list.filter {
-                            normalizeOfficeName(it.officeName) == normalizeOfficeName(currentOfficeForLoad) || it.officeName.isBlank()
+                            val pOff = it.officeName
+                            val pOfissiz = pOff.isBlank() || pOff.contains("Ofissiz", true) || pOff.contains("Bağımsız", true) || pOff.contains("bagimsiz", true)
+                            val effectivePOffice = if (pOfissiz) "Remax İlyada 3" else pOff
+                            normalizeOfficeName(effectivePOffice) == normalizeOfficeName(currentOfficeForLoad) || pOff.isBlank()
                         }
 
                         if (visibleList.isNotEmpty()) {
@@ -716,7 +722,8 @@ fun App() {
                                     val rawImportOffice = myOfficeName
                                         .ifBlank { settings.getString("my_office_name", "") }
                                         .ifBlank { "Remax İlyada 3" }
-                                    val importOfficeName = if (rawImportOffice.isBlank() || rawImportOffice.equals("Ofissiz / Bağımsız", true)) "Remax İlyada 3" else rawImportOffice
+                                    val isImportOfissiz = rawImportOffice.isBlank() || rawImportOffice.contains("Ofissiz", true) || rawImportOffice.contains("Bağımsız", true) || rawImportOffice.contains("bagimsiz", true)
+                                    val importOfficeName = if (isImportOfissiz) "Remax İlyada 3" else rawImportOffice
                                     val count = remaxService.syncWithFirebase(url, dbManager, importOfficeName)
                                     if (count > 0) {
                                         snackbarHostState.showSnackbar("✅ $count yeni portföy başarıyla aktarıldı.")
@@ -729,7 +736,8 @@ fun App() {
                             currentPhone = myPhone,
                             currentOfficeName = run {
                                 val rawCurrentOffice = myOfficeName.ifBlank { settings.getString("my_office_name", "") }.ifBlank { "Remax İlyada 3" }
-                                if (rawCurrentOffice.isBlank() || rawCurrentOffice.equals("Ofissiz / Bağımsız", true)) "Remax İlyada 3" else rawCurrentOffice
+                                val isCurOfissiz = rawCurrentOffice.isBlank() || rawCurrentOffice.contains("Ofissiz", true) || rawCurrentOffice.contains("Bağımsız", true) || rawCurrentOffice.contains("bagimsiz", true)
+                                if (isCurOfissiz) "Remax İlyada 3" else rawCurrentOffice
                             },
                             officePortfoliosLoaded = officePortfoliosLoaded,
                             isAdmin = isAdmin || isOfficeAdmin
