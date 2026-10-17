@@ -3065,7 +3065,10 @@ fun MyPortfolioScreen(
                 Column {
                     Text("Ofis veya arama sayfası linkini girin (birden fazla ise virgül ile ayırın):", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp)
                     Spacer(Modifier.height(8.dp))
-                    CustomInputField("URL", remaxUrl) { remaxUrl = it }
+                    CustomInputField("URL", remaxUrl) { 
+                        remaxUrl = it
+                        onRemaxImportUrlChange(it)
+                    }
                 }
             },
             confirmButton = {
