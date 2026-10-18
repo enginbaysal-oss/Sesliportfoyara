@@ -92,7 +92,8 @@
   .fld-box.saved{color:var(--sage-dark);}
   .fld-box.pending-new{background:rgba(184,147,90,0.18);color:var(--gold);}
   .fld-box.active{color:var(--ink);box-shadow:0 0 0 3px rgba(184,147,90,0.35);}
-  .fld-box.filled{color:#0066cc;}
+  .fld-box.filled{color:#0D233A;}
+  .fld-box.overflow-warning{outline:1.5px dashed #D9534F !important;background:rgba(217,83,79,0.08) !important;}
   .fld-box.upcoming{background:rgba(255,255,255,0.85);color:var(--gray);}
   .fld-box.editable{cursor:move;outline:1.5px dashed rgba(184,147,90,0.55);outline-offset:1px;}
   .fld-box.editable:hover{box-shadow:0 0 0 3px rgba(184,147,90,0.3);outline:1.5px dashed var(--gold);}
@@ -164,7 +165,7 @@
     .print-area{position:absolute;top:0;left:0;width:100%;padding:0;margin:0;}
     .pdf-page{box-shadow:none;border-radius:0;page-break-after:always;}
     .pdf-page:last-child{page-break-after:auto;}
-    .fld-box{background:#fff !important;border:none !important;box-shadow:none !important;color:#0066cc !important;outline:none !important;}
+    .fld-box{background:#fff !important;border:none !important;box-shadow:none !important;color:#0D233A !important;outline:none !important;}
   }
 
   .archive-list{display:flex;flex-direction:column;gap:14px;width:100%;max-width:700px;}
@@ -475,11 +476,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
       } else {
         ctx.save();
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#0066cc';
-        var fontSize = Math.max(8, Math.min(boxH*0.62, 22));
+        ctx.fillStyle = '#0D233A';
+        var fontSize = Math.max(10.5, Math.min(boxH*0.62, 22));
         ctx.font = "600 "+fontSize+"px 'Inter', Arial, sans-serif";
         var guard = 0;
-        while(ctx.measureText(val).width > boxW-6 && fontSize > 6 && guard < 40){
+        while(ctx.measureText(val).width > boxW-6 && fontSize > 10.5 && guard < 40){
           fontSize -= 0.5;
           ctx.font = "600 "+fontSize+"px 'Inter', Arial, sans-serif";
           guard++;
@@ -814,12 +815,19 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
       if(!box.textContent || !box.textContent.trim()) return;
       box.style.fontSize = '';
       var fontSize = parseFloat(getComputedStyle(box).fontSize) || 12.5;
-      var minFont = 7;
+      var minFont = 10.5; // Minimum okunabilir punto (10.5px) sınırı
       var guard = 0;
       while(fontSize > minFont && guard < 40 && (box.scrollWidth > box.clientWidth + 1 || box.scrollHeight > box.clientHeight + 1)){
         fontSize -= 0.5;
         box.style.fontSize = fontSize + 'px';
         guard++;
+      }
+      if(box.scrollWidth > box.clientWidth + 1 || box.scrollHeight > box.clientHeight + 1){
+        box.classList.add('overflow-warning');
+        box.title = "Uyarı: Metin alana sığmıyor ve minimum okunabilir punto sınırına (10.5px) ulaştı.";
+      } else {
+        box.classList.remove('overflow-warning');
+        box.title = "";
       }
     });
   }
@@ -939,7 +947,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
   var ctx = canvas.getContext('2d');
   ctx.lineWidth = 2.4;
   ctx.lineCap = 'round';
-  ctx.strokeStyle = '#0066cc';
+  ctx.strokeStyle = '#0D233A';
 
   var existing = state.answers[field.id];
   if(existing){
@@ -1444,7 +1452,7 @@ function renderDone(){
       s.rows.forEach(function(r){
         ctx.font = '400 14px Arial'; ctx.fillStyle = '#33475C';
         ctx.fillText(r[0], marginX+10, y);
-        ctx.font = '700 14px Arial'; ctx.fillStyle = '#0066cc';
+        ctx.font = '700 14px Arial'; ctx.fillStyle = '#0D233A';
         var tw = ctx.measureText(r[1]).width;
         ctx.fillText(r[1], W-marginX-tw, y);
         ctx.strokeStyle = '#EFEAE0';
