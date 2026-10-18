@@ -433,13 +433,18 @@ fun App() {
                             HeaderSection(onLogout = onLogout)
 
                             if (isAdmin && currentScreen != Screen.UserManagement) {
-                                Button(
-                                    onClick = { currentScreen = Screen.UserManagement },
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.Start
                                 ) {
-                                    Icon(Icons.Default.Lock, contentDescription = null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("KULLANICI YÖNETİMİ", fontWeight = FontWeight.Bold)
+                                    Button(
+                                        onClick = { currentScreen = Screen.UserManagement },
+                                        modifier = Modifier.fillMaxWidth(0.25f)
+                                    ) {
+                                        Icon(Icons.Default.Lock, contentDescription = null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("KULLANICI YÖNETİMİ", fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }
@@ -2783,7 +2788,7 @@ fun AddPortfolioScreen(
 
         if (editingPortfolio == null) {
             Text("Portföy Nerede Saklansın?", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f), fontSize = 11.sp)
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(0.5f).padding(vertical = 4.dp), horizontalArrangement = Arrangement.Start) {
                 listOf(true to "Sadece Benim (Yerel)", false to "Herkesle Paylaş (Ofis)").forEach { (isLocal, label) ->
                     val selected = saveLocally == isLocal
                     Box(
@@ -3139,10 +3144,10 @@ fun MyPortfolioScreen(
         Spacer(modifier = Modifier.height(10.dp)) // Boşluk daraltıldı
 
         // İŞLEM BUTONLARI
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
             Button(
                 onClick = { showImportDialog = true },
-                modifier = Modifier.weight(1f).height(36.dp),
+                modifier = Modifier.fillMaxWidth(0.48f).height(36.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
@@ -3153,9 +3158,10 @@ fun MyPortfolioScreen(
             }
 
             if (isSuperAdmin) {
+                Spacer(Modifier.width(8.dp))
                 Button(
                     onClick = { showClearDialog = true },
-                    modifier = Modifier.weight(1f).height(36.dp),
+                    modifier = Modifier.fillMaxWidth(0.48f).height(36.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B)),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
@@ -3503,11 +3509,11 @@ fun PortfolioItem(
                         }
                     }
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
                         if (portfolio.link.isNotEmpty()) {
                             Button(
                                 onClick = { platformUtils.openUri(portfolio.link) },
-                                modifier = Modifier.weight(1f).height(42.dp),
+                                modifier = Modifier.fillMaxWidth(0.48f).height(42.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
                                 shape = RoundedCornerShape(10.dp),
                                 contentPadding = PaddingValues(0.dp)
@@ -3517,16 +3523,18 @@ fun PortfolioItem(
                         }
 
                         if (onEdit != null) {
+                            Spacer(Modifier.width(8.dp))
                             IconButton(onClick = { onEdit(portfolio) }, modifier = Modifier.size(42.dp).background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f), CircleShape)) {
                                 Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
                             }
                         }
 
                         if (onPublish != null) {
+                            Spacer(Modifier.width(8.dp))
                             val isLocal = portfolio.id.startsWith("local_")
                             Button(
                                 onClick = { onPublish(portfolio) },
-                                modifier = Modifier.weight(1f).height(42.dp),
+                                modifier = Modifier.fillMaxWidth(0.48f).height(42.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = if (isLocal) Color(0xFF2196F3) else Color(0xFF22A447)),
                                 shape = RoundedCornerShape(10.dp),
                                 contentPadding = PaddingValues(0.dp)
@@ -3548,6 +3556,7 @@ fun PortfolioItem(
                         }
 
                         if (onDelete != null) {
+                            Spacer(Modifier.width(8.dp))
                             IconButton(onClick = { onDelete(portfolio) }, modifier = Modifier.size(42.dp).background(Color.Red.copy(0.1f), CircleShape)) {
                                 Icon(Icons.Default.Delete, null, tint = Color.Red.copy(0.7f), modifier = Modifier.size(18.dp))
                             }
