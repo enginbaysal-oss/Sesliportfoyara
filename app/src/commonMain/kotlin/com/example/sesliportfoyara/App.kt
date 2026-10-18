@@ -3149,7 +3149,7 @@ fun MyPortfolioScreen(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
             Button(
                 onClick = { showImportDialog = true },
-                modifier = Modifier.fillMaxWidth(0.48f).height(36.dp),
+                modifier = Modifier.width(160.dp).height(36.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
@@ -3163,7 +3163,7 @@ fun MyPortfolioScreen(
                 Spacer(Modifier.width(8.dp))
                 Button(
                     onClick = { showClearDialog = true },
-                    modifier = Modifier.fillMaxWidth(0.48f).height(36.dp),
+                    modifier = Modifier.width(110.dp).height(36.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B)),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
@@ -3518,7 +3518,7 @@ fun PortfolioItem(
                         if (portfolio.link.isNotEmpty()) {
                             Button(
                                 onClick = { platformUtils.openUri(portfolio.link) },
-                                modifier = Modifier.fillMaxWidth(0.48f).height(42.dp),
+                                modifier = Modifier.width(130.dp).height(42.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
                                 shape = RoundedCornerShape(10.dp),
                                 contentPadding = PaddingValues(0.dp)
@@ -3539,7 +3539,7 @@ fun PortfolioItem(
                             val isLocal = portfolio.id.startsWith("local_")
                             Button(
                                 onClick = { onPublish(portfolio) },
-                                modifier = Modifier.fillMaxWidth(0.48f).height(42.dp),
+                                modifier = Modifier.width(170.dp).height(42.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = if (isLocal) Color(0xFF2196F3) else Color(0xFF22A447)),
                                 shape = RoundedCornerShape(10.dp),
                                 contentPadding = PaddingValues(0.dp)
@@ -3552,7 +3552,7 @@ fun PortfolioItem(
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = if (isLocal) "Ofis Portföylerime Aktar" else "Benim Portföylerime Aktar",
+                                    text = if (isLocal) "Ofise Aktar" else "Aktar",
                                     color = Color(0xFFFFF176),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
@@ -3602,74 +3602,79 @@ fun ToolsScreen() {
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.25f)
-                .clickable {
-                    platformUtils.openEmlakAsistan()
-                },
-            shape = RoundedCornerShape(18.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(0.5f),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Row(
+            Card(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .weight(1f)
+                    .clickable {
+                        platformUtils.openEmlakAsistan()
+                    },
+                shape = RoundedCornerShape(18.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Description,
-                    contentDescription = null,
-                    modifier = Modifier.size(38.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column {
-                    Text(
-                        text = "EmlakAsistan",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = null,
+                        modifier = Modifier.size(38.dp),
+                        tint = MaterialTheme.colorScheme.primary
                     )
-                    Text(
-                        text = "Şablonlar, belgeler ve hesaplamalar",
-                        fontSize = 13.sp
-                    )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column {
+                        Text(
+                            text = "EmlakAsistan",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Şablonlar, belgeler ve hesaplamalar",
+                            fontSize = 13.sp
+                        )
+                    }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(0.25f).clickable { platformUtils.openArsaTakip() },
-            shape = RoundedCornerShape(18.dp)
-        ) {
-            Row(
+            Card(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .weight(1f)
+                    .clickable { platformUtils.openArsaTakip() },
+                shape = RoundedCornerShape(18.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Map,
-                    contentDescription = null,
-                    modifier = Modifier.size(38.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column {
-                    Text(
-                        text = "ArsaTakip",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Map,
+                        contentDescription = null,
+                        modifier = Modifier.size(38.dp),
+                        tint = MaterialTheme.colorScheme.primary
                     )
-                    Text(
-                        text = "Parsel sınırlarını 3D haritada görüntüleyin ve drone uçuşu oluşturun",
-                        fontSize = 13.sp
-                    )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column {
+                        Text(
+                            text = "ArsaTakip",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Parsel sınırlarını 3D haritada görüntüleyin ve drone uçuşu oluşturun",
+                            fontSize = 13.sp
+                        )
+                    }
                 }
             }
         }
