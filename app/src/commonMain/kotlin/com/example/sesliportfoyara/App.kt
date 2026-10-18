@@ -2649,8 +2649,9 @@ fun VoiceSearchScreen(
 
         var searchText by remember { mutableStateOf("") }
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth(0.5f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
         ) {
             TextField(
                 value = searchText,
@@ -2864,25 +2865,22 @@ fun AddPortfolioScreen(
 
         HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f).copy(0.2f))
         Text("DANIŞMAN BİLGİLERİ", color = if (canEditConsultant) Color(0xFF2196F3) else Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(0.5f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.weight(1f)) {
                 CustomInputField("Danışman", consultantName, enabled = canEditConsultant) { consultantName = it }
             }
-            Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) {
                 CustomInputField("Danışman Tel", consultantPhone, enabled = canEditConsultant) { consultantPhone = it }
             }
         }
 
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(0.5f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.weight(1f)) { CustomInputField("Fiyat (TL)", price) { price = it } }
-            Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) { CustomInputField("Oda Sayısı", rooms) { rooms = it } }
         }
 
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(0.5f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.weight(1f)) { CustomInputField("Metrekare", area) { area = it } }
-            Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) { CustomInputField("Konum", location) { location = it } }
         }
         CustomInputField("Özellikler (virgülle ayırın)", features) { features = it }
@@ -2891,11 +2889,10 @@ fun AddPortfolioScreen(
 
         HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f).copy(0.2f))
         Text("YETKİ SÖZLEŞMESİ", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(0.5f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.weight(1f)) {
                 CustomInputField("Başlangıç (gg.aa.yyyy)", authorityStartDateText) { authorityStartDateText = it }
             }
-            Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) {
                 CustomInputField("Süre (gün)", authorityDurationDaysText) { authorityDurationDaysText = it.filter { ch -> ch.isDigit() } }
             }
@@ -2909,40 +2906,42 @@ fun AddPortfolioScreen(
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        Button(
-            onClick = {
-                if (title.isNotEmpty()) {
-                    onAdd(Portfolio(
-                        id = editingPortfolio?.id ?: "",
-                        title = title,
-                        price = price,
-                        rooms = rooms,
-                        area = area,
-                        location = location,
-                        consultantName = consultantName,
-                        consultantPhone = consultantPhone,
-                        ownerName = ownerName,
-                        ownerPhone = ownerPhone,
-                        type = type,
-                        propertyType = propertyType,
-                        features = features.split(",").map { it.trim() }.filter { it.isNotEmpty() },
-                        link = link,
-                        imageUrl = imageUrl,
-                        authorityStartDate = authorityStartMillis,
-                        authorityDurationDays = authorityDurationDays,
-                        authorityEndDate = authorityEndMillis,
-                        createdAt = editingPortfolio?.createdAt ?: 0L
-                    ), saveLocally)
-                }
-            },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
-        ) {
-            Text(
-                if (editingPortfolio != null) "Değişiklikleri Kaydet" else "Portföyü Kaydet",
-                color = Color.Black, fontWeight = FontWeight.Bold
-            )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+            Button(
+                onClick = {
+                    if (title.isNotEmpty()) {
+                        onAdd(Portfolio(
+                            id = editingPortfolio?.id ?: "",
+                            title = title,
+                            price = price,
+                            rooms = rooms,
+                            area = area,
+                            location = location,
+                            consultantName = consultantName,
+                            consultantPhone = consultantPhone,
+                            ownerName = ownerName,
+                            ownerPhone = ownerPhone,
+                            type = type,
+                            propertyType = propertyType,
+                            features = features.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+                            link = link,
+                            imageUrl = imageUrl,
+                            authorityStartDate = authorityStartMillis,
+                            authorityDurationDays = authorityDurationDays,
+                            authorityEndDate = authorityEndMillis,
+                            createdAt = editingPortfolio?.createdAt ?: 0L
+                        ), saveLocally)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(0.25f).height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
+            ) {
+                Text(
+                    if (editingPortfolio != null) "Değişiklikleri Kaydet" else "Portföyü Kaydet",
+                    color = Color.Black, fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(40.dp))
