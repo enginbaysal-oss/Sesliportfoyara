@@ -305,36 +305,36 @@ class RemaxService {
                     }
 
                     var imageUrl = ""
-                    val photoObj = obj["photo"]
-                    if (photoObj is JsonObject) {
-                        imageUrl = photoObj["url"]?.jsonPrimitive?.content 
-                            ?: photoObj["path"]?.jsonPrimitive?.content 
-                            ?: photoObj["fullPath"]?.jsonPrimitive?.content ?: ""
-                    } else if (photoObj is JsonArray) {
-                        val firstPhoto = photoObj.firstOrNull()
-                        if (firstPhoto is JsonObject) {
-                            imageUrl = firstPhoto["url"]?.jsonPrimitive?.content 
-                                ?: firstPhoto["path"]?.jsonPrimitive?.content ?: ""
-                        } else {
-                            imageUrl = firstPhoto?.jsonPrimitive?.content ?: ""
+                    for (key in listOf("coverPhoto", "thumbnail", "photoUrl", "photoPath", "squarePhotoUrl", "imageUrl", "image", "mainImage", "primaryPhoto", "src", "url", "path", "fullPath")) {
+                        val valStr = try {
+                            obj[key]?.jsonPrimitive?.content 
+                                ?: obj[key]?.jsonObject?.get("url")?.jsonPrimitive?.content 
+                                ?: obj[key]?.jsonObject?.get("path")?.jsonPrimitive?.content 
+                                ?: ""
+                        } catch (_: Exception) { "" }
+                        if (valStr.isNotEmpty()) {
+                            imageUrl = valStr
+                            break
                         }
-                    }
-                    
-                    if (imageUrl.isEmpty()) {
-                        imageUrl = obj["photoUrl"]?.jsonPrimitive?.content
-                            ?: obj["photoPath"]?.jsonPrimitive?.content
-                            ?: obj["squarePhotoUrl"]?.jsonPrimitive?.content
-                            ?: obj["imageUrl"]?.jsonPrimitive?.content
-                            ?: obj["image"]?.jsonPrimitive?.content ?: ""
                     }
 
                     if (imageUrl.isEmpty()) {
-                        val imagesArray = obj["images"]?.jsonArray
-                        val firstImg = imagesArray?.firstOrNull()
-                        if (firstImg is JsonObject) {
-                            imageUrl = firstImg["url"]?.jsonPrimitive?.content ?: firstImg["path"]?.jsonPrimitive?.content ?: ""
-                        } else {
-                            imageUrl = firstImg?.jsonPrimitive?.content ?: ""
+                        for (arrayKey in listOf("photos", "gallery", "images", "pictures", "media", "photo")) {
+                            try {
+                                val arr = obj[arrayKey]?.jsonArray
+                                val first = arr?.firstOrNull()
+                                if (first != null) {
+                                    val found = when (first) {
+                                        is JsonPrimitive -> first.content
+                                        is JsonObject -> first["url"]?.jsonPrimitive?.content ?: first["path"]?.jsonPrimitive?.content ?: first["fullPath"]?.jsonPrimitive?.content ?: first["src"]?.jsonPrimitive?.content ?: ""
+                                        else -> ""
+                                    }
+                                    if (found.isNotEmpty()) {
+                                        imageUrl = found
+                                        break
+                                    }
+                                }
+                            } catch (_: Exception) {}
                         }
                     }
 
