@@ -93,7 +93,6 @@
   .fld-box.pending-new{background:rgba(184,147,90,0.18);color:var(--gold);}
   .fld-box.active{color:var(--ink);box-shadow:0 0 0 3px rgba(184,147,90,0.35);}
   .fld-box.filled{color:#0D233A;}
-  .fld-box.overflow-warning{outline:1.5px dashed #D9534F !important;background:rgba(217,83,79,0.08) !important;}
   .fld-box.upcoming{background:rgba(255,255,255,0.85);color:var(--gray);}
   .fld-box.editable{cursor:move;outline:1.5px dashed rgba(184,147,90,0.55);outline-offset:1px;}
   .fld-box.editable:hover{box-shadow:0 0 0 3px rgba(184,147,90,0.3);outline:1.5px dashed var(--gold);}
@@ -810,16 +809,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 
   function fitTextInBoxes(){
     var boxes = document.querySelectorAll('.fld-box');
-    var hasOverflow = false;
     boxes.forEach(function(box){
       if(box.querySelector('img')) return;
       var text = box.textContent ? box.textContent.trim() : '';
-      if(!text){
-        box.classList.remove('overflow-warning');
-        box.style.color = '';
-        box.title = '';
-        return;
-      }
+      if(!text) return;
       box.style.fontSize = '';
       var fontSize = parseFloat(getComputedStyle(box).fontSize) || 12.5;
       var minFont = 10.5; // Minimum okunabilir punto (10.5px) sınırı
@@ -829,30 +822,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
         box.style.fontSize = fontSize + 'px';
         guard++;
       }
-      if(box.clientHeight > 0 && (box.scrollWidth > box.clientWidth + 2 || box.scrollHeight > box.clientHeight + 2)){
-        box.classList.add('overflow-warning');
-        box.style.color = '#D9534F'; // Sadece metin girildiğinde ve gerçekten taştığında kırmızıya döner
-        box.title = "Uyarı: Bu alandaki metin kutunun sınırlarını aştı ve minimum boyuta (10.5px) ulaştı.";
-        hasOverflow = true;
-      } else {
-        box.classList.remove('overflow-warning');
-        box.style.color = '';
-        box.title = "";
-      }
     });
-
-    var warnBanner = document.getElementById('overflowWarningBanner');
-    if(hasOverflow){
-      if(!warnBanner){
-        warnBanner = document.createElement('div');
-        warnBanner.id = 'overflowWarningBanner';
-        warnBanner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#D9534F;color:#fff;padding:10px 20px;border-radius:8px;z-index:9999;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-size:13.5px;';
-        warnBanner.innerHTML = '⚠️ Dikkat: Kırmızı renge dönen alanlardaki metin kutusu sınırlarını aştı (çok fazla bilgi girildi). Lütfen metni kısaltın veya alanı genişletin.';
-        document.body.appendChild(warnBanner);
-      }
-    } else {
-      if(warnBanner) warnBanner.remove();
-    }
   }
 
   function renderMark(){
