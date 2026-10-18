@@ -2538,13 +2538,13 @@ fun VoiceSearchScreen(
 
         Row(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(0.5f)
                 .background(
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     RoundedCornerShape(10.dp)
                 )
                 .padding(3.dp),
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
+            horizontalArrangement = Arrangement.Start
         ) {
             listOf(
                 "🏢 Ofis" to 0,
@@ -2657,7 +2657,7 @@ fun VoiceSearchScreen(
                 onValueChange = { searchText = it },
                 placeholder = { Text("ya da yazarak arayın...", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)) },
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(0.75f)
                     .clip(RoundedCornerShape(12.dp))
                     .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)), RoundedCornerShape(12.dp)),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -2676,7 +2676,7 @@ fun VoiceSearchScreen(
                 onClick = { performSearch(searchText) },
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.height(56.dp)
+                modifier = Modifier.weight(0.25f).height(56.dp)
             ) {
                 Text("Ara", color = Color.White, fontWeight = FontWeight.Bold)
             }
@@ -2804,11 +2804,15 @@ fun AddPortfolioScreen(
             }
         }
 
-        CustomInputField("İlan Başlığı", title) { title = it }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+            Box(Modifier.fillMaxWidth(0.25f)) {
+                CustomInputField("İlan Başlığı", title) { title = it }
+            }
+        }
 
         Text("İlan Tipi", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth(0.5f).padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             listOf("Satılık", "Kiralık").forEach { option ->
@@ -3176,7 +3180,10 @@ fun MyPortfolioScreen(
         Spacer(modifier = Modifier.height(10.dp))
 
         // TABLAR
-        Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(0.5f).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp),
+            horizontalArrangement = Arrangement.Start
+        ) {
             val tabs = listOf(
                 "Benim (${myVisiblePortfolios.size})",
                 if (!officePortfoliosLoaded && officePortfolios.isEmpty()) "${currentOfficeName.ifBlank { "Remax İlyada 3" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Remax İlyada 3" }} (${officePortfolios.size})"
@@ -3267,7 +3274,7 @@ fun PortfolioItem(
     val cleanConsultantPhone = portfolio.consultantPhone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth(0.5f).padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f) // Kartın kendisi hafif gri/mavi bir tonda olsun ki "kart" olduğu belli olsun
         ),
@@ -3577,7 +3584,7 @@ fun ToolsScreen() {
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.Start
     ) {
         Text(
             text = "Araçlar",
@@ -3592,14 +3599,14 @@ fun ToolsScreen() {
             text = "Gayrimenkul işlemleriniz için yardımcı araçlar",
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Start
         )
 
         Spacer(modifier = Modifier.height(28.dp))
 
         Card(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(0.25f)
                 .clickable {
                     platformUtils.openEmlakAsistan()
                 },
@@ -3637,7 +3644,7 @@ fun ToolsScreen() {
         Spacer(modifier = Modifier.height(14.dp))
 
         Card(
-            modifier = Modifier.fillMaxWidth().clickable { platformUtils.openArsaTakip() },
+            modifier = Modifier.fillMaxWidth(0.25f).clickable { platformUtils.openArsaTakip() },
             shape = RoundedCornerShape(18.dp)
         ) {
             Row(
