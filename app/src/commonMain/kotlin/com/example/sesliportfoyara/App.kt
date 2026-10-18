@@ -2806,7 +2806,7 @@ fun AddPortfolioScreen(
         }
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-            Box(Modifier.fillMaxWidth(0.25f)) {
+            Box(Modifier.fillMaxWidth(0.5f)) {
                 CustomInputField("İlan Başlığı", title) { title = it }
             }
         }
@@ -2857,9 +2857,8 @@ fun AddPortfolioScreen(
 
         HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f).copy(0.2f))
         Text("MÜLK SAHİBİ BİLGİLERİ (Özel)", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(0.5f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.weight(1f)) { CustomInputField("Sahibi Adı", ownerName) { ownerName = it } }
-            Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) { CustomInputField("Sahibi Telefon", ownerPhone) { ownerPhone = it } }
         }
 
