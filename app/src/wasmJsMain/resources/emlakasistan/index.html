@@ -718,7 +718,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
             '<div class="tpl-name">'+escapeHtml(t.name)+'</div>' +
             '<div class="tpl-meta">'+t.fieldCount+' alan · '+t.pageCount+' sayfa'+(isBuiltin?' · Hazır şablon':'')+'</div>' +
           '</div>' +
-          '<div class="btn-row">' +
+          '<div class="btn-row" style="flex-wrap:wrap;justify-content:flex-end;">' +
+            '<button class="btn btn-ghost btn-sm" onclick="app.downloadEmptyPdf(\''+t.id+'\')">Boş İndir/Yazdır</button>' +
+            '<button class="btn btn-ghost btn-sm" style="background:#25D366;color:#fff;border-color:#25D366;" onclick="app.shareEmptyPdf(\''+t.id+'\')">Boş WhatsApp</button>' +
             '<button class="btn btn-ghost" onclick="app.editTemplate(\''+t.id+'\')">Düzenle</button>' +
             '<button class="btn btn-primary" onclick="app.startFill(\''+t.id+'\')">Doldur</button>' +
           '</div>' +
@@ -1805,6 +1807,58 @@ function renderDone(){
     state.pdfBusy = false;
     render();
   };
+
+  app.downloadEmptyPdf = async function(id){
+    var t = state.templates.find(function(x){ return x.id === id; });
+    if(!t) return;
+    state.currentTemplate = t;
+    state.answers = {};
+    var isAndroid = !!window.AndroidInterface;
+    var pdfWindow = isAndroid ? null : window.open('', '_blank');
+    state.pdfBusy = true; render();
+    try {
+      var blob = await generatePdfBlob();
+      triggerBlobDownload(blob, safeFileName(t.name) + '_bos.pdf');
+      openBlobInNewTab(blob, pdfWindow);
+    } catch(e) {
+      console.error(e);
+      if(pdfWindow && !pdfWindow.closed){ pdfWindow.close(); }
+      alert('Boş PDF oluşturulamadı: ' + (e.message || e));
+    }
+    state.pdfBusy = false;
+    render();
+  };
+
+  app.shareEmptyPdf = async function(id){
+    var t = state.templates.find(function(x){ return x.id === id; });
+    if(!t) return;
+    state.currentTemplate = t;
+    state.answers = {};
+    state.pdfBusy = true; render();
+    try {
+      var blob = await generatePdfBlob();
+      var filename = safeFileName(t.name) + '_bos.pdf';
+      var file = new File([blob], filename, { type:'application/pdf' });
+      if(navigator.canShare && navigator.canShare({ files:[file] })){
+        try{
+          await navigator.share({ files:[file], title: t.name || 'Boş Belge' });
+        }catch(shareErr){
+          if(shareErr && shareErr.name !== 'AbortError'){
+            triggerBlobDownload(blob, filename);
+          }
+        }
+      } else {
+        triggerBlobDownload(blob, filename);
+        alert('PDF indirildi. WhatsApp üzerinden dosya olarak gönderebilirsiniz.');
+      }
+    } catch(e) {
+      console.error(e);
+      alert('Paylaşım hatası: ' + (e.message || e));
+    }
+    state.pdfBusy = false;
+    render();
+  };
+
   app.removeDraftField = function(id){
     state.draftFields = state.draftFields.filter(function(f){ return f.id !== id; });
     render();
