@@ -1809,16 +1809,16 @@ function renderDone(){
   };
 
   app.downloadEmptyPdf = async function(id){
-    var t = state.templates.find(function(x){ return x.id === id; });
-    if(!t) return;
-    state.currentTemplate = t;
+    var tpl = await loadTemplate(id);
+    if(!tpl) return;
+    state.currentTemplate = tpl;
     state.answers = {};
     var isAndroid = !!window.AndroidInterface;
     var pdfWindow = isAndroid ? null : window.open('', '_blank');
     state.pdfBusy = true; render();
     try {
       var blob = await generatePdfBlob();
-      triggerBlobDownload(blob, safeFileName(t.name) + '_bos.pdf');
+      triggerBlobDownload(blob, safeFileName(tpl.name) + '_bos.pdf');
       openBlobInNewTab(blob, pdfWindow);
     } catch(e) {
       console.error(e);
@@ -1830,18 +1830,18 @@ function renderDone(){
   };
 
   app.shareEmptyPdf = async function(id){
-    var t = state.templates.find(function(x){ return x.id === id; });
-    if(!t) return;
-    state.currentTemplate = t;
+    var tpl = await loadTemplate(id);
+    if(!tpl) return;
+    state.currentTemplate = tpl;
     state.answers = {};
     state.pdfBusy = true; render();
     try {
       var blob = await generatePdfBlob();
-      var filename = safeFileName(t.name) + '_bos.pdf';
+      var filename = safeFileName(tpl.name) + '_bos.pdf';
       var file = new File([blob], filename, { type:'application/pdf' });
       if(navigator.canShare && navigator.canShare({ files:[file] })){
         try{
-          await navigator.share({ files:[file], title: t.name || 'Boş Belge' });
+          await navigator.share({ files:[file], title: tpl.name || 'Boş Belge' });
         }catch(shareErr){
           if(shareErr && shareErr.name !== 'AbortError'){
             triggerBlobDownload(blob, filename);
