@@ -424,7 +424,7 @@ fun CRMMainScreen(
             }.sortedBy { it.second.dateTime }
 
             Row(
-                modifier = Modifier.fillMaxWidth(0.5f),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -497,8 +497,7 @@ fun CRMMainScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth(0.5f).background(MaterialTheme.colorScheme.surfaceVariant.copy(0.5f), RoundedCornerShape(8.dp)).padding(3.dp),
-                horizontalArrangement = Arrangement.Start
+                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(0.5f), RoundedCornerShape(8.dp)).padding(3.dp)
             ) {
                 listOf("Alıcılar", "Satıcılar").forEachIndexed { index, title ->
                     val selected = selectedTab == index
@@ -544,7 +543,7 @@ fun ClientItem(client: Client, matchedCount: Int, onClick: (Client) -> Unit) {
     val platformUtils = LocalPlatformUtils.current
     
     Card(
-        modifier = Modifier.fillMaxWidth(0.5f).padding(vertical = 8.dp).clickable { onClick(client) },
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable { onClick(client) },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface // Beyaz kart, gri zemin üzerinde parlar
         ),
@@ -579,7 +578,7 @@ fun ClientItem(client: Client, matchedCount: Int, onClick: (Client) -> Unit) {
                     }
                 }
                 
-                Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(172.dp)) {
+                Column(horizontalAlignment = Alignment.End) {
                     // Arama Rozeti
                     val badgeColor = if (client.dealType == "Kiralık") Color(0xFFE3F2FD) else Color(0xFFE8F5E9)
                     val textColor = if (client.dealType == "Kiralık") Color(0xFF1976D2) else Color(0xFF2E7D32)
@@ -1185,7 +1184,7 @@ fun ClientDetailScreen(
             )
 
             Card(
-                modifier = Modifier.fillMaxWidth(0.5f),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)

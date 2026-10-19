@@ -433,18 +433,13 @@ fun App() {
                             HeaderSection(onLogout = onLogout)
 
                             if (isAdmin && currentScreen != Screen.UserManagement) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.Start
+                                Button(
+                                    onClick = { currentScreen = Screen.UserManagement },
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)
                                 ) {
-                                    Button(
-                                        onClick = { currentScreen = Screen.UserManagement },
-                                        modifier = Modifier.fillMaxWidth(0.25f)
-                                    ) {
-                                        Icon(Icons.Default.Lock, contentDescription = null)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("KULLANICI YÖNETİMİ", fontWeight = FontWeight.Bold)
-                                    }
+                                    Icon(Icons.Default.Lock, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("KULLANICI YÖNETİMİ", fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -2538,13 +2533,13 @@ fun VoiceSearchScreen(
 
         Row(
             modifier = Modifier
-                .fillMaxWidth(0.5f)
+                .fillMaxWidth()
                 .background(
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     RoundedCornerShape(10.dp)
                 )
                 .padding(3.dp),
-            horizontalArrangement = Arrangement.Start
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             listOf(
                 "🏢 Ofis" to 0,
@@ -2649,16 +2644,15 @@ fun VoiceSearchScreen(
 
         var searchText by remember { mutableStateOf("") }
         Row(
-            modifier = Modifier.fillMaxWidth(0.5f),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             TextField(
                 value = searchText,
                 onValueChange = { searchText = it },
                 placeholder = { Text("ya da yazarak arayın...", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)) },
                 modifier = Modifier
-                    .weight(0.75f)
+                    .weight(1f)
                     .clip(RoundedCornerShape(12.dp))
                     .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)), RoundedCornerShape(12.dp)),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -2677,7 +2671,7 @@ fun VoiceSearchScreen(
                 onClick = { performSearch(searchText) },
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.weight(0.25f).height(56.dp)
+                modifier = Modifier.height(56.dp)
             ) {
                 Text("Ara", color = Color.White, fontWeight = FontWeight.Bold)
             }
@@ -2789,7 +2783,7 @@ fun AddPortfolioScreen(
 
         if (editingPortfolio == null) {
             Text("Portföy Nerede Saklansın?", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f), fontSize = 11.sp)
-            Row(modifier = Modifier.fillMaxWidth(0.5f).padding(vertical = 4.dp), horizontalArrangement = Arrangement.Start) {
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(true to "Sadece Benim (Yerel)", false to "Herkesle Paylaş (Ofis)").forEach { (isLocal, label) ->
                     val selected = saveLocally == isLocal
                     Box(
@@ -2805,15 +2799,11 @@ fun AddPortfolioScreen(
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-            Box(Modifier.fillMaxWidth(0.5f)) {
-                CustomInputField("İlan Başlığı", title) { title = it }
-            }
-        }
+        CustomInputField("İlan Başlığı", title) { title = it }
 
         Text("İlan Tipi", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
         Row(
-            modifier = Modifier.fillMaxWidth(0.5f).padding(vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             listOf("Satılık", "Kiralık").forEach { option ->
@@ -2857,29 +2847,33 @@ fun AddPortfolioScreen(
 
         HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f).copy(0.2f))
         Text("MÜLK SAHİBİ BİLGİLERİ (Özel)", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Row(Modifier.fillMaxWidth(0.5f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) { CustomInputField("Sahibi Adı", ownerName) { ownerName = it } }
+            Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) { CustomInputField("Sahibi Telefon", ownerPhone) { ownerPhone = it } }
         }
 
         HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f).copy(0.2f))
         Text("DANIŞMAN BİLGİLERİ", color = if (canEditConsultant) Color(0xFF2196F3) else Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Row(Modifier.fillMaxWidth(0.5f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) {
                 CustomInputField("Danışman", consultantName, enabled = canEditConsultant) { consultantName = it }
             }
+            Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) {
                 CustomInputField("Danışman Tel", consultantPhone, enabled = canEditConsultant) { consultantPhone = it }
             }
         }
 
-        Row(Modifier.fillMaxWidth(0.5f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) { CustomInputField("Fiyat (TL)", price) { price = it } }
+            Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) { CustomInputField("Oda Sayısı", rooms) { rooms = it } }
         }
 
-        Row(Modifier.fillMaxWidth(0.5f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) { CustomInputField("Metrekare", area) { area = it } }
+            Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) { CustomInputField("Konum", location) { location = it } }
         }
         CustomInputField("Özellikler (virgülle ayırın)", features) { features = it }
@@ -2888,10 +2882,11 @@ fun AddPortfolioScreen(
 
         HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f).copy(0.2f))
         Text("YETKİ SÖZLEŞMESİ", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Row(Modifier.fillMaxWidth(0.5f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) {
                 CustomInputField("Başlangıç (gg.aa.yyyy)", authorityStartDateText) { authorityStartDateText = it }
             }
+            Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) {
                 CustomInputField("Süre (gün)", authorityDurationDaysText) { authorityDurationDaysText = it.filter { ch -> ch.isDigit() } }
             }
@@ -2905,42 +2900,40 @@ fun AddPortfolioScreen(
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-            Button(
-                onClick = {
-                    if (title.isNotEmpty()) {
-                        onAdd(Portfolio(
-                            id = editingPortfolio?.id ?: "",
-                            title = title,
-                            price = price,
-                            rooms = rooms,
-                            area = area,
-                            location = location,
-                            consultantName = consultantName,
-                            consultantPhone = consultantPhone,
-                            ownerName = ownerName,
-                            ownerPhone = ownerPhone,
-                            type = type,
-                            propertyType = propertyType,
-                            features = features.split(",").map { it.trim() }.filter { it.isNotEmpty() },
-                            link = link,
-                            imageUrl = imageUrl,
-                            authorityStartDate = authorityStartMillis,
-                            authorityDurationDays = authorityDurationDays,
-                            authorityEndDate = authorityEndMillis,
-                            createdAt = editingPortfolio?.createdAt ?: 0L
-                        ), saveLocally)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(0.25f).height(56.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
-            ) {
-                Text(
-                    if (editingPortfolio != null) "Değişiklikleri Kaydet" else "Portföyü Kaydet",
-                    color = Color.Black, fontWeight = FontWeight.Bold
-                )
-            }
+        Button(
+            onClick = {
+                if (title.isNotEmpty()) {
+                    onAdd(Portfolio(
+                        id = editingPortfolio?.id ?: "",
+                        title = title,
+                        price = price,
+                        rooms = rooms,
+                        area = area,
+                        location = location,
+                        consultantName = consultantName,
+                        consultantPhone = consultantPhone,
+                        ownerName = ownerName,
+                        ownerPhone = ownerPhone,
+                        type = type,
+                        propertyType = propertyType,
+                        features = features.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+                        link = link,
+                        imageUrl = imageUrl,
+                        authorityStartDate = authorityStartMillis,
+                        authorityDurationDays = authorityDurationDays,
+                        authorityEndDate = authorityEndMillis,
+                        createdAt = editingPortfolio?.createdAt ?: 0L
+                    ), saveLocally)
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447))
+        ) {
+            Text(
+                if (editingPortfolio != null) "Değişiklikleri Kaydet" else "Portföyü Kaydet",
+                color = Color.Black, fontWeight = FontWeight.Bold
+            )
         }
 
         Spacer(modifier = Modifier.height(40.dp))
@@ -3072,10 +3065,7 @@ fun MyPortfolioScreen(
                 Column {
                     Text("Ofis veya arama sayfası linkini girin (birden fazla ise virgül ile ayırın):", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), fontSize = 12.sp)
                     Spacer(Modifier.height(8.dp))
-                    CustomInputField("URL", remaxUrl) { 
-                        remaxUrl = it
-                        onRemaxImportUrlChange(it)
-                    }
+                    CustomInputField("URL", remaxUrl) { remaxUrl = it }
                 }
             },
             confirmButton = {
@@ -3146,10 +3136,10 @@ fun MyPortfolioScreen(
         Spacer(modifier = Modifier.height(10.dp)) // Boşluk daraltıldı
 
         // İŞLEM BUTONLARI
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { showImportDialog = true },
-                modifier = Modifier.width(160.dp).height(36.dp),
+                modifier = Modifier.weight(1f).height(36.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
@@ -3160,10 +3150,9 @@ fun MyPortfolioScreen(
             }
 
             if (isSuperAdmin) {
-                Spacer(Modifier.width(8.dp))
                 Button(
                     onClick = { showClearDialog = true },
-                    modifier = Modifier.width(110.dp).height(36.dp),
+                    modifier = Modifier.weight(1f).height(36.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B)),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
@@ -3178,10 +3167,7 @@ fun MyPortfolioScreen(
         Spacer(modifier = Modifier.height(10.dp))
 
         // TABLAR
-        Row(
-            modifier = Modifier.fillMaxWidth(0.5f).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp),
-            horizontalArrangement = Arrangement.Start
-        ) {
+        Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(3.dp)) {
             val tabs = listOf(
                 "Benim (${myVisiblePortfolios.size})",
                 if (!officePortfoliosLoaded && officePortfolios.isEmpty()) "${currentOfficeName.ifBlank { "Remax İlyada 3" }} (Yükleniyor...)" else "${currentOfficeName.ifBlank { "Remax İlyada 3" }} (${officePortfolios.size})"
@@ -3272,7 +3258,7 @@ fun PortfolioItem(
     val cleanConsultantPhone = portfolio.consultantPhone.filter { it.isDigit() }.let { if (it.length > 10) it.takeLast(10) else it }
 
     Card(
-        modifier = Modifier.fillMaxWidth(0.5f).padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f) // Kartın kendisi hafif gri/mavi bir tonda olsun ki "kart" olduğu belli olsun
         ),
@@ -3514,11 +3500,11 @@ fun PortfolioItem(
                         }
                     }
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (portfolio.link.isNotEmpty()) {
                             Button(
                                 onClick = { platformUtils.openUri(portfolio.link) },
-                                modifier = Modifier.width(130.dp).height(42.dp),
+                                modifier = Modifier.weight(1f).height(42.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22A447)),
                                 shape = RoundedCornerShape(10.dp),
                                 contentPadding = PaddingValues(0.dp)
@@ -3528,18 +3514,16 @@ fun PortfolioItem(
                         }
 
                         if (onEdit != null) {
-                            Spacer(Modifier.width(8.dp))
                             IconButton(onClick = { onEdit(portfolio) }, modifier = Modifier.size(42.dp).background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f), CircleShape)) {
                                 Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
                             }
                         }
 
                         if (onPublish != null) {
-                            Spacer(Modifier.width(8.dp))
                             val isLocal = portfolio.id.startsWith("local_")
                             Button(
                                 onClick = { onPublish(portfolio) },
-                                modifier = Modifier.width(170.dp).height(42.dp),
+                                modifier = Modifier.weight(1f).height(42.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = if (isLocal) Color(0xFF2196F3) else Color(0xFF22A447)),
                                 shape = RoundedCornerShape(10.dp),
                                 contentPadding = PaddingValues(0.dp)
@@ -3552,7 +3536,7 @@ fun PortfolioItem(
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = if (isLocal) "Ofise Aktar" else "Aktar",
+                                    text = if (isLocal) "Ofis Portföylerime Aktar" else "Benim Portföylerime Aktar",
                                     color = Color(0xFFFFF176),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
@@ -3561,7 +3545,6 @@ fun PortfolioItem(
                         }
 
                         if (onDelete != null) {
-                            Spacer(Modifier.width(8.dp))
                             IconButton(onClick = { onDelete(portfolio) }, modifier = Modifier.size(42.dp).background(Color.Red.copy(0.1f), CircleShape)) {
                                 Icon(Icons.Default.Delete, null, tint = Color.Red.copy(0.7f), modifier = Modifier.size(18.dp))
                             }
@@ -3582,7 +3565,7 @@ fun ToolsScreen() {
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
-        horizontalAlignment = Alignment.Start
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = "Araçlar",
@@ -3597,84 +3580,79 @@ fun ToolsScreen() {
             text = "Gayrimenkul işlemleriniz için yardımcı araçlar",
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-            textAlign = TextAlign.Start
+            textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(0.5f),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    platformUtils.openEmlakAsistan()
+                },
+            shape = RoundedCornerShape(18.dp)
         ) {
-            Card(
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .clickable {
-                        platformUtils.openEmlakAsistan()
-                    },
-                shape = RoundedCornerShape(18.dp)
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Description,
-                        contentDescription = null,
-                        modifier = Modifier.size(38.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                Icon(
+                    imageVector = Icons.Default.Description,
+                    contentDescription = null,
+                    modifier = Modifier.size(38.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column {
+                    Text(
+                        text = "EmlakAsistan",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
                     )
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    Column {
-                        Text(
-                            text = "EmlakAsistan",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Şablonlar, belgeler ve hesaplamalar",
-                            fontSize = 13.sp
-                        )
-                    }
+                    Text(
+                        text = "Şablonlar, belgeler ve hesaplamalar",
+                        fontSize = 13.sp
+                    )
                 }
             }
+        }
 
-            Card(
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable { platformUtils.openArsaTakip() },
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .clickable { platformUtils.openArsaTakip() },
-                shape = RoundedCornerShape(18.dp)
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Map,
-                        contentDescription = null,
-                        modifier = Modifier.size(38.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                Icon(
+                    imageVector = Icons.Default.Map,
+                    contentDescription = null,
+                    modifier = Modifier.size(38.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column {
+                    Text(
+                        text = "ArsaTakip",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
                     )
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    Column {
-                        Text(
-                            text = "ArsaTakip",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Parsel sınırlarını 3D haritada görüntüleyin ve drone uçuşu oluşturun",
-                            fontSize = 13.sp
-                        )
-                    }
+                    Text(
+                        text = "Parsel sınırlarını 3D haritada görüntüleyin ve drone uçuşu oluşturun",
+                        fontSize = 13.sp
+                    )
                 }
             }
         }
