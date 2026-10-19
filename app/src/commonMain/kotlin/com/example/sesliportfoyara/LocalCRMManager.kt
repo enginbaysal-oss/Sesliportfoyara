@@ -198,13 +198,7 @@ class LocalCRMManager(private val settings: Settings) {
                 // Portföyleri ayıkla (V3 Formatı)
                 val portfoliosArray = jsonElement["portfolios"]?.jsonArray
                 if (portfoliosArray != null) {
-                    val rawPortfolios = json.decodeFromJsonElement<List<Portfolio>>(portfoliosArray)
-                    val importedPortfolios = rawPortfolios.map { p ->
-                        p.copy(
-                            type = if (p.type.isBlank()) "Satılık" else p.type,
-                            propertyType = if (p.propertyType.isBlank()) "Daire" else p.propertyType
-                        )
-                    }
+                    val importedPortfolios = parsePortfolios(portfoliosArray)
                     localPortfolioManager.importLocalPortfolios(importedPortfolios)
                 }
                 return true
@@ -235,6 +229,80 @@ class LocalCRMManager(private val settings: Settings) {
                 preferredPriceMax = obj["price"]?.jsonPrimitive?.content ?: "",
                 preferredRooms = obj["preferredRooms"]?.jsonPrimitive?.content ?: "", 
                 note = obj["notes"]?.jsonPrimitive?.content ?: obj["note"]?.jsonPrimitive?.content ?: "",
+                createdAt = obj["createdAt"]?.jsonPrimitive?.longOrNull ?: Clock.now()
+            )
+        }
+    }
+
+    private fun parsePortfolios(portfoliosArray: JsonArray): List<Portfolio> {
+        return portfoliosArray.map { it.jsonObject }.map { obj ->
+            val rawTitle = obj["title"]?.jsonPrimitive?.content 
+                ?: obj["name"]?.jsonPrimitive?.content 
+                ?: obj["heading"]?.jsonPrimitive?.content ?: ""
+            
+            val rawPrice = obj["price"]?.jsonPrimitive?.content 
+                ?: obj["amount"]?.jsonPrimitive?.content 
+                ?: obj["fiyat"]?.jsonPrimitive?.content ?: ""
+
+            val rawRooms = obj["rooms"]?.jsonPrimitive?.content 
+                ?: obj["roomOptions"]?.jsonPrimitive?.content 
+                ?: obj["oda"]?.jsonPrimitive?.content ?: ""
+
+            val rawArea = obj["area"]?.jsonPrimitive?.content 
+                ?: obj["m2Area"]?.jsonPrimitive?.content 
+                ?: obj["metrekare"]?.jsonPrimitive?.content ?: ""
+
+            val rawLocation = obj["location"]?.jsonPrimitive?.content 
+                ?: obj["address"]?.jsonPrimitive?.content 
+                ?: obj["locationText"]?.jsonPrimitive?.content ?: ""
+
+            val rawType = obj["type"]?.jsonPrimitive?.content 
+                ?: obj["operationName"]?.jsonPrimitive?.content ?: "Satılık"
+            
+            val resolvedType = if (rawType.contains("kira", true)) "Kiralık" else "Satılık"
+
+            val rawProp = obj["propertyType"]?.jsonPrimitive?.content 
+                ?: obj["categoryName"]?.jsonPrimitive?.content ?: "Daire"
+            
+            val resolvedProp = when(rawProp) {
+                "Konut", "Rezidans" -> "Daire"
+                "Ticari", "Bina" -> "İşyeri"
+                else -> rawProp.ifBlank { "Daire" }
+            }
+
+            var imageUrl = ""
+            for (key in listOf("imageUrl", "image", "photoUrl", "photoPath", "coverPhoto", "thumbnail", "photo")) {
+                val v = try {
+                    obj[key]?.jsonPrimitive?.content 
+                        ?: obj[key]?.jsonObject?.get("url")?.jsonPrimitive?.content 
+                        ?: obj[key]?.jsonObject?.get("path")?.jsonPrimitive?.content ?: ""
+                } catch (_: Exception) { "" }
+                if (v.isNotBlank()) {
+                    imageUrl = v
+                    break
+                }
+            }
+            if (imageUrl.startsWith("//")) imageUrl = "https:$imageUrl"
+            else if (imageUrl.startsWith("/")) imageUrl = "https://www.remax.com.tr$imageUrl"
+
+            val link = obj["link"]?.jsonPrimitive?.content ?: obj["url"]?.jsonPrimitive?.content ?: ""
+
+            Portfolio(
+                id = obj["id"]?.jsonPrimitive?.content ?: ("local_" + Clock.now().toString() + "_" + (0..999).random()),
+                title = rawTitle.ifBlank { "İsimsiz İlan" },
+                price = rawPrice,
+                rooms = rawRooms,
+                area = rawArea,
+                location = rawLocation,
+                consultantName = obj["consultantName"]?.jsonPrimitive?.content ?: obj["employeeName"]?.jsonPrimitive?.content ?: "",
+                consultantPhone = obj["consultantPhone"]?.jsonPrimitive?.content ?: obj["employeePhone"]?.jsonPrimitive?.content ?: "",
+                ownerName = obj["ownerName"]?.jsonPrimitive?.content ?: "",
+                ownerPhone = obj["ownerPhone"]?.jsonPrimitive?.content ?: "",
+                officeName = obj["officeName"]?.jsonPrimitive?.content ?: "Remax İlyada 3",
+                type = resolvedType,
+                propertyType = resolvedProp,
+                imageUrl = imageUrl,
+                link = link,
                 createdAt = obj["createdAt"]?.jsonPrimitive?.longOrNull ?: Clock.now()
             )
         }
