@@ -198,7 +198,13 @@ class LocalCRMManager(private val settings: Settings) {
                 // Portföyleri ayıkla (V3 Formatı)
                 val portfoliosArray = jsonElement["portfolios"]?.jsonArray
                 if (portfoliosArray != null) {
-                    val importedPortfolios = json.decodeFromJsonElement<List<Portfolio>>(portfoliosArray)
+                    val rawPortfolios = json.decodeFromJsonElement<List<Portfolio>>(portfoliosArray)
+                    val importedPortfolios = rawPortfolios.map { p ->
+                        p.copy(
+                            type = if (p.type.isBlank()) "Satılık" else p.type,
+                            propertyType = if (p.propertyType.isBlank()) "Daire" else p.propertyType
+                        )
+                    }
                     localPortfolioManager.importLocalPortfolios(importedPortfolios)
                 }
                 return true
