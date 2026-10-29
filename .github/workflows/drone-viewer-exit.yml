@@ -24,5 +24,5 @@ jobs:
     steps:
       - name: Depoyu al
         uses: actions/checkout@v4
-      - name: Alici sunumu turu bitir ve cikis Chromium testi
+      - name: Alici sunumu turu bitir ve cikis buton islev testi
         run: node tests/drone-viewer-exit-smoke.cjs
