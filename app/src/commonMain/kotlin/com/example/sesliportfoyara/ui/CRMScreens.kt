@@ -55,7 +55,7 @@ fun CRMMainScreen(
     onAddClient: () -> Unit,
     onClientClick: (Client) -> Unit
 ) {
-    var selectedTab by remember { mutableStateOf(0) } // 0: Alıcılar, 1: Satıcılar
+    var selectedTab by remember { mutableStateOf(0) } // 0: Alıcılar, 1: Satıcılar, 2: Favori İlanlar
     val crmManager = LocalCRMManagerProvider.current
     val platformUtils = LocalPlatformUtils.current
     val scope = rememberCoroutineScope()
@@ -499,7 +499,7 @@ fun CRMMainScreen(
             Row(
                 modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(0.5f), RoundedCornerShape(8.dp)).padding(3.dp)
             ) {
-                listOf("Alıcılar", "Satıcılar").forEachIndexed { index, title ->
+                listOf("Alıcılar", "Satıcılar", "Favori İlanlar").forEachIndexed { index, title ->
                     val selected = selectedTab == index
                     Box(
                         modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
@@ -514,23 +514,62 @@ fun CRMMainScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            val filteredClients = if (selectedTab == 0) {
-                clients.filter { it.type == ClientType.BUYER }
-            } else {
-                clients.filter { it.type == ClientType.SELLER }
-            }
-
-            if (filteredClients.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Henüz müşteri kaydı yok.", color = Color.Gray)
+            if (selectedTab == 2) {
+                // Favori aramalar mevcut web uygulamasında tutulur. Yeni CRM kayıtlarını
+                // veya ilanların yerel depolama anahtarını taşımadan tek yerden erişim.
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("Favori İlanlar", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                        Text(
+                            "Sahibinden.com favori arama bildirimlerinden gelen satılık ve kiralık ilanları inceleyin. " +
+                                "İlan açıklamasını kontrol edin, mesajı hazırlayın ve görüşme durumunu kaydedin.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                platformUtils.openUri("https://enginbaysal-oss.github.io/crm/ilan-asistani.html")
+                            }
+                        ) {
+                            Text("İlan Asistanını Aç", fontWeight = FontWeight.Bold)
+                        }
+                        Text(
+                            "Tarayıcıda açılır. Kayıtlar mevcut ilan asistanında korunur; " +
+                                "sahibinden.com üzerinden otomatik mesaj gönderilmez.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(filteredClients) { client ->
-                        val matchedCount = remember(client, allPortfolios) {
-                            MatchingEngine.findMatches(client, allPortfolios).size
+                val filteredClients = if (selectedTab == 0) {
+                    clients.filter { it.type == ClientType.BUYER }
+                } else {
+                    clients.filter { it.type == ClientType.SELLER }
+                }
+
+                if (filteredClients.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Henüz müşteri kaydı yok.", color = Color.Gray)
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        items(filteredClients) { client ->
+                            val matchedCount = remember(client, allPortfolios) {
+                                MatchingEngine.findMatches(client, allPortfolios).size
+                            }
+                            ClientItem(client, matchedCount, onClientClick)
                         }
-                        ClientItem(client, matchedCount, onClientClick)
                     }
                 }
             }

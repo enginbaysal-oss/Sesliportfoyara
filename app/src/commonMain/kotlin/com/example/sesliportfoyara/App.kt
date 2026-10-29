@@ -3625,6 +3625,28 @@ fun ToolsScreen() {
         Spacer(modifier = Modifier.height(14.dp))
 
         Card(
+            modifier = Modifier.fillMaxWidth().clickable {
+                platformUtils.openUri("https://enginbaysal-oss.github.io/crm/ilan-asistani.html")
+            },
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Search, contentDescription = null,
+                    modifier = Modifier.size(38.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text("İlan Asistanı", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("Favori arama ilanlarını görüntüle", fontSize = 13.sp)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Card(
             modifier = Modifier.fillMaxWidth().clickable { platformUtils.openArsaTakip() },
             shape = RoundedCornerShape(18.dp)
         ) {
