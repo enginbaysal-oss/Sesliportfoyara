@@ -99,6 +99,12 @@ body.recording-clean .captionEditor{display:none!important}
 /* Sadece alici: mevcut ucus algoritmasi korunur, düzenleme panelleri gizlenir. */
 body.share-view header,body.share-view .panel,body.share-view .notice,body.share-view .captionEditor,
 body.share-view #flightPauseFloating,body.share-view #showControls{display:none!important}
+.shareViewerControls{position:fixed;z-index:35;top:max(11px,env(safe-area-inset-top));right:max(11px,env(safe-area-inset-right));display:flex;align-items:center;gap:8px}
+.shareViewerControls[hidden],.shareViewerControls button[hidden]{display:none!important}
+.shareViewerControls button{min-height:44px;padding:10px 12px;border-radius:11px;background:#09283beb;color:#f8fdff;border:1px solid #79bed2;font-size:13px;box-shadow:0 8px 24px #0009}
+.shareViewerControls #shareViewerExit{background:#612b38ed;border-color:#e6a7ad}
+.shareClosedLanding{z-index:31}
+@media(max-width:600px){.shareViewerControls{top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));gap:6px}.shareViewerControls button{font-size:12px;padding:8px 10px;min-height:42px}}
 .shareLanding{position:absolute;z-index:20;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100vw - 28px));padding:21px;border:1px solid #6dadbc9c;border-radius:18px;background:#0b2034f5;box-shadow:0 18px 60px #000a;text-align:center}
 .shareLanding[hidden]{display:none!important}
 .shareLanding h1{font-size:22px;line-height:1.23;margin:0 0 8px;overflow-wrap:anywhere;color:#f2fbff}
@@ -109,12 +115,21 @@ body.share-view #flightPauseFloating,body.share-view #showControls{display:none!
 </style>
 </head>
 <body class="share-view">
+<nav id="shareViewerControls" class="shareViewerControls" aria-label="Sunum kontrol düğmeleri">
+<button id="shareViewerStop" type="button" hidden>■ Turu bitir</button>
+<button id="shareViewerExit" type="button">✕ Çıkış</button>
+</nav>
 <div id="map" aria-label="Uydu görüntüsü ve üç boyutlu arazi haritası"></div>
 <section class="shareLanding" id="shareLanding" aria-label="Paylaşılan drone turu">
 <h1 id="shareViewerTitle">Paylaşılan Parsel Sunumu</h1>
 <p id="shareViewerStatus" role="status" aria-live="polite">Sunum bağlantısı okunuyor...</p>
 <button id="shareViewerPlay" type="button" disabled>▶ Sanal turu izle</button>
 <p class="shareViewerNote">Harita internet bağlantısı gerektirir. Kırmızı sınırlar bilgilendirme amaçlıdır; resmî kadastro sınırı değildir.</p>
+</section>
+<section class="shareLanding shareClosedLanding" id="shareClosedLanding" hidden aria-label="Sunumdan çıkış" role="status">
+<h1>Sunumdan çıkıldı</h1>
+<p>Önceki uygulamaya dönülemediyse telefonunun geri düğmesiyle WhatsApp'a dönebilirsin. Sunumu yeniden açmak için aşağıya dokun.</p>
+<button type="button" id="shareViewerReopen">↻ Sunuma geri dön</button>
 </section>
 <div class="rasterMap" id="rasterMap" hidden aria-label="Kütüphane gerekmeden yüklenen gerçek uydu haritası"><div class="rasterCamera" id="rasterCamera"><div class="rasterScene rasterUnderlay" id="rasterUnderlay" aria-hidden="true"></div><div class="rasterScene" id="rasterScene"></div></div><div class="rasterCredit" id="rasterCredit">Uydu görüntüleri © Esri ve katkıda bulunanlar</div></div>
 <div class="fallbackMap" id="fallbackMap" aria-label="Parsel sınırlarının uydu görüntüsü olmadan önizlemesi">
@@ -993,7 +1008,34 @@ useParcel(exampleParcel,"Örnek parsel — Manisa (temsili)");
 loadMapSdk();
 
 /* Sadece URL #sunum parametresinden gosterim. Oturum veya ozel veri alinmaz. */
-let sharedParcelLoaded=false,sharedTourStarted=false;
+let sharedParcelLoaded=false,sharedTourStarted=false,sharedViewerClosed=false,sharedViewerStopMessage="";
+function endSharedTour(){
+ stopFlight();window.flightAnchor=null;progress=0;hideCaption();
+ sharedTourStarted=false;
+ $("shareViewerStop").hidden=true;
+ $("shareViewerPlay").textContent="▶ Sanal turu izle";
+ sharedViewerStopMessage="Tur durduruldu. Dilersen yeniden izleyebilirsin.";
+ $("shareViewerStatus").textContent=sharedViewerStopMessage;
+ $("shareLanding").hidden=false;
+}
+$("shareViewerStop").addEventListener("click",endSharedTour);
+$("shareViewerExit").addEventListener("click",()=>{
+ endSharedTour();
+ sharedViewerClosed=true;
+ $("shareLanding").hidden=true;
+ $("shareClosedLanding").hidden=false;
+ $("shareViewerControls").hidden=true;
+ // Browser sekmesini zorla kapatmak mümkün değildir; varsa önceki sayfaya dön.
+ // WhatsApp içi tarayıcılarda history.back() desteklenmezse kapalı ekran kalır.
+ if(window.history.length>1){try{window.history.back()}catch{}}
+});
+$("shareViewerReopen").addEventListener("click",()=>{
+ sharedViewerClosed=false;sharedViewerStopMessage="";
+ $("shareClosedLanding").hidden=true;
+ $("shareViewerControls").hidden=false;
+ $("shareLanding").hidden=false;
+ $("shareViewerStatus").textContent=sharedParcelLoaded?"Parsel hazır. Sanal turu yeniden izleyebilirsin.":"Sunum bağlantısı okunuyor...";
+});
 function droneShareFromBase64(value){
  if(!/^[A-Za-z0-9_-]+$/.test(value)||value.length>12000)throw Error("Paylaşım bağlantısı geçersiz veya fazla uzun.");
  const base64=value.replace(/-/g,"+").replace(/_/g,"/");
@@ -1035,13 +1077,14 @@ $("shareViewerPlay").addEventListener("click",()=>{
  if(!sharedParcelLoaded||(!mapReady&&!nativeReady))return;
  if(progress>=1)progress=0;
  $("fly").click();
- if(flying){sharedTourStarted=true;$("shareLanding").hidden=true}
+ if(flying){sharedTourStarted=true;sharedViewerStopMessage="";$("shareViewerStop").hidden=false;$("shareLanding").hidden=true}
 });
 setInterval(()=>{
- if(!sharedParcelLoaded)return;
+ if(sharedViewerClosed||!sharedParcelLoaded)return;
+ $("shareViewerStop").hidden=!flying;
  if(!sharedTourStarted){
   if(mapReady||nativeReady){
-   $("shareViewerStatus").textContent="Parsel haritada hazır. Turu izlemek için düğmeye dokun.";
+   $("shareViewerStatus").textContent=sharedViewerStopMessage||"Parsel haritada hazır. Turu izlemek için düğmeye dokun.";
    $("shareViewerPlay").disabled=false;
   }
  }else if(!flying){

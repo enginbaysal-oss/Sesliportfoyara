@@ -1,0 +1,28 @@
+name: Drone sunum ekranindan guvenli cikis
+
+on:
+  pull_request:
+    branches: [master-app-merge]
+    paths:
+      - 'docs/drone-sunum.html'
+      - 'tests/drone-viewer-exit-smoke.cjs'
+      - '.github/workflows/drone-viewer-exit.yml'
+  push:
+    branches: [master-app-merge]
+    paths:
+      - 'docs/drone-sunum.html'
+      - 'tests/drone-viewer-exit-smoke.cjs'
+      - '.github/workflows/drone-viewer-exit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drone-viewer-exit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Depoyu al
+        uses: actions/checkout@v4
+      - name: Alici sunumu turu bitir ve cikis buton islev testi
+        run: node tests/drone-viewer-exit-smoke.cjs
