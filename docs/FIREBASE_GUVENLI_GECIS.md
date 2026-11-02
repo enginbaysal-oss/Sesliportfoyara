@@ -25,3 +25,9 @@
 - Yedek tamamlanmadan veritabanını taşımak veya silmek.
 
 Bu belge bir uygulama planıdır; henüz canlı sistemde veri taşıma veya erişim düzeltmesi yapılmadı.
+
+## 2 Kasım ek inceleme
+- GitHub `docs/index.html` yalnızca `composeApp.js` dosyasını yükler; tarayıcıdaki RTDB çağrıları derlenmiş JavaScript/Wasm kodundan veya ortak kodun başka bir modülünden gelebilir. Android `MainActivity.kt` değişikliği web dağıtımını tek başına onarmaz.
+- Android `MainActivity.kt` içindeki `getRegistrationRequests()` başarısız HTTP yanıtında boş `{}` döndürür; bu, izin hatasını boş başvuru listesi gibi gösterebilir. Sunucu geçişinde hata durumu ayrı gösterilmeli.
+- `registration_requests` ve `authorized_users` yüklenen RTDB JSON yedeğinde yoktur. Yetkilendirme için esas kaynağın Supabase olup olmadığı ve mevcut veri taşınma geçmişi doğrulanmadan yeni tabloya veri kopyalanmamalı.
+- İlk teslimat ölçütü: oturum açmış aynı ofis kullanıcısı kendi ofis portföylerini görebilmeli; farklı ofis kullanıcısı ve oturumsuz ziyaretçi bu kayıtlara erişememeli.
