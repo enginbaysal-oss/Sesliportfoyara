@@ -7,6 +7,7 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
@@ -27,10 +28,19 @@ class FirebaseDatabaseManager : DatabaseManager {
     private val announcementUrl = "$rootUrl/announcements/current"
 
     override fun getPortfolios(): Flow<List<Portfolio>> = flow {
+        // İlk yüklemede ağın süresiz beklemesi ekranı kilitlemesin.
+        emit(emptyList())
         while (true) {
             try {
                 val timestamp = getCurrentTimeMillis()
-                val response = client.get("$baseUrl.json?t=$timestamp")
+                val response = withTimeoutOrNull(12000L) {
+                    client.get("$baseUrl.json?t=$timestamp")
+                }
+                if (response == null) {
+                    println("⚠️ Firebase bağlantısı zaman aşımına uğradı; yeniden denenecek.")
+                    delay(10000)
+                    continue
+                }
                 
                 if (response.status.isSuccess()) {
                     val responseBody: Map<String, Portfolio>? = response.body()
