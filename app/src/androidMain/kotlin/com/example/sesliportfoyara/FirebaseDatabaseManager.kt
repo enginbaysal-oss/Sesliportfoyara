@@ -5,17 +5,37 @@ import dev.gitlive.firebase.database.database
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 
 class FirebaseDatabaseManager : DatabaseManager {
     private val db = Firebase.database.reference("listings")
     private val announcementDb = Firebase.database.reference("announcements/current")
     private val progressDb = Firebase.database.reference("portfolio_progress")
 
-    override fun getPortfolios(): Flow<List<Portfolio>> {
-        return db.valueEvents.map { snap ->
-            snap.children.map { child ->
-                val p = child.value<Portfolio>()
-                p.copy(id = child.key ?: "")
+    override fun getPortfolios(): Flow<List<Portfolio>> = flow {
+        // Firebase can reject unauthenticated reads with PERMISSION_DENIED (401).
+        // That must not crash the UI or delete the user's local portfolios.
+        while (true) {
+            try {
+                emitAll(db.valueEvents.map { snap ->
+                    snap.children.map { child ->
+                        val p = child.value<Portfolio>()
+                        p.copy(id = child.key ?: "")
+                    }
+                })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w(
+                    "EmlakCep",
+                    "Ofis portfoyleri okunamadi; yerel veriler korunuyor: ${e.javaClass.simpleName}"
+                )
+                // Empty stream result is a view-only fallback, never a remote delete.
+                emit(emptyList())
+                delay(10_000)
             }
         }
     }
