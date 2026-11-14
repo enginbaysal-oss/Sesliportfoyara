@@ -1,0 +1,72 @@
+name: Publish verified EmlakCep web build
+on:
+  push:
+    branches: [master-app-merge]
+    paths:
+      - ".github/workflows/publish-emlakcep-web.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: publish-emlakcep-wasm-web
+  cancel-in-progress: true
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master-app-merge
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Use Linux Gradle
+        run: |
+          sed -i '/^org.gradle.java.home=/d' gradle.properties
+          chmod +x ./gradlew
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile production Kotlin/Wasm bundle
+        run: ./gradlew :app:wasmJsBrowserDistribution --no-daemon --no-configuration-cache
+      - name: Validate output and public listing data, preserve independent pages
+        run: |
+          python3 - <<'PY'
+          import json,re,shutil
+          from pathlib import Path
+          feed=Path("docs/data/ilyada3-portfoyler.json")
+          data=json.loads(feed.read_text(encoding="utf-8"))
+          assert isinstance(data,list) and len(data)>=20,"Published RE/MAX office feed unavailable"
+          assert len({p["id"] for p in data})==len(data),"Duplicate RE/MAX IDs"
+          source=Path("app/build/dist/wasmJs/productionExecutable")
+          js=source/"composeApp.js"
+          assert js.is_file() and js.stat().st_size>50000,"Compiled JS missing"
+          bundle=js.read_text(encoding="utf-8")
+          referenced=set(re.findall(r'[a-f0-9]{20}\.wasm',bundle))
+          assert referenced,"Compiled Wasm references missing"
+          assert all((source/p).is_file() for p in referenced),"Compiled Wasm file missing"
+          assert (Path("docs")/"ofis-ilanlari.html").exists(),"Fallback viewer missing"
+          assert (Path("docs")/"veri-kurtarma.html").exists(),"Read-only recovery page missing"
+          for f in source.rglob("*"):
+              if not f.is_file():continue
+              relative=f.relative_to(source)
+              if relative==Path("index.html"):continue
+              dest=Path("docs")/relative
+              dest.parent.mkdir(parents=True,exist_ok=True)
+              shutil.copy2(f,dest)
+          print("Ready:",len(data),"RE/MAX listings and",len(referenced),"Wasm components")
+          PY
+      - name: Commit verified web bundle only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs
+          if git diff --staged --quiet; then
+            echo "Bundle unchanged, already live."
+          else
+            git commit -m "Build EmlakCep web with safe RE/MAX office listing fallback"
+            git push origin HEAD:master-app-merge
+          fi
