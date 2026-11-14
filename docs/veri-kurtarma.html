@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EmlakCep · Veri Koruma Kontrolü</title>
+<style>
+:root{font-family:system-ui,Arial,sans-serif;color:#18354e;background:#edf3f6}
+*{box-sizing:border-box}main{max-width:760px;margin:30px auto;padding:22px;background:#fff;border-radius:18px;box-shadow:0 8px 25px #1233}
+h1{font-size:24px;margin-top:0;color:#116947}p{line-height:1.5}
+.warning{border-left:4px solid #c47b12;padding:12px;background:#fff6de}
+table{border-collapse:collapse;width:100%;margin:20px 0}th,td{padding:12px;border-bottom:1px solid #d7e3ec;text-align:left}th{background:#f3f8fb}
+strong.ok{color:#127c51}.zero{color:#996f12}
+button,a.action{background:#0b7857;border:0;border-radius:8px;color:#fff;font:700 15px system-ui;padding:12px 18px;cursor:pointer;display:inline-block;margin:5px 8px 5px 0;text-decoration:none}
+button:disabled{opacity:.4;cursor:not-allowed}
+small{display:block;color:#6a8193;font-size:13px;margin-top:10px}
+#status{font-weight:650;color:#17466a;overflow-wrap:anywhere}
+@media(max-width:600px){main{margin:10px;padding:14px}table{font-size:13px}th,td{padding:8px}}
+</style></head>
+<body><main>
+<h1>🛡️ EmlakCep · Veri Koruma Kontrolü</h1>
+<p>Bu ekran eski <b>müşteri ve portföy kayıtlarının</b> mevcut tarayıcının hafızasında bulunup bulunmadığını kontrol eder.</p>
+<p class="warning"><b>Önemli:</b> Bu sayfa hiçbir veriyi silmez, değiştirmez veya internete göndermez. Farklı tarayıcılar ve APK birbirinin yerel verilerini göremez. Tarayıcı geçmişini ve site verilerini temizlemeyin.</p>
+<p><b>Kontrol edilen site:</b> <span id="origin"></span></p>
+<table aria-label="Kayıt kontrolü"><thead><tr><th>Veri türü</th><th>Durum</th><th>Kayıt</th></tr></thead><tbody id="results"></tbody></table>
+<p id="status" role="status"></p>
+<button id="backup" type="button" disabled>Bulunan kayıtların koruma yedeğini indir</button>
+<button id="again" type="button">Yeniden Kontrol Et</button>
+<a class="action" href="./">EmlakCep'e Dön</a>
+<small>Yedek indirme yalnızca cihazınıza JSON dosyası kaydeder. Dosyada müşteri kişisel bilgileri olabilir; üçüncü kişilerle paylaşmayın. Kayıtları uygulamaya geri yüklemek için şimdilik bu sayfayı kullanmayın.</small>
+</main>
+<script>
+(function(){
+"use strict";
+const KEYS={
+ "Alıcı / satıcı kayıtları":["crm_clients_v1","crm_clients_v2","clients","customers"],
+ "Benim portföylerim":["local_portfolios_v2","local_portfolios_v1","local_portfolios","my_portfolios"],
+ "Ofis portföyü yerel önbelleği":["cached_office_portfolios_json"],
+ "Hatırlatmalar":["crm_general_reminders_v1"]
+};
+const $=id=>document.getElementById(id);
+const result={};
+$("origin").textContent=location.origin+location.pathname.replace(/[^/]*$/,"");
+function count(raw){
+ if(raw===null)return {label:"Bulunamadı",number:0};
+ if(raw==="")return {label:"Boş",number:0};
+ try{
+  const obj=JSON.parse(raw);
+  if(Array.isArray(obj))return {label:"Okunabilir",number:obj.length};
+  if(obj&&typeof obj==="object"){
+   const list=Object.values(obj).find(v=>Array.isArray(v));
+   return {label:"Kayıt var",number:list?list.length:Object.keys(obj).length};
+  }
+  return {label:"Değer var",number:"—"};
+ }catch(e){return {label:"Eski / farklı biçim",number:"?"};}
+}
+function scan(){
+ $("results").replaceChildren();
+ for(const key of Object.keys(result))delete result[key];
+ let found=0;
+ for(const [label,keys] of Object.entries(KEYS)){
+  const tr=document.createElement("tr");
+  let best=null,bestKey="";
+  for(const key of keys){
+   try{
+    const raw=localStorage.getItem(key);
+    if(raw!==null){result[key]=raw;found++;if(best===null||raw.length>best.length){best=raw;bestKey=key;}}
+   }catch(e){$("status").textContent="Tarayıcı depolamasına erişilemiyor: "+e.message;return;}
+  }
+  const info=count(best);
+  for(const str of [label,best===null?"Bulunamadı":info.label+" ("+bestKey+")",String(info.number)]){
+   const td=document.createElement("td");td.textContent=str;tr.append(td);
+  }
+  $("results").append(tr);
+ }
+ $("backup").disabled=found===0;
+ $("status").textContent=found?found+" kayıt anahtarı bulundu. Varsa mutlaka koruma yedeği indir.":"Bu tarayıcı/site adresinde kayıt anahtarı bulunamadı. Eski kayıtlar farklı tarayıcıda veya APK'de olabilir; bu sonuç silindiklerini kanıtlamaz.";
+}
+$("again").onclick=scan;
+$("backup").onclick=function(){
+ if(!Object.keys(result).length)return;
+ const archive={exportType:"emlakcep-read-only-local-storage-preservation",exportedAt:new Date().toISOString(),origin:location.origin,entries:result};
+ const blob=new Blob([JSON.stringify(archive,null,2)],{type:"application/json"});
+ const url=URL.createObjectURL(blob),a=document.createElement("a");
+ a.href=url;a.download="emlakcep_koruma_yedegi_"+new Date().toISOString().slice(0,10)+".json";
+ document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);
+ $("status").textContent="Koruma yedeği cihazına indirildi. Kayıtlar değiştirilmedi.";
+};
+scan();
+})();
+</script></body></html>
