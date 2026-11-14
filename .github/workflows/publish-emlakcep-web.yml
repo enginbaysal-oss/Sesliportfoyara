@@ -4,6 +4,9 @@ on:
     branches: [master-app-merge]
     paths:
       - ".github/workflows/publish-emlakcep-web.yml"
+      - "app/src/commonMain/**"
+      - "app/src/wasmJsMain/**"
+      - "app/build.gradle.kts"
   workflow_dispatch:
 permissions:
   contents: write
