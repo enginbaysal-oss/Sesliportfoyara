@@ -1,5 +1,6 @@
 package com.example.sesliportfoyara
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -125,6 +126,7 @@ data class PendingRequest(
 
 fun normalizeOfficeName(value: String): String {
     return value.trim()
+        .replace("/", "")
         .replace("İ", "i")
         .replace("I", "i")
         .lowercase()
@@ -286,8 +288,18 @@ fun App() {
                         }
 
                         if (visibleList.isNotEmpty()) {
+                            // Merge public RE/MAX data with existing non-RE/MAX office records.
+                            // A temporary outage may never erase stored or visible listings.
+                            val merged = (officePortfolios.filterNot { it.id.startsWith("remax_P") } + visibleList)
+                                .distinctBy { it.id }
+                                .sortedByDescending { it.createdAt }
                             officePortfolios.clear()
-                            officePortfolios.addAll(visibleList.sortedByDescending { it.createdAt })
+                            officePortfolios.addAll(merged)
+                            try {
+                                settings.putString("cached_office_portfolios_json", appJson.encodeToString(merged))
+                            } catch (e: Exception) {
+                                println("Ofis ilan onbellegi kaydedilemedi; mevcut ekran korundu.")
+                            }
                         }
                     }
                     officePortfoliosLoaded = true
@@ -726,11 +738,33 @@ fun App() {
                                         .ifBlank { "Remax İlyada 3" }
                                     val isImportOfissiz = rawImportOffice.isBlank() || rawImportOffice.contains("Ofissiz", true) || rawImportOffice.contains("Bağımsız", true) || rawImportOffice.contains("bagimsiz", true)
                                     val importOfficeName = if (isImportOfissiz) "Remax İlyada 3" else rawImportOffice
-                                    val count = remaxService.syncWithFirebase(url, dbManager, importOfficeName)
-                                    if (count > 0) {
-                                        snackbarHostState.showSnackbar("✅ $count yeni portföy başarıyla aktarıldı.")
+                                    if (url.contains("ilyada-3", ignoreCase = true)) {
+                                        // Official İlyada 3 public listings are read-only.
+                                        // Never clear, overwrite or mutate the private Firebase office DB.
+                                        val published = remaxService.fetchPublishedOfficePortfolios()
+                                        if (published.isNotEmpty()) {
+                                            val merged = (officePortfolios.filterNot { it.id.startsWith("remax_P") } + published)
+                                                .distinctBy { it.id }
+                                                .sortedByDescending { it.createdAt }
+                                            officePortfolios.clear()
+                                            officePortfolios.addAll(merged)
+                                            officePortfoliosLoaded = true
+                                            try {
+                                                settings.putString("cached_office_portfolios_json", appJson.encodeToString(merged))
+                                            } catch (_: Exception) {
+                                                println("Ofis ilanlarinin yerel onbellegi dolu; ekran guncellendi.")
+                                            }
+                                            snackbarHostState.showSnackbar("✅ ${published.size} güncel İlyada 3 ilanı getirildi. Var olan kayıtlar silinmedi.")
+                                        } else {
+                                            snackbarHostState.showSnackbar(remaxService.lastSyncMessage.ifBlank { "RE/MAX ilan kaynağına ulaşılamadı. Eski kayıtlar korunuyor." })
+                                        }
                                     } else {
-                                        snackbarHostState.showSnackbar(remaxService.lastSyncMessage.ifBlank { "ℹ️ Yeni portföy bulunamadı veya hepsi zaten mevcut." })
+                                        val count = remaxService.syncWithFirebase(url, dbManager, importOfficeName)
+                                        if (count > 0) {
+                                            snackbarHostState.showSnackbar("✅ $count portföy eklendi/güncellendi.")
+                                        } else {
+                                            snackbarHostState.showSnackbar(remaxService.lastSyncMessage.ifBlank { "İlanlar alınamadı; mevcut kayıtlar korunuyor." })
+                                        }
                                     }
                                 }
                             },
