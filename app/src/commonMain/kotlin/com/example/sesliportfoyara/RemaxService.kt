@@ -423,13 +423,21 @@ class RemaxService {
                 }
 
                 if (fetchedPortfolios.isNotEmpty()) {
-                    dbManager.clearAllPortfolios()
-
+                    // SAFE UPSERT: Never delete office portfolios before importing.
+                    // Stable "remax_<code>" IDs let Firebase setValue update the matching
+                    // RE/MAX listing while leaving manually entered portfolios untouched.
                     fetchedPortfolios.forEach { p ->
                         if (dbManager.addPortfolio(p.copy(officeName = officeName)) != null) {
                             totalAdded++
                         }
                     }
+                    lastSyncMessage = if (totalAdded > 0) {
+                        "$totalAdded RE/MAX portföyü eklendi/güncellendi."
+                    } else {
+                        "RE/MAX ilanları bulundu, ancak ofis veritabanına kayıt izni reddedildi. Mevcut kayıtlar korunuyor."
+                    }
+                } else {
+                    lastSyncMessage = "RE/MAX ilanları okunamadı; mevcut portföylerin hiçbiri silinmedi."
                 }
             }
         } catch (e: Exception) {
