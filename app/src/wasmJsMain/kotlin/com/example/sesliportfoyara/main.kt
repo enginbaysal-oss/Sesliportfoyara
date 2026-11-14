@@ -490,10 +490,13 @@ fun main() {
         val settings = remember { StorageSettings() } // Tarayıcı hafızasını (localStorage) kullanır
         val crmManager = remember { LocalCRMManager(settings) }
         val localPortfolioManager = remember { LocalPortfolioManager(settings) }
+        // Reusing a single database client avoids opening a new network client
+        // on every Compose recomposition (including when Firebase returns 401).
+        val firebaseDatabaseManager = remember { FirebaseDatabaseManager() }
 
         CompositionLocalProvider(
             LocalPlatformUtils provides platformUtils,
-            LocalDatabaseManager provides FirebaseDatabaseManager(),
+            LocalDatabaseManager provides firebaseDatabaseManager,
             LocalCRMManagerProvider provides crmManager,
             LocalPortfolioManagerProvider provides localPortfolioManager
         ) {
