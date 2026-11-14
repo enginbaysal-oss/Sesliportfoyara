@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EmlakCep · İlyada 3 Ofis Portföyleri</title>
+<style>
+:root{font:15px/1.5 system-ui,-apple-system,Arial,sans-serif;color:#142f46;background:#eef3f6}
+*{box-sizing:border-box}body{margin:0}header{background:#116b51;color:white;padding:20px max(15px,calc((100vw - 1150px)/2))}header strong{font-size:25px}
+main{max-width:1150px;margin:auto;padding:20px 15px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:13px 0 22px}input{padding:13px;font:inherit;border:1px solid #becbd5;border-radius:10px;flex:1;min-width:220px}
+button,.action{border:0;background:#087a63;color:white;padding:12px 15px;border-radius:9px;font-weight:750;cursor:pointer;text-decoration:none}
+.action{display:inline-flex;align-items:center}
+#status{margin:8px 0;color:#174967;font-weight:650}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:15px}
+.card{background:white;border:1px solid #d4e1eb;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 4px 13px #132f4a0f}
+.card img{display:block;width:100%;height:175px;object-fit:cover;background:#d9e5eb}
+.info{padding:15px;display:flex;flex-direction:column;gap:7px;flex:1}
+.title{margin:0;font-size:15px;line-height:1.4;overflow-wrap:anywhere}
+.price{font-size:20px;color:#137353;font-weight:850}
+.meta{color:#526e80;font-size:13px}
+.info .action{margin-top:auto;justify-content:center}
+.note{color:#516b80;font-size:13px}
+@media(max-width:540px){header{padding:16px}main{padding:14px}.grid{grid-template-columns:1fr}}
+</style></head><body>
+<header><strong>🏢 EmlakCep — İlyada 3</strong><div>Güncel RE/MAX ofis ilanları • Güvenli okuma görünümü</div></header>
+<main><p>Bu sayfa yalnızca herkese açık RE/MAX ilanlarını görüntüler. Kendi portföylerine ve alıcı-satıcı bilgilerine dokunmaz.</p>
+<div class="toolbar"><input id="search" type="search" aria-label="İlanlarda ara" placeholder="Başlık, danışman, ilçe veya portföy numarası ara"><button type="button" id="reload">İlanları Yenile</button><a class="action" href="./">EmlakCep'e Dön</a></div>
+<p id="status" role="status">Portföyler yükleniyor…</p><div class="grid" id="list"></div>
+<p class="note">İlan bilgileri ve fotoğraflar RE/MAX Türkiye kaynaklıdır. Bağlantı açılmazsa daha sonra yeniden deneyin; mevcut verilerinizi silmeyin.</p>
+</main>
+<script>
+(function(){
+"use strict";
+const $=s=>document.getElementById(s);
+let items=[];
+const cache=Object.create(null);
+function textNode(tag,text,cls){const el=document.createElement(tag);el.textContent=String(text||"");if(cls)el.className=cls;return el}
+function render(){
+ const q=$("search").value.toLocaleLowerCase("tr-TR").trim();
+ const visible=items.filter(p=>[p.id,p.title,p.consultantName,p.location,p.price,p.propertyType].some(v=>String(v||"").toLocaleLowerCase("tr-TR").includes(q)));
+ const root=$("list");root.replaceChildren();
+ for(const p of visible.slice(0,500)){
+  const card=document.createElement("article");card.className="card";
+  if(/^https:\/\/(?:i\.)?remax\.com\.tr\//.test(p.imageUrl||"")){
+   const im=document.createElement("img");im.loading="lazy";im.alt=p.title||"İlan fotoğrafı";im.src=p.imageUrl;card.append(im);
+  }
+  const body=document.createElement("div");body.className="info";
+  body.append(textNode("h2",p.title||p.id,"title"),textNode("div",p.price||"Fiyat bilgisi yok","price"));
+  body.append(textNode("div",[p.type,p.propertyType,p.area?p.area+" m²":""].filter(Boolean).join(" · "),"meta"));
+  body.append(textNode("div",p.location,"meta"),textNode("div","Danışman: "+(p.consultantName||"Belirtilmemiş"),"meta"));
+  const a=document.createElement("a");a.className="action";a.textContent="RE/MAX İlanını Aç";a.target="_blank";a.rel="noopener noreferrer";
+  a.href=/^https:\/\/remax\.com\.tr\/tr\/portfoy\/P\d+$/.test(p.link||"")?p.link:"https://remax.com.tr";
+  body.append(a);card.append(body);root.append(card);
+ }
+ $("status").textContent=items.length?visible.length+" ilan gösteriliyor • "+items.length+" doğrulanmış ofis portföyü":"Henüz ilan alınamadı. Yeniden dene.";
+}
+async function refresh(){
+ $("status").textContent="RE/MAX ilan listesi kontrol ediliyor…";$("reload").disabled=true;
+ try{
+  const response=await fetch("./data/ilyada3-portfoyler.json?v="+Date.now(),{cache:"no-store"});
+  if(!response.ok)throw new Error("Sunucu yanıtı: "+response.status);
+  const data=await response.json();
+  if(!Array.isArray(data))throw new Error("Liste biçimi hatalı");
+  const filtered=data.filter(p=>/^remax_P\d+$/.test(p.id||"")&&/ilyada 3/i.test((p.officeName||"").toLocaleLowerCase("tr-TR").replaceAll("ı","i")));
+  if(filtered.length<10)throw new Error("Beklenen ilan sayısı bulunamadı");
+  items=filtered;render();
+ }catch(e){$("status").textContent="İlanlar alınamadı: "+e.message+". Mevcut kayıtlarınıza dokunulmadı."}
+ finally{$("reload").disabled=false;}
+}
+$("search").addEventListener("input",render);
+$("reload").onclick=refresh;refresh();
+})();
+</script></body></html>
