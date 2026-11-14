@@ -8,6 +8,7 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
@@ -38,7 +39,8 @@ class FirebaseDatabaseManager : DatabaseManager {
             return publishedCache
         }
         return try {
-            val reply = client.get("${publishedFeed}?t=${now / 60000L}")
+            val reply = withTimeoutOrNull(15000L) { client.get("${publishedFeed}?t=${now / 60000L}") }
+                ?: return publishedCache
             if (!reply.status.isSuccess()) return publishedCache
             val listings: List<Portfolio> = reply.body()
             val checked = listings.filter { it.id.startsWith("remax_P") &&
@@ -61,11 +63,14 @@ class FirebaseDatabaseManager : DatabaseManager {
     override fun getPortfolios(): Flow<List<Portfolio>> = flow {
         while (true) {
             try {
+                // Display public office listings before waiting on Firebase.
+                val publicOffice = readPublishedOfficeListings()
+                if (publicOffice.isNotEmpty()) emit(publicOffice)
                 val timestamp = getCurrentTimeMillis()
                 var firebase: List<Portfolio> = emptyList()
                 try {
-                    val response = client.get("$baseUrl.json?t=$timestamp")
-                    if (response.status.isSuccess()) {
+                    val response = withTimeoutOrNull(8000L) { client.get("$baseUrl.json?t=$timestamp") }
+                    if (response != null && response.status.isSuccess()) {
                         val body: Map<String, Portfolio>? = response.body()
                         firebase = body?.map { (key, p) -> p.copy(id = key) } ?: emptyList()
                     } else {
@@ -76,7 +81,6 @@ class FirebaseDatabaseManager : DatabaseManager {
                 } catch (_: Exception) {
                     println("EmlakCep: Firebase baglantisi kurulamadi; yedek ilan listesi deneniyor.")
                 }
-                val publicOffice = readPublishedOfficeListings()
                 val byId = LinkedHashMap<String, Portfolio>()
                 firebase.forEach { byId[it.id] = it }
                 // Prefer public listings for RE/MAX IDs, preserving manual office entries.
