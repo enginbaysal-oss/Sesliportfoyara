@@ -1,35 +1,41 @@
-name: RE/MAX Portföylerini Otomatik Güncelle
-
+name: EmlakCep RE/MAX Ilyada 3 Public Listing Refresh
 on:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: "30 3 * * *"
   workflow_dispatch:
-
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/update-portfolios.yml"
+permissions:
+  contents: write
+concurrency:
+  group: emlakcep-office-feed-refresh
+  cancel-in-progress: true
 jobs:
-  update-data:
+  refresh:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
+    timeout-minutes: 20
     steps:
-      - name: Depoyu Klonla
-        uses: actions/checkout@v4
-
-      - name: Node.js Kurulumu
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
         with:
-          node-version: '20'
-
-      - name: Puppeteer Bağımlılığını Yükle
-        run: npm install puppeteer
-
-      - name: RE/MAX Verilerini Çek
-        run: node fetch-remax.js
-
-      - name: Değişiklikleri Kaydet ve Push Et
+          ref: master-app-merge
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install pinned browser tools
+        run: npm ci --ignore-scripts=false
+      - name: Fetch public RE/MAX Ilyada 3 listings without deleting old data
+        run: node scripts/update-ilyada3-feed.cjs
+      - name: Commit updated public feed only if validated
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add listings.json || exit 0
-          git commit -m "auto: RE/MAX portföy verileri güncellendi [skip ci]" || exit 0
-          git push
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data/ilyada3-portfoyler.json
+          if git diff --cached --quiet; then
+            echo "No safe feed update found: preserving last validated snapshot."
+          else
+            git commit -m "Refresh verified public RE/MAX Ilyada 3 listing feed"
+            git push origin HEAD:master-app-merge
+          fi
