@@ -26,7 +26,8 @@ class FirebaseDatabaseManager : DatabaseManager {
     private val rootUrl = "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app"
     private val baseUrl = "$rootUrl/listings"
     private val announcementUrl = "$rootUrl/announcements/current"
-    private v    private val publishedFeed =
+    private val progressUrl = "$rootUrl/portfolio_progress"
+    private val publishedFeed =
         "https://enginbaysal-oss.github.io/Sesliportfoyara/data/ilyada3-portfoyler.json"
     private var publishedCache: List<Portfolio> = emptyList()
     private var publishedFetchedAt = 0L
@@ -88,10 +89,6 @@ class FirebaseDatabaseManager : DatabaseManager {
                 emit(publishedCache)
             }
             delay(60_000L)
-        }
-    }
-    }
-            delay(10000) 
         }
     }
 
