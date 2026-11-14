@@ -9,33 +9,70 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.*
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.json.Json
 
 class FirebaseDatabaseManager : DatabaseManager {
     private val db = Firebase.database.reference("listings")
     private val announcementDb = Firebase.database.reference("announcements/current")
     private val progressDb = Firebase.database.reference("portfolio_progress")
 
+    // Public RE/MAX listings are separate from the private Firebase office CRM.
+    private val publishedClient = HttpClient {
+        install(ContentNegotiation) {
+            json(Json { ignoreUnknownKeys = true; coerceInputValues = true })
+        }
+    }
+    private var publishedCache: List<Portfolio> = emptyList()
+    private var publishedFetchedAt = 0L
+
+    private suspend fun readPublishedOfficeListings(): List<Portfolio> {
+        val now = System.currentTimeMillis()
+        if (publishedCache.isNotEmpty() && now - publishedFetchedAt < 5 * 60 * 1000L) return publishedCache
+        return try {
+            val url = "https://enginbaysal-oss.github.io/Sesliportfoyara/data/ilyada3-portfoyler.json"
+            val response = publishedClient.get("${url}?t=${now / 60000L}")
+            if (!response.status.isSuccess()) return publishedCache
+            val list: List<Portfolio> = response.body()
+            val valid = list.filter { it.id.startsWith("remax_P") &&
+                it.officeName.contains("İlyada 3", ignoreCase = true) &&
+                it.link.startsWith("https://remax.com.tr/tr/portfoy/")
+            }.distinctBy { it.id }
+            if (valid.isNotEmpty()) {
+                publishedCache = valid
+                publishedFetchedAt = now
+            }
+            publishedCache
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            publishedCache
+        }
+    }
+
     override fun getPortfolios(): Flow<List<Portfolio>> = flow {
-        // Firebase can reject unauthenticated reads with PERMISSION_DENIED (401).
-        // That must not crash the UI or delete the user's local portfolios.
         while (true) {
             try {
+                // Show public listings immediately even if Firebase's stream never connects.
+                emit(readPublishedOfficeListings())
                 emitAll(db.valueEvents.map { snap ->
-                    snap.children.map { child ->
+                    val remote = snap.children.map { child ->
                         val p = child.value<Portfolio>()
                         p.copy(id = child.key ?: "")
                     }
+                    (remote + readPublishedOfficeListings()).distinctBy { it.id }
                 })
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                android.util.Log.w(
-                    "EmlakCep",
-                    "Ofis portfoyleri okunamadi; yerel veriler korunuyor: ${e.javaClass.simpleName}"
-                )
-                // Empty stream result is a view-only fallback, never a remote delete.
-                emit(emptyList())
-                delay(10_000)
+                android.util.Log.w("EmlakCep", "Firebase portfoy yetkisi reddedildi; kamuya acik ilanlar kullaniliyor.")
+                emit(readPublishedOfficeListings())
+                delay(60_000L)
             }
         }
     }
