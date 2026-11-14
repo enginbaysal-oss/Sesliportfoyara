@@ -39,10 +39,14 @@ class FirebaseDatabaseManager : DatabaseManager {
                         portfolio.copy(id = key)
                     } ?: emptyList()
                     emit(list)
-                } else if (response.status == HttpStatusCode.Unauthorized) {
-                    println("❌ Firebase Yetki Hatası (401): Lütfen veri tabanı kurallarını kontrol edin.")
+                } else if (response.status == HttpStatusCode.Unauthorized || response.status == HttpStatusCode.Forbidden) {
+                    // Firebase reads are currently protected. Keep the application responsive
+                    // and preserve existing on-device records; never issue a delete or write.
+                    println("⚠️ Firebase ofis verisi erişimi reddedildi (${response.status.value}); yerel veriler korunuyor.")
+                    emit(emptyList())
                 } else {
-                    println("❌ Sunucu Hatası (${response.status.value})")
+                    println("⚠️ Firebase ofis verisi geçici hata: ${response.status.value}")
+                    emit(emptyList())
                 }
             } catch (e: Exception) {
                 println("❌ Veri çekme hatası: ${e.message}")
