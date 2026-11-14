@@ -7,6 +7,7 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
@@ -25,33 +26,71 @@ class FirebaseDatabaseManager : DatabaseManager {
     private val rootUrl = "https://sesliaraportfoy-default-rtdb.europe-west1.firebasedatabase.app"
     private val baseUrl = "$rootUrl/listings"
     private val announcementUrl = "$rootUrl/announcements/current"
-    private val progressUrl = "$rootUrl/portfolio_progress"
+    private v    private val publishedFeed =
+        "https://enginbaysal-oss.github.io/Sesliportfoyara/data/ilyada3-portfoyler.json"
+    private var publishedCache: List<Portfolio> = emptyList()
+    private var publishedFetchedAt = 0L
+
+    private suspend fun readPublishedOfficeListings(): List<Portfolio> {
+        val now = getCurrentTimeMillis()
+        if (publishedCache.isNotEmpty() && now - publishedFetchedAt < 5 * 60 * 1000L) {
+            return publishedCache
+        }
+        return try {
+            val reply = client.get("${publishedFeed}?t=${now / 60000L}")
+            if (!reply.status.isSuccess()) return publishedCache
+            val listings: List<Portfolio> = reply.body()
+            val checked = listings.filter { it.id.startsWith("remax_P") &&
+                it.officeName.contains("İlyada 3", ignoreCase = true) &&
+                it.link.startsWith("https://remax.com.tr/tr/portfoy/")
+            }.distinctBy { it.id }
+            if (checked.isNotEmpty()) {
+                publishedCache = checked
+                publishedFetchedAt = now
+            }
+            publishedCache
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            println("EmlakCep: yayindaki RE/MAX ilan dosyasi okunamadi; eski liste korundu.")
+            publishedCache
+        }
+    }
 
     override fun getPortfolios(): Flow<List<Portfolio>> = flow {
         while (true) {
             try {
                 val timestamp = getCurrentTimeMillis()
-                val response = client.get("$baseUrl.json?t=$timestamp")
-                
-                if (response.status.isSuccess()) {
-                    val responseBody: Map<String, Portfolio>? = response.body()
-                    val list = responseBody?.map { (key, portfolio) ->
-                        portfolio.copy(id = key)
-                    } ?: emptyList()
-                    emit(list)
-                } else if (response.status == HttpStatusCode.Unauthorized || response.status == HttpStatusCode.Forbidden) {
-                    // Firebase reads are currently protected. Keep the application responsive
-                    // and preserve existing on-device records; never issue a delete or write.
-                    println("⚠️ Firebase ofis verisi erişimi reddedildi (${response.status.value}); yerel veriler korunuyor.")
-                    emit(emptyList())
-                } else {
-                    println("⚠️ Firebase ofis verisi geçici hata: ${response.status.value}")
-                    emit(emptyList())
+                var firebase: List<Portfolio> = emptyList()
+                try {
+                    val response = client.get("$baseUrl.json?t=$timestamp")
+                    if (response.status.isSuccess()) {
+                        val body: Map<String, Portfolio>? = response.body()
+                        firebase = body?.map { (key, p) -> p.copy(id = key) } ?: emptyList()
+                    } else {
+                        println("EmlakCep: Firebase erisimi reddedildi; kamuya acik ilan listesi kullaniliyor.")
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    println("EmlakCep: Firebase baglantisi kurulamadi; yedek ilan listesi deneniyor.")
                 }
+                val publicOffice = readPublishedOfficeListings()
+                val byId = LinkedHashMap<String, Portfolio>()
+                firebase.forEach { byId[it.id] = it }
+                // Prefer public listings for RE/MAX IDs, preserving manual office entries.
+                publicOffice.forEach { byId[it.id] = it }
+                emit(byId.values.toList())
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                println("❌ Veri çekme hatası: ${e.message}")
-                emit(emptyList()) 
+                println("EmlakCep: gecici ofis okuma hatasi; mevcut liste korunuyor.")
+                emit(publishedCache)
             }
+            delay(60_000L)
+        }
+    }
+    }
             delay(10000) 
         }
     }
