@@ -36,6 +36,37 @@ class RemaxService {
         }
     }
 
+    // Read-only public RE/MAX İlyada 3 feed; no Firebase write/clear required.
+    // This is a published listing snapshot, not client/CRM data.
+    suspend fun fetchPublishedOfficePortfolios(): List<Portfolio> {
+        return try {
+            val feed = "https://enginbaysal-oss.github.io/Sesliportfoyara/data/ilyada3-portfoyler.json"
+            val response = withTimeoutOrNull(15000L) {
+                client.get(feed + "?t=" + Clock.now())
+            }
+            if (response == null || !response.status.isSuccess()) {
+                lastSyncMessage = "RE/MAX ofis ilan servisine erişilemiyor. Eski kayıtlar korunuyor."
+                return emptyList()
+            }
+            val parsed = json.decodeFromString<List<Portfolio>>(response.bodyAsText())
+                .filter { p ->
+                    p.id.startsWith("remax_P") &&
+                    p.link.startsWith("https://remax.com.tr/tr/portfoy/") &&
+                    normalizeOfficeName(p.officeName) == normalizeOfficeName("RE/MAX İlyada 3")
+                }
+                .distinctBy { it.id }
+            if (parsed.isEmpty()) {
+                lastSyncMessage = "RE/MAX ilan dosyası boş veya geçersiz. Eski kayıtlar korunuyor."
+            } else {
+                lastSyncMessage = "${parsed.size} güncel RE/MAX İlyada 3 portföyü başarıyla okundu."
+            }
+            parsed
+        } catch (e: Exception) {
+            lastSyncMessage = "İlan servisi geçici olarak okunamadı; mevcut kayıtlar korunuyor."
+            emptyList()
+        }
+    }
+
     private fun decodeFlight(html: String): String {
         val combined = StringBuilder()
         var index = 0
