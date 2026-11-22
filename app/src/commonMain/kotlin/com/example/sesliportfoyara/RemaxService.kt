@@ -16,6 +16,9 @@ class RemaxService {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing
     var lastSyncMessage: String = ""
+    // Son başarılı ağ okuması; bulut reddederse arayüz yerel olarak gösterebilir.
+    var lastFetchedPortfolios: List<Portfolio> = emptyList()
+        private set
 
     // CORS PROXY: Web (wasmJs) tarafında Remax'ın sunucusu doğrudan istek
     // atmamıza CORS politikası nedeniyle izin vermiyor. Bu yüzden istekleri
@@ -502,6 +505,7 @@ class RemaxService {
 
         var totalAdded = 0
         lastSyncMessage = ""
+        lastFetchedPortfolios = emptyList()
         _isSyncing.value = true
         try {
             withTimeoutOrNull(180000L) {
@@ -539,18 +543,24 @@ class RemaxService {
                 }
 
                 if (fetchedPortfolios.isNotEmpty()) {
-                    // SAFE UPSERT: Never delete office portfolios before importing.
-                    // Stable "remax_<code>" IDs let Firebase setValue update the matching
-                    // RE/MAX listing while leaving manually entered portfolios untouched.
-                    fetchedPortfolios.forEach { p ->
-                        if (dbManager.addPortfolio(p.copy(officeName = officeName)) != null) {
+                    // Ağda bulunanlar bulut yazma yetkisi olmasa da görüntülenebilsin.
+                    // Mevcut veya manuel eklenmiş portföyleri ASLA silme.
+                    lastFetchedPortfolios = fetchedPortfolios.map { it.copy(officeName = officeName) }
+                    var failedInRow = 0
+                    for (p in lastFetchedPortfolios) {
+                        if (dbManager.addPortfolio(p) != null) {
                             totalAdded++
+                            failedInRow = 0
+                        } else {
+                            failedInRow++
+                            // Yetki hatasında yüzlerce başarısız istek gönderme.
+                            if (failedInRow >= 3) break
                         }
                     }
-                    lastSyncMessage = if (totalAdded > 0) {
-                        "$totalAdded RE/MAX portföyü eklendi/güncellendi."
+                    lastSyncMessage = if (totalAdded == lastFetchedPortfolios.size) {
+                        "$totalAdded RE/MAX portföyü buluta eklendi/güncellendi."
                     } else {
-                        "RE/MAX ilanları bulundu, ancak ofis veritabanına kayıt izni reddedildi. Mevcut kayıtlar korunuyor."
+                        lastFetchedPortfolios.size.toString() + " ilan okundu; $totalAdded kayıt buluta yazıldı. Kalanlar yerel önbellekte korunacak."
                     }
                 } else {
                     lastSyncMessage = "RE/MAX ilanları okunamadı; mevcut portföylerin hiçbiri silinmedi."
