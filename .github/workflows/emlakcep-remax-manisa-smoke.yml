@@ -21,7 +21,8 @@ jobs:
             const resp=await fetch(proxy,{signal:AbortSignal.timeout(20000)});
             const text=await resp.text();
             const codes=[...new Set([...text.matchAll(/\/(?:tr\/)?portfoy\/(P\d{6,9})/gi)].map(m=>m[1]))];
-            console.log('Proxy HTTP:',resp.status,'bytes:',text.length,'listing codes:',codes.length,'flight data:',text.includes('self.__next_f.push'));
+            const anchors=[...text.matchAll(/<a\b[^>]*\bhref\s*=\s*[\"']([^\"']*?\/portfoy\/[Pp]\d+[^\"']*)[\"'][^>]*>/gi)];
+            console.log('Proxy HTTP:',resp.status,'bytes:',text.length,'listing codes:',codes.length,'HTML link cards:',anchors.length,'flight data:',text.includes('self.__next_f.push'));
             if(!resp.ok)throw Error('Proxy returned HTTP '+resp.status+': '+text.slice(0,200));
             if(!codes.length && !text.includes('self.__next_f.push'))throw Error('No listing HTML or Next.js data. Response begins '+text.slice(0,150));
             if(codes.length)console.log('Sample IDs:',codes.slice(0,5).join(','));
