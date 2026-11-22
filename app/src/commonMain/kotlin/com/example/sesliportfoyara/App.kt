@@ -793,7 +793,9 @@ fun App() {
                                                     }
                                                 }
                                                 snackbarHostState.currentSnackbarData?.dismiss()
-                                                if (fetched.isNotEmpty() && count == fetched.size) {
+                                                if (fetched.isNotEmpty() && remaxUrl.contains("/tr/emlak/", ignoreCase = true)) {
+                                                    snackbarHostState.showSnackbar("✅ " + fetched.size + " RE/MAX ilanı çekildi; Ofis sekmesinde görebilirsiniz. Diğer ofislerin bulut kayıtları değişmedi.")
+                                                } else if (fetched.isNotEmpty() && count == fetched.size) {
                                                     snackbarHostState.showSnackbar("✅ $count portföy buluta aktarıldı.")
                                                 } else if (fetched.isNotEmpty()) {
                                                     snackbarHostState.showSnackbar("✅ " + fetched.size + " ilan çekildi ve EmlakCep'te gösteriliyor. Buluta yazılan: $count.")
