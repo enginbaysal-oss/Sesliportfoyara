@@ -731,39 +731,53 @@ fun App() {
                                 settings.putString("remax_office_url", url.trim())
                             },
                             onImportRemax = { url ->
+                                // Kaydet ve işlemi anında başlat. Snackbar'ın kapanması çekimi bloke etmesin.
+                                remaxUrl = url.trim()
+                                settings.putString("remax_office_url", remaxUrl)
                                 scope.launch {
-                                    snackbarHostState.showSnackbar("⌛ Portföyler ofise aktarılıyor...")
-                                    val rawImportOffice = myOfficeName
-                                        .ifBlank { settings.getString("my_office_name", "") }
-                                        .ifBlank { "Remax İlyada 3" }
-                                    val isImportOfissiz = rawImportOffice.isBlank() || rawImportOffice.contains("Ofissiz", true) || rawImportOffice.contains("Bağımsız", true) || rawImportOffice.contains("bagimsiz", true)
-                                    val importOfficeName = if (isImportOfissiz) "Remax İlyada 3" else rawImportOffice
-                                    if (url.contains("ilyada-3", ignoreCase = true)) {
-                                        // Official İlyada 3 public listings are read-only.
-                                        // Never clear, overwrite or mutate the private Firebase office DB.
-                                        val published = remaxService.fetchPublishedOfficePortfolios()
-                                        if (published.isNotEmpty()) {
-                                            val merged = (officePortfolios.filterNot { it.id.startsWith("remax_P") } + published)
-                                                .distinctBy { it.id }
-                                                .sortedByDescending { it.createdAt }
-                                            officePortfolios.clear()
-                                            officePortfolios.addAll(merged)
-                                            officePortfoliosLoaded = true
-                                            try {
-                                                settings.putString("cached_office_portfolios_json", appJson.encodeToString(merged))
-                                            } catch (_: Exception) {
-                                                println("Ofis ilanlarinin yerel onbellegi dolu; ekran guncellendi.")
-                                            }
-                                            snackbarHostState.showSnackbar("✅ ${published.size} güncel İlyada 3 ilanı getirildi. Var olan kayıtlar silinmedi.")
-                                        } else {
-                                            snackbarHostState.showSnackbar(remaxService.lastSyncMessage.ifBlank { "RE/MAX ilan kaynağına ulaşılamadı. Eski kayıtlar korunuyor." })
-                                        }
+                                    if (remaxService.isSyncing.value) {
+                                        snackbarHostState.showSnackbar("RE/MAX çekimi zaten devam ediyor.")
                                     } else {
-                                        val count = remaxService.syncWithFirebase(url, dbManager, importOfficeName)
-                                        if (count > 0) {
-                                            snackbarHostState.showSnackbar("✅ $count portföy eklendi/güncellendi.")
-                                        } else {
-                                            snackbarHostState.showSnackbar(remaxService.lastSyncMessage.ifBlank { "İlanlar alınamadı; mevcut kayıtlar korunuyor." })
+                                        val notice = launch { snackbarHostState.showSnackbar("⌛ RE/MAX ilanları okunuyor...") }
+                                        try {
+                                            val rawImportOffice = myOfficeName
+                                                .ifBlank { settings.getString("my_office_name", "") }
+                                                .ifBlank { "Remax İlyada 3" }
+                                            val isImportOfissiz = rawImportOffice.isBlank() || rawImportOffice.contains("Ofissiz", true) || rawImportOffice.contains("Bağımsız", true) || rawImportOffice.contains("bagimsiz", true)
+                                            val importOfficeName = if (isImportOfissiz) "Remax İlyada 3" else rawImportOffice
+                                            if (remaxUrl.contains("ilyada-3", ignoreCase = true)) {
+                                                // İlyada 3 yayınlanmış açık ilan beslemesi sadece okunur.
+                                                // Özel CRM veritabanı bu yolda değiştirilmez.
+                                                val published = remaxService.fetchPublishedOfficePortfolios()
+                                                if (published.isNotEmpty()) {
+                                                    val merged = (officePortfolios.filterNot { it.id.startsWith("remax_P") } + published)
+                                                        .distinctBy { it.id }
+                                                        .sortedByDescending { it.createdAt }
+                                                    officePortfolios.clear()
+                                                    officePortfolios.addAll(merged)
+                                                    officePortfoliosLoaded = true
+                                                    try {
+                                                        settings.putString("cached_office_portfolios_json", appJson.encodeToString(merged))
+                                                    } catch (_: Exception) {
+                                                        println("Ofis ilan onbellegi dolu; ekran guncellendi.")
+                                                    }
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar("✅ " + published.size + " güncel İlyada 3 ilanı getirildi. Var olan kayıtlar silinmedi.")
+                                                } else {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(remaxService.lastSyncMessage.ifBlank { "RE/MAX ilan kaynağına ulaşılamadı. Eski kayıtlar korunuyor." })
+                                                }
+                                            } else {
+                                                val count = remaxService.syncWithFirebase(remaxUrl, dbManager, importOfficeName)
+                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                if (count > 0) {
+                                                    snackbarHostState.showSnackbar("✅ $count portföy eklendi/güncellendi. Mevcut diğer kayıtlar korunuyor.")
+                                                } else {
+                                                    snackbarHostState.showSnackbar(remaxService.lastSyncMessage.ifBlank { "İlanlar alınamadı; mevcut kayıtlar korunuyor." })
+                                                }
+                                            }
+                                        } finally {
+                                            notice.cancel()
                                         }
                                     }
                                 }
