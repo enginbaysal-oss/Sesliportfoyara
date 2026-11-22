@@ -332,6 +332,12 @@ class RemaxService {
                 lastSyncMessage = requestError.ifBlank { "RE/MAX ilan listesine erişilemedi." }
                 return emptyList()
             }
+            // Genel arama sayfasının kartları doğrudan HTML içinde bulunur.
+            // Uyuşmayan Next.js Flight JSON şeması bu kartları kaybettirmesin.
+            if (url.contains("/tr/emlak/", ignoreCase = true)) {
+                val visibleCards = extractPortfoliosFromHtml(html)
+                if (visibleCards.isNotEmpty()) return visibleCards
+            }
             val flight = decodeFlight(html)
             if (flight.isEmpty()) {
                 val fallback = extractPortfoliosFromHtml(html)
@@ -514,10 +520,11 @@ class RemaxService {
         lastFetchedPortfolios = emptyList()
         _isSyncing.value = true
         try {
-            withTimeoutOrNull(180000L) {
-                val fetchedPortfolios = mutableListOf<Portfolio>()
-                val fetchedNormLinks = mutableSetOf<String>()
-
+            // Zaman aşımına kadar toplanan ilanlar da korunmalı; bir sayfa
+            // yavaşladığı için tüm okunan sonuçlar kaybolmasın.
+            val fetchedPortfolios = mutableListOf<Portfolio>()
+            val fetchedNormLinks = mutableSetOf<String>()
+            withTimeoutOrNull(150000L) {
                 for (url in urls) {
                     var currentPage = 1
 
@@ -547,8 +554,9 @@ class RemaxService {
                         currentPage++
                     }
                 }
+            }
 
-                if (fetchedPortfolios.isNotEmpty()) {
+            if (fetchedPortfolios.isNotEmpty()) {
                     // Ağda bulunanlar bulut yazma yetkisi olmasa da görüntülenebilsin.
                     // Mevcut veya manuel eklenmiş portföyleri ASLA silme.
                     val sourceOffice = if (isGeneralSearch) {
@@ -577,7 +585,6 @@ class RemaxService {
                 } else {
                     lastSyncMessage = "RE/MAX ilanları okunamadı; mevcut portföylerin hiçbiri silinmedi."
                 }
-            }
         } catch (e: Exception) {
             println("RemaxService: Sync error ${e.message}")
         } finally {
