@@ -290,7 +290,13 @@ fun App() {
                         if (visibleList.isNotEmpty()) {
                             // Merge public RE/MAX data with existing non-RE/MAX office records.
                             // A temporary outage may never erase stored or visible listings.
-                            val merged = (officePortfolios.filterNot { it.id.startsWith("remax_P") } + visibleList)
+                            // Son manuel RE/MAX bağlantı aktarımı Firebase 401 yüzünden kaybolmasın.
+                            val cachedImported = try {
+                                val encoded = settings.getString("cached_external_remax_portfolios_json", "")
+                                if (encoded.isBlank()) emptyList<Portfolio>()
+                                else appJson.decodeFromString<List<Portfolio>>(encoded)
+                            } catch (_: Exception) { emptyList<Portfolio>() }
+                            val merged = (officePortfolios.filterNot { it.id.startsWith("remax_P") } + visibleList + cachedImported)
                                 .distinctBy { it.id }
                                 .sortedByDescending { it.createdAt }
                             officePortfolios.clear()
@@ -769,9 +775,28 @@ fun App() {
                                                 }
                                             } else {
                                                 val count = remaxService.syncWithFirebase(remaxUrl, dbManager, importOfficeName)
+                                                val fetched = remaxService.lastFetchedPortfolios
+                                                if (fetched.isNotEmpty()) {
+                                                    // Bulut yazması 401/403 verse de ilanları göster ve bu cihazda sakla.
+                                                    val fetchedIds = fetched.map { it.id }.toSet()
+                                                    val merged = (officePortfolios.filterNot { it.id in fetchedIds } + fetched)
+                                                        .distinctBy { it.id }
+                                                        .sortedByDescending { it.createdAt }
+                                                    officePortfolios.clear()
+                                                    officePortfolios.addAll(merged)
+                                                    officePortfoliosLoaded = true
+                                                    try {
+                                                        settings.putString("cached_external_remax_portfolios_json", appJson.encodeToString(fetched))
+                                                        settings.putString("cached_office_portfolios_json", appJson.encodeToString(merged))
+                                                    } catch (_: Exception) {
+                                                        println("Ilani ekranda gosterildi ama yerel saklama alani yetersiz.")
+                                                    }
+                                                }
                                                 snackbarHostState.currentSnackbarData?.dismiss()
-                                                if (count > 0) {
-                                                    snackbarHostState.showSnackbar("✅ $count portföy eklendi/güncellendi. Mevcut diğer kayıtlar korunuyor.")
+                                                if (fetched.isNotEmpty() && count == fetched.size) {
+                                                    snackbarHostState.showSnackbar("✅ $count portföy buluta aktarıldı.")
+                                                } else if (fetched.isNotEmpty()) {
+                                                    snackbarHostState.showSnackbar("✅ " + fetched.size + " ilan çekildi ve EmlakCep'te gösteriliyor. Buluta yazılan: $count.")
                                                 } else {
                                                     snackbarHostState.showSnackbar(remaxService.lastSyncMessage.ifBlank { "İlanlar alınamadı; mevcut kayıtlar korunuyor." })
                                                 }
