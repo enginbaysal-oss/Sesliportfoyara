@@ -704,16 +704,32 @@ fun App() {
                                 settings.putString("remax_office_url", url.trim())
                             },
                             onImportRemax = { url ->
+                                // Girilen adresi sakla, çekimi Snackbar'ın kapanmasını beklemeden başlat.
+                                remaxUrl = url.trim()
+                                settings.putString("remax_office_url", remaxUrl)
                                 scope.launch {
-                                    snackbarHostState.showSnackbar("⌛ Portföyler ofise aktarılıyor...")
-                                    val importOfficeName = myOfficeName
-                                        .ifBlank { settings.getString("my_office_name", "") }
-                                        .ifBlank { "Remax İlyada 3" }
-                                    val count = remaxService.syncWithFirebase(url, dbManager, importOfficeName)
-                                    if (count > 0) {
-                                        snackbarHostState.showSnackbar("✅ $count yeni portföy başarıyla aktarıldı.")
+                                    if (remaxService.isSyncing.value) {
+                                        snackbarHostState.showSnackbar("Portföy çekimi zaten devam ediyor.")
                                     } else {
-                                        snackbarHostState.showSnackbar(remaxService.lastSyncMessage.ifBlank { "ℹ️ Yeni portföy bulunamadı veya hepsi zaten mevcut." })
+                                        val progress = launch {
+                                            snackbarHostState.showSnackbar("⌛ RE/MAX portföyleri çekiliyor...")
+                                        }
+                                        try {
+                                            val importOfficeName = myOfficeName
+                                                .ifBlank { settings.getString("my_office_name", "") }
+                                                .ifBlank { "Remax İlyada 3" }
+                                            val count = remaxService.syncWithFirebase(remaxUrl, dbManager, importOfficeName)
+                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                            if (count > 0) {
+                                                snackbarHostState.showSnackbar("✅ $count portföy aktarıldı/güncellendi.")
+                                            } else {
+                                                snackbarHostState.showSnackbar(
+                                                    remaxService.lastSyncMessage.ifBlank { "Bu bağlantıda portföy bulunamadı." }
+                                                )
+                                            }
+                                        } finally {
+                                            progress.cancel()
+                                        }
                                     }
                                 }
                             },
