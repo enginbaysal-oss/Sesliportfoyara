@@ -502,6 +502,12 @@ class RemaxService {
         if (url.isBlank() || _isSyncing.value) return 0
         val urls = url.split(",", ";", "|", "\n").map { it.trim() }.filter { it.isNotBlank() }
         if (urls.isEmpty()) return 0
+        // Şehir genelini içeren /tr/emlak/... araması tek ofise ait değildir.
+        // Bu ilanları ortak Firebase /listings havuzuna yazmak diğer danışmanların
+        // portföylerini karıştırır. Yalnızca cihazda geçici/kayıtlı liste olarak göster.
+        val isGeneralSearch = urls.any { it.contains("/tr/emlak/", ignoreCase = true) ||
+            it.substringBefore("?").endsWith("/tr/emlak", ignoreCase = true) }
+
 
         var totalAdded = 0
         lastSyncMessage = ""
@@ -545,22 +551,28 @@ class RemaxService {
                 if (fetchedPortfolios.isNotEmpty()) {
                     // Ağda bulunanlar bulut yazma yetkisi olmasa da görüntülenebilsin.
                     // Mevcut veya manuel eklenmiş portföyleri ASLA silme.
-                    lastFetchedPortfolios = fetchedPortfolios.map { it.copy(officeName = officeName) }
-                    var failedInRow = 0
-                    for (p in lastFetchedPortfolios) {
-                        if (dbManager.addPortfolio(p) != null) {
-                            totalAdded++
-                            failedInRow = 0
-                        } else {
-                            failedInRow++
-                            // Yetki hatasında yüzlerce başarısız istek gönderme.
-                            if (failedInRow >= 3) break
+                    val sourceOffice = if (isGeneralSearch) {
+                        if (urls.any { it.contains("/manisa", ignoreCase = true) }) "RE/MAX Manisa (genel)"
+                        else "RE/MAX şehir ilanları"
+                    } else officeName
+                    lastFetchedPortfolios = fetchedPortfolios.map { it.copy(officeName = sourceOffice) }
+                    if (!isGeneralSearch) {
+                        var failedInRow = 0
+                        for (p in lastFetchedPortfolios) {
+                            if (dbManager.addPortfolio(p) != null) {
+                                totalAdded++
+                                failedInRow = 0
+                            } else {
+                                failedInRow++
+                                // Yetki hatasında yüzlerce başarısız istek gönderme.
+                                if (failedInRow >= 3) break
+                            }
                         }
                     }
-                    lastSyncMessage = if (totalAdded == lastFetchedPortfolios.size) {
-                        "$totalAdded RE/MAX portföyü buluta eklendi/güncellendi."
-                    } else {
-                        lastFetchedPortfolios.size.toString() + " ilan okundu; $totalAdded kayıt buluta yazıldı. Kalanlar yerel önbellekte korunacak."
+                    lastSyncMessage = when {
+                        isGeneralSearch -> lastFetchedPortfolios.size.toString() + " genel ilan sadece EmlakCep'te gösterilecek; hiçbir ofisin bulut verisi değiştirilmedi."
+                        totalAdded == lastFetchedPortfolios.size -> "$totalAdded RE/MAX portföyü buluta eklendi/güncellendi."
+                        else -> lastFetchedPortfolios.size.toString() + " ilan okundu; $totalAdded kayıt buluta yazıldı. Kalanlar yerel önbellekte korunacak."
                     }
                 } else {
                     lastSyncMessage = "RE/MAX ilanları okunamadı; mevcut portföylerin hiçbiri silinmedi."
