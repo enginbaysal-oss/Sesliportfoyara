@@ -22,7 +22,11 @@ class RemaxService {
     // kendi Cloudflare Worker'ımız üzerinden yönlendiriyoruz. Mobil (Android)
     // tarafında CORS kısıtlaması olmadığı için bu proxy orada da sorunsuz
     // çalışır, herhangi bir olumsuz etkisi yoktur.
-    private val proxyBaseUrl = "https://sesliportfoy-proxy.engin-baysal.workers.dev/?url="
+    // RE/MAX'a erişim için iki alternatif; ilki başarısızsa ikincisi denenir.
+    private val proxyBaseUrls = listOf(
+        "https://jcjerwvibjetomqeelsy.supabase.co/functions/v1/remax-page-proxy?url=",
+        "https://sesliportfoy-proxy.engin-baysal.workers.dev/?url="
+    )
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -190,6 +194,69 @@ class RemaxService {
         } else ""
     }
 
+
+    // Next.js veri formatı değişse bile HTML'deki ilan kartlarını okuyabilen yedek.
+    private fun extractPortfoliosFromHtml(html: String): List<Portfolio> {
+        fun plain(value: String): String = value
+            .replace(Regex("""(?is)<script\b[^>]*>.*?</script>"""), " ")
+            .replace(Regex("""(?is)<style\b[^>]*>.*?</style>"""), " ")
+            .replace(Regex("""(?is)<[^>]+>"""), " ")
+            .replace("&nbsp;", " ").replace("&amp;", "&")
+            .replace("&quot;", "\"").replace("&#39;", "'")
+            .replace(Regex("""\s+"""), " ").trim()
+
+        val anchors = Regex("""(?is)<a\b[^>]*\bhref\s*=\s*["']([^"']*?/portfoy/[Pp]\d+[^"']*)["'][^>]*>""")
+        val codePattern = Regex("""(?i)/portfoy/(P\d+)""")
+        val titlePattern = Regex("""(?is)<h[1-6]\b[^>]*>(.*?)</h[1-6]>""")
+        val altPattern = Regex("""(?is)<img\b[^>]*\balt\s*=\s*["']([^"']+)["']""")
+        val imagePattern = Regex("""(?is)<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']""")
+        val pricePattern = Regex("""(\d[\d.,]*\s*₺)""")
+        val areaPattern = Regex("""(\d[\d.,]*\s*m²)""", RegexOption.IGNORE_CASE)
+        val roomsPattern = Regex("""(\d+\s*\+\s*\d+)""")
+        val result = linkedMapOf<String, Portfolio>()
+
+        for (match in anchors.findAll(html)) {
+            val code = codePattern.find(match.groupValues[1])?.groupValues?.get(1)?.uppercase() ?: continue
+            val start = match.range.last + 1
+            val closing = html.indexOf("</a>", start, ignoreCase = true)
+            if (closing == -1 || closing - start > 15000) continue
+            val card = html.substring(start, closing)
+            val cardText = plain(card)
+            if (cardText.isBlank()) continue
+            val title = titlePattern.find(card)?.groupValues?.get(1)?.let(::plain)?.takeIf { it.isNotBlank() }
+                ?: altPattern.find(card)?.groupValues?.get(1)?.let(::plain)?.takeIf { it.isNotBlank() }
+                ?: cardText.replaceFirst(pricePattern, "").take(180).trim()
+            val img = imagePattern.find(card)?.groupValues?.get(1)?.replace("&amp;", "&").orEmpty()
+            val imageUrl = when {
+                img.startsWith("https://") -> img
+                img.startsWith("//") -> "https:$img"
+                img.startsWith("/") -> "https://remax.com.tr$img"
+                else -> ""
+            }
+            val propertyType = listOf("Zeytinlik", "Bağ & Bahçe", "Tarla", "Arsa", "Villa", "Daire",
+                "Müstakil Ev", "Fabrika", "Ofis", "Dükkan", "Çiftlik")
+                .firstOrNull { cardText.contains(it, ignoreCase = true) }.orEmpty()
+            result[code] = Portfolio(
+                id = "remax_$code",
+                title = title.ifBlank { "RE/MAX Portföy $code" },
+                price = pricePattern.find(cardText)?.groupValues?.get(1)?.trim().orEmpty(),
+                rooms = roomsPattern.find(cardText)?.groupValues?.get(1)?.replace(" ", "").orEmpty(),
+                area = areaPattern.find(cardText)?.groupValues?.get(1)?.trim().orEmpty(),
+                location = "",
+                type = when {
+                    cardText.contains("Kiralık", ignoreCase = true) -> "Kiralık"
+                    cardText.contains("Satılık", ignoreCase = true) -> "Satılık"
+                    else -> ""
+                },
+                propertyType = propertyType,
+                imageUrl = imageUrl,
+                link = "https://remax.com.tr/tr/portfoy/$code",
+                createdAt = Clock.now()
+            )
+        }
+        return result.values.toList()
+    }
+
     suspend fun fetchOfficePortfolios(url: String, page: Int = 1): List<Portfolio> {
         return try {
             val pagedUrl = if (url.contains("page=")) {
@@ -198,30 +265,46 @@ class RemaxService {
                 url + (if (url.contains("?")) "&" else "?") + "page=$page"
             }
 
-            // İsteği doğrudan Remax'a değil, kendi CORS proxy'mize (Cloudflare Worker) gönderiyoruz.
-            // Proxy, hedef URL'yi 'url' query parametresi olarak bekliyor, bu yüzden encode ediyoruz.
             val encodedTarget = pagedUrl.encodeURLParameter()
-            val requestUrl = proxyBaseUrl + encodedTarget
-
-            // Ağ isteğini 15 saniyelik sert bir zaman aşımı ile sarmalıyoruz.
-            // Herhangi bir sebeple (proxy yavaşlığı, ağ kesintisi vb.) istek
-            // takılırsa uygulama artık sonsuza kadar kilitlenmeyecek.
-            val response = withTimeoutOrNull(15000L) {
-                client.get(requestUrl) {
-                    header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            var html = ""
+            var requestError = ""
+            for (proxy in proxyBaseUrls) {
+                try {
+                    val response = withTimeoutOrNull(15000L) {
+                        client.get(proxy + encodedTarget) {
+                            header("Accept", "text/html,application/xhtml+xml")
+                        }
+                    }
+                    if (response == null) {
+                        requestError = "RE/MAX bağlantısı zaman aşımına uğradı."
+                        continue
+                    }
+                    if (!response.status.isSuccess()) {
+                        requestError = "RE/MAX bağlantı hatası (HTTP " + response.status.value + ")."
+                        continue
+                    }
+                    val body = response.bodyAsText()
+                    if (!body.contains("/portfoy/", ignoreCase = true) &&
+                        !body.contains("PropertyListingData", ignoreCase = true) &&
+                        !body.contains("self.__next_f.push")) {
+                        requestError = "RE/MAX sayfası ilan verisi yerine boş/korumalı yanıt döndürdü."
+                        continue
+                    }
+                    html = body
+                    break
+                } catch (e: Exception) {
+                    requestError = "RE/MAX bağlantı hatası: " + e.message.orEmpty().take(120)
                 }
             }
-
-            if (response == null) {
-                println("RemaxService: Timeout - istek 15 saniyede tamamlanamadı")
+            if (html.isEmpty()) {
+                lastSyncMessage = requestError.ifBlank { "RE/MAX ilan listesine erişilemedi." }
                 return emptyList()
             }
-
-            val html = response.bodyAsText()
             val flight = decodeFlight(html)
             if (flight.isEmpty()) {
-                lastSyncMessage = "Sayfa okundu ama REMAX veri bloğu bulunamadı."
-                return emptyList()
+                val fallback = extractPortfoliosFromHtml(html)
+                if (fallback.isEmpty()) lastSyncMessage = "RE/MAX sayfasında ilan bağlantıları bulunamadı."
+                return fallback
             }
 
             val rows = parseFlightRows(flight)
@@ -231,8 +314,9 @@ class RemaxService {
                 if (rawJson != null) break
             }
             if (rawJson == null) {
-                lastSyncMessage = "Sayfa okundu ama ilan listesi verisi bulunamadı. Bu link tipi henüz desteklenmiyor olabilir."
-                return emptyList()
+                val fallback = extractPortfoliosFromHtml(html)
+                if (fallback.isEmpty()) lastSyncMessage = "Sayfa okundu ancak ilan verileri ayrıştırılamadı."
+                return fallback
             }
 
             val root = json.parseToJsonElement(rawJson)
@@ -248,9 +332,9 @@ class RemaxService {
                 }
                 else -> null
             }
-            if (listingsArray == null) return emptyList()
+            if (listingsArray == null) return extractPortfoliosFromHtml(html)
 
-            listingsArray.mapNotNull { element ->
+            val parsed = listingsArray.mapNotNull { element ->
                 try {
                     val obj = element.jsonObject
                     val code = obj["code"]?.jsonPrimitive?.content ?: ""
@@ -375,7 +459,9 @@ class RemaxService {
                     null
                 }
             }
+            if (parsed.isNotEmpty()) parsed else extractPortfoliosFromHtml(html)
         } catch (e: Exception) {
+            println("RemaxService: Liste ayrıştırma hatası: " + e.message)
             emptyList()
         }
     }
@@ -386,6 +472,7 @@ class RemaxService {
         if (urls.isEmpty()) return 0
 
         var totalAdded = 0
+        lastSyncMessage = ""
         _isSyncing.value = true
         try {
             withTimeoutOrNull(180000L) {
@@ -423,13 +510,19 @@ class RemaxService {
                 }
 
                 if (fetchedPortfolios.isNotEmpty()) {
-                    dbManager.clearAllPortfolios()
-
+                    // Bu işlem tüm portföyleri temizlemez; yalnızca RE/MAX ID'si ile upsert yapar.
                     fetchedPortfolios.forEach { p ->
                         if (dbManager.addPortfolio(p.copy(officeName = officeName)) != null) {
                             totalAdded++
                         }
                     }
+                    lastSyncMessage = if (totalAdded > 0) {
+                        "$totalAdded portföy eklendi/güncellendi."
+                    } else {
+                        "RE/MAX ilanları bulundu ancak Firebase kaydı başarısız. Veritabanı yazma yetkisini kontrol edin."
+                    }
+                } else if (lastSyncMessage.isBlank()) {
+                    lastSyncMessage = "Bu bağlantıda aktarılabilecek portföy bulunamadı."
                 }
             }
         } catch (e: Exception) {
