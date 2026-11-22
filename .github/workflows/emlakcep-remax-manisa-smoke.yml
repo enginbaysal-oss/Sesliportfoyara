@@ -1,0 +1,29 @@
+name: EmlakCep RE/MAX Manisa smoke test
+on:
+  push:
+    branches: [master-app-merge]
+    paths:
+      - ".github/workflows/emlakcep-remax-manisa-smoke.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check RE/MAX Manisa listing via public proxy
+        run: |
+          node <<'NODE'
+          const target='https://remax.com.tr/tr/emlak/manisa?page=1';
+          const proxy='https://jcjerwvibjetomqeelsy.supabase.co/functions/v1/remax-page-proxy?url='+encodeURIComponent(target);
+          (async()=>{
+            const resp=await fetch(proxy,{signal:AbortSignal.timeout(20000)});
+            const text=await resp.text();
+            const codes=[...new Set([...text.matchAll(/\/(?:tr\/)?portfoy\/(P\d{6,9})/gi)].map(m=>m[1]))];
+            console.log('Proxy HTTP:',resp.status,'bytes:',text.length,'listing codes:',codes.length,'flight data:',text.includes('self.__next_f.push'));
+            if(!resp.ok)throw Error('Proxy returned HTTP '+resp.status+': '+text.slice(0,200));
+            if(!codes.length && !text.includes('self.__next_f.push'))throw Error('No listing HTML or Next.js data. Response begins '+text.slice(0,150));
+            if(codes.length)console.log('Sample IDs:',codes.slice(0,5).join(','));
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
